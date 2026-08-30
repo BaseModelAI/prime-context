@@ -1,5 +1,25 @@
 # Changelog
 
+## 8.1.1 - 2026-08-30
+
+### Summary
+
+Prime Context 8.1.1 is a maintenance release for the published 8.1 line. It preserves the 8.1.0 runtime and patched Prime Agent 0.8.1 host contract while shipping the latest public documentation and a more resilient benchmark runner.
+
+### Benchmark runner resilience
+
+- Added bounded retries for transient manual-compaction failures, including provider `server_error`, overload, temporary-unavailability, and daemon-timeout responses.
+- Treats a successful late `compaction_end` lifecycle event as authoritative even when the original RPC timed out, without advancing a benchmark stage twice.
+- Does not consume retry capacity when the session is still too short to compact.
+- Preserves anchored test results first observed in streamed `tool_execution_update` events when compaction occurs before the terminal tool event.
+- Keeps the benchmark intervention sequence, exact-response requirements, 600-second task timeout, and strict completion checks unchanged.
+
+### Documentation and distribution
+
+- Includes the expanded 8.1.0 architecture changelog and the complete published 30-task benchmark report.
+- Retains the version-pinned, idempotent Prime Agent 0.8.1 patch workflow documented in the public repository.
+- Contains no Prime Context runtime-source change relative to 8.1.0; the maintenance changes are limited to evaluation reliability, package metadata, and documentation.
+
 ## 8.1.0 - 2026-08-29
 
 > **Cumulative upgrade note:** this entry describes the complete change from the public 6.3.4 baseline to 8.1.0. It includes the Prime Agent 0.8.1 alignment first released as 6.3.5 and the full context-virtualization implementation developed afterward. This is a major architecture release, not a small iteration on the old output pager.

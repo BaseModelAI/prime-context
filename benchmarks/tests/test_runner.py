@@ -136,22 +136,44 @@ class BenchmarkRunnerTests(unittest.TestCase):
         )
         self.assertIsNone(runner.test_result_summary("print('TEST_RESULT PASS 6/6')"))
 
-    def test_turn_end_exposes_terminal_tool_results(self):
-        event = {
+    def test_rpc_exposes_terminal_and_streamed_tool_results(self):
+        expected = {
+            "tool_call_id": "call-1",
+            "tool_name": "ipython",
+            "is_error": False,
+            "body": "TEST_RESULT PASS 6/6\n",
+        }
+        terminal = {
             "type": "turn_end",
             "toolResults": [{
                 "role": "toolResult",
                 "toolCallId": "call-1",
                 "toolName": "ipython",
-                "content": [{"type": "text", "text": "TEST_RESULT PASS 6/6\n"}],
+                "content": [{"type": "text", "text": expected["body"]}],
             }],
         }
-        self.assertEqual(runner.rpc_tool_results(event), [{
-            "tool_call_id": "call-1",
-            "tool_name": "ipython",
-            "is_error": False,
-            "body": "TEST_RESULT PASS 6/6\n",
-        }])
+        streamed = {
+            "type": "tool_execution_update",
+            "toolCallId": "call-1",
+            "toolName": "ipython",
+            "partialResult": {"content": [{"type": "text", "text": expected["body"]}]},
+        }
+        self.assertEqual(runner.rpc_tool_results(terminal), [expected])
+        self.assertEqual(runner.rpc_tool_results(streamed), [expected])
+
+    def test_compaction_lifecycle_and_retry_classification(self):
+        self.assertTrue(runner.compaction_end_succeeded({"aborted": False}))
+        self.assertFalse(runner.compaction_end_succeeded({
+            "aborted": False,
+            "errorMessage": "Compaction failed: server_error",
+        }))
+        self.assertTrue(runner.retryable_compaction_error("Codex server_error"))
+        self.assertTrue(runner.retryable_compaction_error(
+            'Timed out after 30000ms waiting for the daemon response'
+        ))
+        self.assertFalse(runner.retryable_compaction_error(
+            "Session is too short to compact — try again once it grows"
+        ))
 
     def test_task_selection_rejects_unknown_ids(self):
         with self.assertRaisesRegex(ValueError, "unknown task ids"):

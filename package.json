@@ -1,6 +1,6 @@
 {
   "name": "prime-agent-context",
-  "version": "8.1.0",
+  "version": "8.1.1",
   "description": "Local paging for large Prime Agent tool output and a durable task snapshot",
   "type": "module",
   "license": "MIT",

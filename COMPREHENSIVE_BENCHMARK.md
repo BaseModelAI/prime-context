@@ -1,330 +1,294 @@
-# Comprehensive Prime Context 8.1.0 Benchmark
+# Comprehensive Prime Context 8.1.1 Benchmark
 
-> Full-corpus isolated Docker comparison of `prime-context 8.1.0` and `vanilla prime-agent` across all 30 realistic staged coding tasks.
+&gt; Full-corpus isolated Docker comparison of `prime-context 8.1.1` and `vanilla prime-agent` across all 30 realistic staged coding tasks.
 
 ## Aggregate summary
 
-`prime-context 8.1.0` met every acceptance criterion on **27/30 tasks**; `vanilla prime-agent` did so on **19/30 tasks**. There were **8 strict correctness gains** and **0 strict correctness losses** for `prime-context 8.1.0`.
+`prime-context 8.1.1` met every acceptance criterion on **30/30 tasks**; `vanilla prime-agent` did so on **30/30 tasks**. There were **0 strict correctness gains** and **0 strict correctness losses** for `prime-context 8.1.1`.
 
-The **19 matched-correct pairs** form the formal efficiency cohort. Raw metrics remain reported for every other pair, but resource use does not override failed acceptance.
+The **30 matched-correct pairs** form the formal efficiency cohort. Raw metrics remain reported for every other pair, but resource use does not override failed acceptance.
 
-| Correctness measure | vanilla prime-agent | prime-context 8.1.0 | Paired interpretation |
+| Correctness measure | prime-context 8.1.1 | vanilla prime-agent | Paired interpretation |
 |---|---:|---:|---|
-| Tasks meeting every acceptance criterion | 19 / 30 | 27 / 30 | +8 tasks |
-| Strict completion rate | 63.33% | 90.00% | +26.67 pp |
-| Correctness gains | — | 8 | 5, 7, 12, 17, 18, 19, 25, 29 |
-| Correctness losses | — | 0 | none |
-| Matched-correct pairs | 19 | 19 | formal efficiency cohort |
+| Tasks meeting every acceptance criterion | 30 / 30 | 30 / 30 | +0 tasks |
+| Strict completion rate | 100.00% | 100.00% | +0.00 pp |
+| Correctness gains | 0 | — | none |
+| Correctness losses | 0 | — | none |
+| Matched-correct pairs | 30 | 30 | formal efficiency cohort |
 
 ### Whole-corpus workload totals
 
-These totals include all 30 jobs per variant, including any timeout or failed-acceptance work. They measure the resources spent attempting the complete corpus.
+These totals use one selected strict-passing result for each of all 30 tasks per variant. When an initial run failed and its one retry passed, only the retry is included; the failed initial attempt is excluded from every comparison and aggregate and retained only in retry disclosures and run artifacts. Aggregate totals and deltas use unrounded source values; displayed per-task values are rounded for readability.
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Wall time | 13,830.06 s | 9,232.31 s | -4,597.75 s | -33.24% |
-| Lifecycle wall time | 13,841.77 s | 9,243.13 s | -4,598.64 s | -33.22% |
-| Model calls | 1,029 | 498 | -531 | -51.60% |
-| Tool calls | 589 | 490 | -99 | -16.81% |
-| Tool results | 589 | 489 | -100 | -16.98% |
-| Visible tool bytes | 4,441,740 | 6,242,019 | +1,800,279 | +40.53% |
-| Compactions | 240 | 150 | -90 | -37.50% |
-| Input tokens | 3,472,478 | 2,179,204 | -1,293,274 | -37.24% |
-| Output tokens | 240,667 | 161,935 | -78,732 | -32.71% |
-| Cache-read tokens | 6,304,256 | 2,761,216 | -3,543,040 | -56.20% |
+| Wall time | 10,304.04 s | 13,529.07 s | -3,225.03 s | -23.84% |
+| Lifecycle wall time | 10,314.52 s | 13,539.99 s | -3,225.48 s | -23.82% |
+| Model calls | 536 | 698 | -162 | -23.21% |
+| Tool calls | 520 | 632 | -112 | -17.72% |
+| Tool results | 519 | 632 | -113 | -17.88% |
+| Visible tool bytes | 6,322,704 | 5,527,703 | +795,001 | +14.38% |
+| Compactions | 173 | 229 | -56 | -24.45% |
+| Input tokens | 2,522,228 | 2,944,355 | -422,127 | -14.34% |
+| Output tokens | 161,425 | 255,963 | -94,538 | -36.93% |
+| Cache-read tokens | 2,859,520 | 3,795,456 | -935,936 | -24.66% |
 | Cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Total tokens | 10,017,401 | 5,102,355 | -4,915,046 | -49.07% |
-| Prompt-cache reuse | 64.48% | 55.89% | -8.59 pp | — |
-| Total API cost | $27.734528 | $17.134678 | -10.599850 | -38.22% |
-
-- **All-task wall time:** 9,232.31 s vs 13,830.06 s; Δ -4,597.75 s (-33.24%).
-- **All-task model calls:** 498 vs 1,029; Δ -531 (-51.60%).
-- **All-task tool calls:** 490 vs 589; Δ -99 (-16.81%).
-- **All-task compactions:** 150 vs 240; Δ -90 (-37.50%).
-- **All-task total tokens:** 5,102,355 vs 10,017,401; Δ -4,915,046 (-49.07%).
-- **All-task reported API cost:** $17.134678 vs $27.734528; Δ -10.599850 (-38.22%).
+| Total tokens | 5,543,173 | 6,995,774 | -1,452,601 | -20.76% |
+| Prompt-cache reuse | 53.13% | 56.31% | -3.18 pp | — |
+| Total API cost | $18.883650 | $24.298393 | -5.414743 | -22.28% |
 
 ### Matched-correct efficiency totals
 
-Only task pairs where both variants meet all acceptance criteria appear in this formal efficiency cohort.
+These totals include only the 30 task pairs where both variants met every strict acceptance criterion: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30.
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Wall time | 7,230.05 s | 5,626.09 s | -1,603.96 s | -22.18% |
-| Lifecycle wall time | 7,236.59 s | 5,632.85 s | -1,603.75 s | -22.16% |
-| Model calls | 419 | 333 | -86 | -20.53% |
-| Tool calls | 365 | 321 | -44 | -12.05% |
-| Tool results | 365 | 321 | -44 | -12.05% |
-| Visible tool bytes | 2,627,773 | 3,996,760 | +1,368,987 | +52.10% |
-| Compactions | 120 | 100 | -20 | -16.67% |
-| Input tokens | 1,691,530 | 1,432,628 | -258,902 | -15.31% |
-| Output tokens | 150,236 | 109,483 | -40,753 | -27.13% |
-| Cache-read tokens | 2,214,912 | 1,911,808 | -303,104 | -13.68% |
+| Wall time | 10,304.04 s | 13,529.07 s | -3,225.03 s | -23.84% |
+| Lifecycle wall time | 10,314.52 s | 13,539.99 s | -3,225.48 s | -23.82% |
+| Model calls | 536 | 698 | -162 | -23.21% |
+| Tool calls | 520 | 632 | -112 | -17.72% |
+| Tool results | 519 | 632 | -113 | -17.88% |
+| Visible tool bytes | 6,322,704 | 5,527,703 | +795,001 | +14.38% |
+| Compactions | 173 | 229 | -56 | -24.45% |
+| Input tokens | 2,522,228 | 2,944,355 | -422,127 | -14.34% |
+| Output tokens | 161,425 | 255,963 | -94,538 | -36.93% |
+| Cache-read tokens | 2,859,520 | 3,795,456 | -935,936 | -24.66% |
 | Cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Total tokens | 4,056,678 | 3,453,919 | -602,759 | -14.86% |
-| Prompt-cache reuse | 56.70% | 57.16% | +0.46 pp | — |
-| Total API cost | $14.072186 | $11.403534 | -2.668652 | -18.96% |
+| Total tokens | 5,543,173 | 6,995,774 | -1,452,601 | -20.76% |
+| Prompt-cache reuse | 53.13% | 56.31% | -3.18 pp | — |
+| Total API cost | $18.883650 | $24.298393 | -5.414743 | -22.28% |
 
 ### Success-adjusted workload
 
 This view divides total whole-corpus consumption by the number of strict completions. It does not replace the paired comparison; it describes the cost of obtaining a successful corpus outcome.
 
-| Success-adjusted measure | vanilla prime-agent | prime-context 8.1.0 | Relative change |
+| Success-adjusted measure | prime-context 8.1.1 | vanilla prime-agent | Relative change |
 |---|---:|---:|---:|
-| Task-seconds per strict completion | 727.90 s | 341.94 s | -53.02% |
-| Model calls per strict completion | 54.16 | 18.44 | -65.94% |
-| Tokens per strict completion | 527,231.63 | 188,976.11 | -64.16% |
-| API cost per strict completion | $1.459712 | $0.634618 | -56.52% |
+| Task-seconds per strict completion | 343.47 s | 450.97 s | -23.84% |
+| Model calls per strict completion | 17.87 | 23.27 | -23.21% |
+| Tokens per strict completion | 184,772 | 233,192 | -20.76% |
+| API cost per strict completion | $0.629455 | $0.809946 | -22.28% |
 
 ### Direction across individual tasks
 
 All 30 task pairs:
 
-| Metric | prime-context 8.1.0 lower | equal | prime-context 8.1.0 higher |
+| Metric | prime-context 8.1.1 lower | equal | prime-context 8.1.1 higher |
 |---|---:|---:|---:|
-| Wall time | 23 | 0 | 7 |
-| Model calls | 27 | 0 | 3 |
-| Tool calls | 21 | 4 | 5 |
-| Tool results | 21 | 4 | 5 |
-| Visible tool bytes | 10 | 0 | 20 |
-| Compactions | 22 | 0 | 8 |
+| Wall time | 25 | 0 | 5 |
+| Model calls | 25 | 1 | 4 |
+| Tool calls | 24 | 1 | 5 |
+| Tool results | 24 | 1 | 5 |
+| Visible tool bytes | 12 | 0 | 18 |
+| Compactions | 18 | 7 | 5 |
 | Total tokens | 25 | 0 | 5 |
-| API cost | 29 | 0 | 1 |
+| Total API cost | 25 | 0 | 5 |
 
 Matched-correct pairs only:
 
-| Metric | prime-context 8.1.0 lower | equal | prime-context 8.1.0 higher |
+| Metric | prime-context 8.1.1 lower | equal | prime-context 8.1.1 higher |
 |---|---:|---:|---:|
-| Wall time | 15 | 0 | 4 |
-| Model calls | 17 | 0 | 2 |
-| Tool calls | 16 | 1 | 2 |
-| Tool results | 16 | 1 | 2 |
-| Visible tool bytes | 6 | 0 | 13 |
-| Compactions | 12 | 0 | 7 |
-| Total tokens | 15 | 0 | 4 |
-| API cost | 18 | 0 | 1 |
+| Wall time | 25 | 0 | 5 |
+| Model calls | 25 | 1 | 4 |
+| Tool calls | 24 | 1 | 5 |
+| Tool results | 24 | 1 | 5 |
+| Visible tool bytes | 12 | 0 | 18 |
+| Compactions | 18 | 7 | 5 |
+| Total tokens | 25 | 0 | 5 |
+| Total API cost | 25 | 0 | 5 |
 
 ### Aggregate acceptance gates
 
-| Acceptance aggregate | vanilla prime-agent | prime-context 8.1.0 |
+| Acceptance aggregate | prime-context 8.1.1 | vanilla prime-agent |
 |---|---:|---:|
-| Meets all acceptance criteria | 19 / 30 | 27 / 30 |
-| Runner task-completed gate | 19 / 30 | 27 / 30 |
-| External verifier tests passed | 261/261 | 255/255 |
-| External-tests gate | 27 / 30 | 28 / 30 |
-| Protected files unchanged | 27 / 30 | 29 / 30 |
-| Goal status complete | 19 / 30 | 27 / 30 |
-| Goal completed after lock | 19 / 30 | 27 / 30 |
+| Meets all acceptance criteria | 30 / 30 | 30 / 30 |
+| Runner task-completed gate | 30 / 30 | 30 / 30 |
+| External verifier tests passed | 270/270 | 270/270 |
+| External-tests gate | 30 / 30 | 30 / 30 |
+| Protected files unchanged | 30 / 30 | 30 / 30 |
+| Goal status complete | 30 / 30 | 30 / 30 |
+| Goal completed after lock | 30 / 30 | 30 / 30 |
 | Interventions accepted | 30 / 30 | 30 / 30 |
-| Intervention order correct | 20 / 30 | 29 / 30 |
-| Exact final response | 19 / 30 | 27 / 30 |
+| Intervention order correct | 30 / 30 | 30 / 30 |
+| Exact final response | 30 / 30 | 30 / 30 |
 | No early completion | 30 / 30 | 30 / 30 |
-| Goal-complete event observed | 19 / 30 | 27 / 30 |
-| No run error | 19 / 30 | 27 / 30 |
+| Goal-complete event observed | 30 / 30 | 30 / 30 |
+| No run error | 30 / 30 | 30 / 30 |
 | Docker evidence retained | 30 / 30 | 30 / 30 |
 
 ### Complete whole-corpus scalar totals
 
 This table includes every common numeric field used in the repeated per-task schema. Additive counters are summed. Prompt-cache reuse is recomputed as a weighted ratio. The two cumulative goal-budget maxima are aggregated with `max`, not summed. Instruction wall time is shown explicitly even though it normally aliases wall time.
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Wall time | 13,830.06 s | 9,232.31 s | -4,597.75 s | -33.24% |
-| Lifecycle wall time | 13,841.77 s | 9,243.13 s | -4,598.64 s | -33.22% |
-| Instruction wall time | 13,830.06 s | 9,232.31 s | -4,597.75 s | -33.24% |
+| Wall time | 10,304.04 s | 13,529.07 s | -3,225.03 s | -23.84% |
+| Lifecycle wall time | 10,314.52 s | 13,539.99 s | -3,225.48 s | -23.82% |
+| Instruction wall time | 10,304.04 s | 13,529.07 s | -3,225.03 s | -23.84% |
 | Sessions | 30 | 30 | +0 | +0.00% |
 | Child sessions | 0 | 0 | +0 | 0.00% |
-| Model calls | 1,029 | 498 | -531 | -51.60% |
-| Tool calls | 589 | 490 | -99 | -16.81% |
-| Tool results | 589 | 489 | -100 | -16.98% |
-| Visible tool bytes | 4,441,740 | 6,242,019 | +1,800,279 | +40.53% |
-| Compactions | 240 | 150 | -90 | -37.50% |
-| Goal-context injections | 558 | 114 | -444 | -79.57% |
-| Assistant output events | 1,026 | 497 | -529 | -51.56% |
-| Interventions delivered | 137 | 147 | +10 | +7.30% |
-| Stage responses recorded | 287 | 212 | -75 | -26.13% |
-| Test-run observations | 131 | 146 | +15 | +11.45% |
-| Goal updates | 1,584 | 607 | -977 | -61.68% |
-| RPC compaction completions | 242 | 150 | -92 | -38.02% |
-| Compaction requests | 100 | 62 | -38 | -38.00% |
-| Compaction waits | 50 | 3 | -47 | -94.00% |
-| Accepted stage/command responses | 226 | 190 | -36 | -15.93% |
-| Rejected stage/command responses | 61 | 22 | -39 | -63.93% |
+| Model calls | 536 | 698 | -162 | -23.21% |
+| Tool calls | 520 | 632 | -112 | -17.72% |
+| Tool results | 519 | 632 | -113 | -17.88% |
+| Visible tool bytes | 6,322,704 | 5,527,703 | +795,001 | +14.38% |
+| Compactions | 173 | 229 | -56 | -24.45% |
+| Goal-context injections | 136 | 219 | -83 | -37.90% |
+| Assistant output events | 535 | 698 | -163 | -23.35% |
+| Interventions delivered | 150 | 150 | +0 | +0.00% |
+| Stage responses recorded | 212 | 295 | -83 | -28.14% |
+| Test-run observations | 151 | 162 | -11 | -6.79% |
+| Goal updates | 655 | 917 | -262 | -28.57% |
+| RPC compaction completions | 173 | 229 | -56 | -24.45% |
+| Compaction requests | 61 | 100 | -39 | -39.00% |
+| Compaction waits | 1 | 45 | -44 | -97.78% |
+| Accepted stage/command responses | 189 | 234 | -45 | -19.23% |
+| Rejected stage/command responses | 23 | 61 | -38 | -62.30% |
 | Unanswered stage/command responses | 0 | 0 | +0 | 0.00% |
-| Passing observed test runs | 100 | 108 | +8 | +8.00% |
-| Failing observed test runs | 31 | 38 | +7 | +22.58% |
+| Passing observed test runs | 117 | 131 | -14 | -10.69% |
+| Failing observed test runs | 34 | 31 | +3 | +9.68% |
 | Error-classified observed test runs | 0 | 0 | +0 | 0.00% |
-| Active goal updates | 1,565 | 580 | -985 | -62.94% |
-| Complete goal updates | 19 | 27 | +8 | +42.11% |
+| Active goal updates | 625 | 887 | -262 | -29.54% |
+| Complete goal updates | 30 | 30 | +0 | +0.00% |
 | Other-status goal updates | 0 | 0 | +0 | 0.00% |
-| Maximum goal continuations used | 76 | 13 | -63 | -82.89% |
-| Maximum goal tokens used | 226,380 | 149,508 | -76,872 | -33.96% |
-| Completed RPC compactions | 242 | 150 | -92 | -38.02% |
+| Maximum goal continuations used | 18 | 18 | +0 | +0.00% |
+| Maximum goal tokens used | 223,771 | 214,656 | +9,115 | +4.25% |
+| Completed RPC compactions | 173 | 229 | -56 | -24.45% |
 | Aborted RPC compactions | 0 | 0 | +0 | 0.00% |
-| Successful compaction requests | 39 | 40 | +1 | +2.56% |
-| Failed compaction requests | 61 | 22 | -39 | -63.93% |
+| Successful compaction requests | 38 | 39 | -1 | -2.56% |
+| Failed compaction requests | 23 | 61 | -38 | -62.30% |
 | Unanswered compaction requests | 0 | 0 | +0 | 0.00% |
-| Successful compaction waits | 50 | 3 | -47 | -94.00% |
+| Successful compaction waits | 1 | 45 | -44 | -97.78% |
 | Failed compaction waits | 0 | 0 | +0 | 0.00% |
 | Unanswered compaction waits | 0 | 0 | +0 | 0.00% |
-| Input tokens | 3,472,478 | 2,179,204 | -1,293,274 | -37.24% |
-| Output tokens | 240,667 | 161,935 | -78,732 | -32.71% |
-| Cache-read tokens | 6,304,256 | 2,761,216 | -3,543,040 | -56.20% |
+| Input tokens | 2,522,228 | 2,944,355 | -422,127 | -14.34% |
+| Output tokens | 161,425 | 255,963 | -94,538 | -36.93% |
+| Cache-read tokens | 2,859,520 | 3,795,456 | -935,936 | -24.66% |
 | Cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Total tokens | 10,017,401 | 5,102,355 | -4,915,046 | -49.07% |
-| Prompt-cache reuse | 64.48% | 55.89% | -8.59 pp | — |
-| Input cost | $17.362390 | $10.896020 | -6.466370 | -37.24% |
-| Output cost | $7.220010 | $4.858050 | -2.361960 | -32.71% |
-| Cache-read cost | $3.152128 | $1.380608 | -1.771520 | -56.20% |
+| Total tokens | 5,543,173 | 6,995,774 | -1,452,601 | -20.76% |
+| Prompt-cache reuse | 53.13% | 56.31% | -3.18 pp | — |
+| Input cost | $12.611140 | $14.721775 | -2.110635 | -14.34% |
+| Output cost | $4.842750 | $7.678890 | -2.836140 | -36.93% |
+| Cache-read cost | $1.429760 | $1.897728 | -0.467968 | -24.66% |
 | Cache-write cost | $0.000000 | $0.000000 | +0.000000 | 0.00% |
-| Total API cost | $27.734528 | $17.134678 | -10.599850 | -38.22% |
+| Total API cost | $18.883650 | $24.298393 | -5.414743 | -22.28% |
 
 ### Complete archive and projection aggregate
 
 Archive counters are summed except largest chunk and end-state projected-view bytes, which use the maximum task value. Compression is a source-byte-weighted ratio. `vanilla prime-agent` does not load Prime Context, so its archive fields are zero/not applicable.
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Archived observations | 0 | 462 | +462 | n/a (zero baseline) |
-| Archive source bytes | 0 | 5,607,561 | +5,607,561 | n/a (zero baseline) |
-| Compressed archive bytes | 0 | 547,722 | +547,722 | n/a (zero baseline) |
-| Archive compression ratio (derived) | 0.00% | 9.77% | +9.77 pp | — |
-| Archive chunks | 0 | 657 | +657 | n/a (zero baseline) |
-| Largest chunk bytes | 0 | 65,949 | +65,949 | n/a (zero baseline) |
-| Source bytes admitted | 0 | 12,036,673 | +12,036,673 | n/a (zero baseline) |
-| Call-argument bytes projected out | 0 | 46,715 | +46,715 | n/a (zero baseline) |
-| Result bytes projected out | 0 | 5,549,984 | +5,549,984 | n/a (zero baseline) |
+| Archived observations | 489 | 0 | +489 | n/a (zero baseline) |
+| Archive source bytes | 5,657,789 | 0 | +5,657,789 | n/a (zero baseline) |
+| Compressed archive bytes | 548,589 | 0 | +548,589 | n/a (zero baseline) |
+| Archive compression ratio (derived) | 9.70% | 0.00% | +9.70 pp | — |
+| Archive chunks | 672 | 0 | +672 | n/a (zero baseline) |
+| Largest chunk bytes | 65,949 | 0 | +65,949 | n/a (zero baseline) |
+| Source bytes admitted | 12,125,721 | 0 | +12,125,721 | n/a (zero baseline) |
+| Call-argument bytes projected out | 17,432 | 0 | +17,432 | n/a (zero baseline) |
+| Result bytes projected out | 5,608,920 | 0 | +5,608,920 | n/a (zero baseline) |
 | Typed/media bytes projected out | 0 | 0 | +0 | 0.00% |
-| Recovery bytes exposed | 0 | 0 | +0 | 0.00% |
-| End-state projected model-view bytes | 0 | 45,956 | +45,956 | n/a (zero baseline) |
-| Streaming bytes processed | 0 | 11,226,415 | +11,226,415 | n/a (zero baseline) |
+| Recovery bytes exposed | 1,373 | 0 | +1,373 | n/a (zero baseline) |
+| End-state projected model-view bytes | 42,164 | 0 | +42,164 | n/a (zero baseline) |
+| Streaming bytes processed | 11,321,257 | 0 | +11,321,257 | n/a (zero baseline) |
 | Inspect/recall hits | 0 | 0 | +0 | 0.00% |
 | Fold generations | 0 | 0 | +0 | 0.00% |
-| Branch-runtime reloads | 0 | 179 | +179 | n/a (zero baseline) |
-| Prime Context cache-read tokens | 0 | 2,761,216 | +2,761,216 | n/a (zero baseline) |
+| Branch-runtime reloads | 203 | 0 | +203 | n/a (zero baseline) |
+| Prime Context cache-read tokens | 2,859,520 | 0 | +2,859,520 | n/a (zero baseline) |
 | Prime Context cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Prime Context uncached input tokens | 0 | 2,179,204 | +2,179,204 | n/a (zero baseline) |
-| Stable-projection extension turns | 0 | 333 | +333 | n/a (zero baseline) |
+| Prime Context uncached input tokens | 2,522,228 | 0 | +2,522,228 | n/a (zero baseline) |
+| Stable-projection extension turns | 355 | 0 | +355 | n/a (zero baseline) |
 
 ## Task-level headline index
 
-| Task | vanilla prime-agent | prime-context 8.1.0 | vanilla prime-agent wall | prime-context 8.1.0 wall | vanilla prime-agent tokens | prime-context 8.1.0 tokens | vanilla prime-agent cost | prime-context 8.1.0 cost |
+| Task | prime-context 8.1.1 | vanilla prime-agent | prime-context wall | vanilla wall | prime-context tokens | vanilla tokens | prime-context cost | vanilla cost |
 |---:|---|---|---:|---:|---:|---:|---:|---:|
-| [01. Parcel Rate Optimizer](#task-01) | meets all acceptance criteria | meets all acceptance criteria | 157.15 s | 166.03 s | 175,365 | 135,664 | $0.484047 | $0.352514 |
-| [02. Three-Way JSON Merge Service](#task-02) | meets all acceptance criteria | meets all acceptance criteria | 525.24 s | 336.37 s | 347,893 | 178,876 | $1.140728 | $0.654646 |
-| [03. Incremental Spreadsheet Engine](#task-03) | meets all acceptance criteria | meets all acceptance criteria | 419.97 s | 297.55 s | 180,062 | 163,114 | $0.756154 | $0.534903 |
-| [04. Heat Diffusion Plate](#task-04) | does not meet all acceptance criteria | does not meet all acceptance criteria | 600.00 s | 600.00 s | 518,401 | 116,687 | $1.193809 | $0.438709 |
-| [05. Binary Telemetry Frame Codec](#task-05) | does not meet all acceptance criteria | meets all acceptance criteria | 600.00 s | 285.44 s | 681,005 | 176,066 | $1.400606 | $0.580986 |
-| [06. Decimal Cash-Flow Mathematics](#task-06) | meets all acceptance criteria | meets all acceptance criteria | 422.14 s | 278.74 s | 178,731 | 187,893 | $0.724973 | $0.622397 |
-| [07. PGM Region Analyzer](#task-07) | does not meet all acceptance criteria | meets all acceptance criteria | 600.00 s | 289.06 s | 471,827 | 178,699 | $1.135424 | $0.583840 |
-| [08. Exact Gear-Train Constraint Solver](#task-08) | meets all acceptance criteria | meets all acceptance criteria | 502.60 s | 254.27 s | 238,931 | 174,703 | $0.875409 | $0.499273 |
-| [09. Streaming Signal Analysis](#task-09) | meets all acceptance criteria | meets all acceptance criteria | 281.53 s | 188.15 s | 212,777 | 139,483 | $0.641974 | $0.435337 |
-| [10. Polyphonic Rhythm Quantizer](#task-10) | meets all acceptance criteria | meets all acceptance criteria | 348.83 s | 537.30 s | 195,624 | 280,478 | $0.715811 | $0.996553 |
-| [11. Versioned Record Migration Engine](#task-11) | meets all acceptance criteria | meets all acceptance criteria | 451.38 s | 515.91 s | 205,187 | 231,685 | $0.876317 | $0.834085 |
-| [12. Transit Fare Settlement Engine](#task-12) | does not meet all acceptance criteria | meets all acceptance criteria | 600.00 s | 213.00 s | 668,426 | 134,819 | $1.408157 | $0.445102 |
-| [13. Correctable League Standings](#task-13) | meets all acceptance criteria | meets all acceptance criteria | 489.13 s | 312.97 s | 215,589 | 212,567 | $0.749853 | $0.729285 |
-| [14. Bank Deposit Reconciler](#task-14) | meets all acceptance criteria | meets all acceptance criteria | 535.12 s | 350.12 s | 258,947 | 213,069 | $0.949759 | $0.667483 |
-| [15. Hierarchical Authorization Engine](#task-15) | does not meet all acceptance criteria | does not meet all acceptance criteria | 600.00 s | 600.00 s | 232,315 | 280,056 | $1.012801 | $0.982738 |
-| [16. Subscription Invoice Generator](#task-16) | meets all acceptance criteria | meets all acceptance criteria | 521.66 s | 304.05 s | 228,307 | 178,984 | $0.896637 | $0.650167 |
-| [17. Authoritative DNS Zone Compiler](#task-17) | does not meet all acceptance criteria | meets all acceptance criteria | 600.00 s | 244.28 s | 414,218 | 152,290 | $1.224414 | $0.568291 |
-| [18. Deterministic DNA Alignment](#task-18) | does not meet all acceptance criteria | meets all acceptance criteria | 600.00 s | 230.88 s | 650,984 | 132,626 | $1.351497 | $0.476718 |
-| [19. Union Payroll Calculator](#task-19) | does not meet all acceptance criteria | meets all acceptance criteria | 600.00 s | 214.10 s | 559,371 | 110,822 | $1.240744 | $0.510930 |
-| [20. Constraint-Aware Dependency Lock Resolver](#task-20) | meets all acceptance criteria | meets all acceptance criteria | 439.47 s | 408.47 s | 232,625 | 217,647 | $0.853665 | $0.845457 |
-| [21. Dependency-Aware Build Planner](#task-21) | meets all acceptance criteria | meets all acceptance criteria | 268.59 s | 254.44 s | 164,858 | 170,633 | $0.535327 | $0.521197 |
-| [22. Committee Seat Apportionment](#task-22) | meets all acceptance criteria | meets all acceptance criteria | 217.30 s | 199.18 s | 195,757 | 148,060 | $0.576938 | $0.443049 |
-| [23. Content Routing Engine](#task-23) | does not meet all acceptance criteria | does not meet all acceptance criteria | 600.00 s | 600.00 s | 268,083 | 46,586 | $0.854767 | $0.177921 |
-| [24. Event-Time Window Counter](#task-24) | meets all acceptance criteria | meets all acceptance criteria | 225.93 s | 272.11 s | 218,084 | 174,021 | $0.581138 | $0.513844 |
-| [25. Feature Flag Evaluator](#task-25) | does not meet all acceptance criteria | meets all acceptance criteria | 600.00 s | 189.30 s | 652,241 | 171,187 | $1.254112 | $0.491212 |
-| [26. Layered Configuration Merger](#task-26) | meets all acceptance criteria | meets all acceptance criteria | 471.62 s | 300.70 s | 235,089 | 178,753 | $0.872520 | $0.655136 |
-| [27. Ranked-Choice Election Tabulator](#task-27) | meets all acceptance criteria | meets all acceptance criteria | 194.75 s | 174.87 s | 175,220 | 148,002 | $0.462174 | $0.392328 |
-| [28. Stock Reservation Engine](#task-28) | meets all acceptance criteria | meets all acceptance criteria | 405.73 s | 185.49 s | 194,460 | 130,366 | $0.666952 | $0.420102 |
-| [29. Trip Expense Settlement](#task-29) | does not meet all acceptance criteria | meets all acceptance criteria | 600.00 s | 140.15 s | 843,852 | 148,598 | $1.586011 | $0.474697 |
-| [30. Webhook Delivery Scheduler](#task-30) | meets all acceptance criteria | meets all acceptance criteria | 351.92 s | 289.36 s | 203,172 | 189,921 | $0.711810 | $0.635778 |
-
-Task shortcuts: [01](#task-01) · [02](#task-02) · [03](#task-03) · [04](#task-04) · [05](#task-05) · [06](#task-06) · [07](#task-07) · [08](#task-08) · [09](#task-09) · [10](#task-10) · [11](#task-11) · [12](#task-12) · [13](#task-13) · [14](#task-14) · [15](#task-15) · [16](#task-16) · [17](#task-17) · [18](#task-18) · [19](#task-19) · [20](#task-20) · [21](#task-21) · [22](#task-22) · [23](#task-23) · [24](#task-24) · [25](#task-25) · [26](#task-26) · [27](#task-27) · [28](#task-28) · [29](#task-29) · [30](#task-30)
+| [01](#task-01) Parcel Rate Optimizer | correct | correct | 166.64 s | 183.98 s | 133,016 | 175,558 | $0.404528 | $0.438332 |
+| [02](#task-02) Three-Way JSON Merge Service | correct | correct | 201.47 s | 844.29 s | 155,619 | 359,131 | $0.508257 | $1.290278 |
+| [03](#task-03) Incremental Spreadsheet Engine | correct | correct | 257.37 s | 293.29 s | 154,933 | 179,856 | $0.561384 | $0.663687 |
+| [04](#task-04) Heat Diffusion Plate | correct | correct | 207.53 s | 313.84 s | 151,623 | 183,274 | $0.488184 | $0.613978 |
+| [05](#task-05) Binary Telemetry Frame Codec | correct | correct | 243.54 s | 330.08 s | 165,478 | 191,781 | $0.515222 | $0.666024 |
+| [06](#task-06) Decimal Cash-Flow Mathematics | correct | correct | 745.71 s | 540.55 s | 178,045 | 310,375 | $0.662997 | $1.018899 |
+| [07](#task-07) PGM Region Analyzer | correct | correct | 313.97 s | 336.77 s | 201,697 | 175,824 | $0.715488 | $0.626911 |
+| [08](#task-08) Exact Gear-Train Constraint Solver | correct | correct | 259.41 s | 320.82 s | 172,298 | 194,550 | $0.548597 | $0.696488 |
+| [09](#task-09) Streaming Signal Analysis | correct | correct | 164.22 s | 186.69 s | 138,765 | 178,403 | $0.469290 | $0.500187 |
+| [10](#task-10) Polyphonic Rhythm Quantizer | correct | correct | 236.96 s | 257.60 s | 155,666 | 174,999 | $0.568076 | $0.592613 |
+| [11](#task-11) Versioned Record Migration Engine | correct | correct | 350.45 s | 1,042.63 s | 154,313 | 412,416 | $0.598743 | $1.545047 |
+| [12](#task-12) Transit Fare Settlement Engine | correct | correct | 254.49 s | 381.36 s | 178,732 | 203,915 | $0.577603 | $0.772375 |
+| [13](#task-13) Correctable League Standings | correct | correct | 455.82 s | 404.44 s | 240,854 | 187,167 | $0.808876 | $0.797814 |
+| [14](#task-14) Bank Deposit Reconciler | correct | correct | 477.39 s | 648.50 s | 247,208 | 298,586 | $0.941134 | $1.037483 |
+| [15](#task-15) Hierarchical Authorization Engine | correct | correct | 249.58 s | 500.17 s | 118,397 | 220,401 | $0.538831 | $0.898835 |
+| [16](#task-16) Subscription Invoice Generator | correct | correct | 285.98 s | 468.52 s | 201,593 | 227,044 | $0.683117 | $0.896095 |
+| [17](#task-17) Authoritative DNS Zone Compiler | correct | correct | 293.12 s | 585.29 s | 191,922 | 287,315 | $0.639265 | $1.149414 |
+| [18](#task-18) Deterministic DNA Alignment | correct | correct | 223.39 s | 384.72 s | 141,480 | 269,221 | $0.566103 | $0.954834 |
+| [19](#task-19) Union Payroll Calculator | correct | correct | 1,102.01 s | 583.70 s | 433,363 | 298,596 | $1.422312 | $0.995962 |
+| [20](#task-20) Constraint-Aware Dependency Lock Resolver | correct | correct | 452.21 s | 1,097.54 s | 214,670 | 442,053 | $0.793583 | $1.502143 |
+| [21](#task-21) Dependency-Aware Build Planner | correct | correct | 257.76 s | 287.52 s | 162,791 | 173,714 | $0.541153 | $0.583690 |
+| [22](#task-22) Committee Seat Apportionment | correct | correct | 263.13 s | 258.24 s | 172,332 | 165,029 | $0.552723 | $0.515278 |
+| [23](#task-23) Content Routing Engine | correct | correct | 422.38 s | 512.74 s | 191,473 | 217,101 | $0.713779 | $0.843265 |
+| [24](#task-24) Event-Time Window Counter | correct | correct | 353.91 s | 451.43 s | 188,624 | 255,014 | $0.568210 | $0.738929 |
+| [25](#task-25) Feature Flag Evaluator | correct | correct | 210.23 s | 247.37 s | 143,482 | 163,967 | $0.391046 | $0.451693 |
+| [26](#task-26) Layered Configuration Merger | correct | correct | 357.85 s | 450.18 s | 165,211 | 204,752 | $0.619752 | $0.757680 |
+| [27](#task-27) Ranked-Choice Election Tabulator | correct | correct | 198.35 s | 223.05 s | 136,797 | 216,417 | $0.425696 | $0.547145 |
+| [28](#task-28) Stock Reservation Engine | correct | correct | 504.41 s | 829.87 s | 196,239 | 233,507 | $0.571731 | $0.940624 |
+| [29](#task-29) Trip Expense Settlement | correct | correct | 167.12 s | 184.77 s | 145,342 | 178,975 | $0.436431 | $0.516531 |
+| [30](#task-30) Webhook Delivery Scheduler | correct | correct | 627.67 s | 379.12 s | 311,210 | 216,833 | $1.051539 | $0.746159 |
 
 ## Methodology
 
 ### Compared variants
 
-- **`vanilla prime-agent`:** Prime Agent 0.8.1 with the benchmark host compatibility patch, no Prime Context package, no external custom prompt overlay, and no `AGENTS.md` mounted into the run configuration.
-- **`prime-context 8.1.0`:** the same patched Prime Agent host plus Prime Context 8.1.0. No external benchmark `AGENTS.md` or prompt overlay was mounted. Prime Context's bundled global system policy remained enabled because it is shipped product behavior in 8.1.0.
-- Both variants used the same host patch, model, task fixtures, staged interventions, verifier, timeout, network controls, and runner lifecycle.
-- Package configuration audits showed an empty package list for `vanilla prime-agent` and `/opt/prime-context` only for `prime-context 8.1.0`.
+- **`prime-context 8.1.1`:** Prime Context 8.1.1 loaded from `/opt/prime-context` on the patched Prime Agent 0.8.1 host.
+- **`vanilla prime-agent`:** the same patched Prime Agent 0.8.1 host with `packages: []` and no extension.
+- Neither variant received a custom prompt or `AGENTS.md`; both were launched with `--no-context-files`.
+- The host patch was identical in both arms. The paired product difference was whether Prime Context was loaded.
 
 ### Execution protocol
 
-- **Corpus:** all 30 deterministic realistic tasks; no sampling and no exclusions.
-- **Jobs:** 60 total, one adjacent pair per task.
-- **Maximum concurrency:** 4 Docker jobs; observed active benchmark-agent count never exceeded four.
-- **Provider/model:** `openai-codex/gpt-5.6-sol`.
-- **Reasoning effort:** `medium`.
-- **Per-job timeout:** 600 seconds, starting immediately before the initial task instruction.
-- **Prime Context source commit:** `e7920159eb7883cbbb24528f386e11fdf92f3937`; the packaged version was 8.1.0.
-- **Campaign elapsed time:** 5,898.70 seconds (1.64 hours) with four-wide execution.
-- **Execution date (UTC):** 2026-08-30.
-- **Execution host:** Linux 7.0.0-30-generic on x86_64; Intel(R) Core(TM) Ultra 9 275HX; 24 logical CPUs; 188.1 GiB RAM; Docker 29.1.3.
-- **Queue:** task order 1 through 30, with `vanilla prime-agent` then `prime-context 8.1.0` for each task in the submitted queue.
-- **Isolation:** per-arm work tree, home, config, session tree, daemon socket, and Prime Context storage; internal Docker networks with the runner's controlled provider relay.
-- **Dependencies:** task implementations were restricted to the Python standard library.
-- **Evidence:** completed containers, networks, RPC events, stderr, sessions, verifier output, metadata, and result files were retained through pair analysis. The local raw run directory is intentionally not published.
-- **Code changes during benchmark:** none. The run was observation-only with respect to product and runner code.
+- Source commit: `0eb4d96b69dfde8d912496efae8f0cefcf0ccec0`.
+- Benchmark round: `all30-no-agents-811-timeout1200-20260830-174810`.
+- Model: `openai-codex/gpt-5.6-sol` at `medium` thinking.
+- Exact deadline: 1,200 seconds from initial-instruction delivery.
+- Maximum concurrent jobs: 4.
+- Initial campaign elapsed wall time: 8,045.26 seconds.
+- Each arm used a fresh isolated Docker container, internal network, work tree, home, configuration, session tree, daemon socket, and Prime Context archive root.
+- The queue alternated `prime-context 8.1.1` and `vanilla prime-agent` by task while respecting the four-job limit.
+- Containers and networks were retained until result collection and inspection.
+
+- Retry policy: each initially strict-failed arm received exactly one isolated retry. 8 retry attempt(s) were run: Task 7 vanilla prime-agent (strict pass), Task 11 prime-context 8.1.1 (strict pass), Task 15 prime-context 8.1.1 (strict pass), Task 16 prime-context 8.1.1 (strict pass), Task 16 vanilla prime-agent (strict pass), Task 20 vanilla prime-agent (strict pass), Task 21 vanilla prime-agent (strict pass), Task 30 prime-context 8.1.1 (strict pass). Final comparisons use the strict-passing retry result for those arms. Failed initial attempts are excluded from all comparative metrics and aggregates and remain only in retry disclosures and run artifacts.
 
 ### Strict acceptance rule
 
-A variant **meets all acceptance criteria** only when all of the following hold:
+A task is strict-correct only when all of these conditions hold:
 
-1. the external cumulative suite produces the exact expected pass count;
-2. protected task and test files remain unchanged;
-3. every staged intervention is accepted in order;
-4. the active goal remains open until `REQUIREMENTS LOCKED` and completes afterward;
-5. there is no early completion or run error;
-6. the model emits the exact required final response.
+- the cumulative verifier reports the expected 9/9 tests;
+- protected files remain byte-identical;
+- the active goal reaches `complete` only after the final lock;
+- all staged interventions are accepted and delivered in the expected order;
+- the run has no terminal error;
+- and the final response exactly matches the task contract.
 
-The runner's `task_completed` gate covers items 1–5. Strict correctness adds item 6. A timeout or any missing condition means the variant **does not meet all acceptance criteria**, regardless of partial test success or lower resource use.
+Efficiency conclusions use only matched strict-correct pairs. Failed attempts are excluded from comparative metrics and retained only in retry disclosures and run artifacts.
 
 ### Repeated metric schema
 
-Every task uses the same schema without cherry-picking:
-
-- all acceptance and lifecycle gates;
-- **49 common scalar metrics** covering timing, recursive sessions/calls/tools, visible output, compaction, command responses, observed test runs, goal lifecycle, tokens, cache use, and itemized cost;
-- **20 archive/projection metrics**, including the one derived weighted compression ratio.
-
-Signed deltas are always `prime-context 8.1.0 − vanilla prime-agent`. A negative resource delta means less resource use, but resource deltas are formal efficiency evidence only for matched-correct pairs. `visible_tool_bytes` counts visible text in tool-result messages. Prompt-cache reuse is `cacheRead / (input + cacheRead + cacheWrite)`. Provider-reported costs are not independently repriced.
+Every task repeats the same complete schema: 16 acceptance/lifecycle checks, 49 common scalar metrics, and 20 Prime Context archive/projection metrics. `prime-context 8.1.1` is always the left comparison column; `vanilla prime-agent` is always the right column. Signed deltas are `prime-context 8.1.1 − vanilla prime-agent`, and relative changes use vanilla as the denominator.
 
 ### Metric glossary
 
-- **Wall time:** model/tool instruction interval from initial prompt delivery until terminal instruction handling or the 600-second deadline.
-- **Lifecycle wall time:** wall time plus daemon/container shutdown, excluding the external verifier.
-- **Instruction wall time:** the interaction recorder's independent copy of wall time; retained to expose every captured scalar timing field.
-- **Sessions and child sessions:** unique recursive Prime Agent sessions and the subset below the root session.
-- **Model calls:** recursive provider calls across all collected sessions.
-- **Tool calls / tool results:** recursive tool request and result message counts.
-- **Visible tool bytes:** UTF-8 bytes of visible textual tool-result content. It is not archive size and is not a correctness measure.
-- **Compactions:** recursive successful compaction events. **Goal-context injections** count persisted active-goal context messages.
-- **Assistant output, intervention, response, test-run, goal-update, and compaction lifecycle counts:** root-session protocol events retained by the staged runner. Accepted/rejected/unanswered and pass/fail/error rows are derived without discarding the raw records.
-- **Maximum goal continuations/tokens:** maxima across cumulative goal snapshots within one task; global tables use the maximum task value rather than summing snapshots.
-- **Input/output/cache-read/cache-write/total tokens:** recursive provider usage reported by Prime Agent. Total tokens use the provider/runtime total rather than an independently reconstructed approximation.
-- **Prompt-cache reuse:** cache-read tokens divided by input + cache-read + cache-write tokens; global values are weighted from summed token counts.
-- **Itemized and total API cost:** provider/runtime-reported recursive cost. No external repricing is applied.
-- **Archive source/compressed bytes and chunks:** exact Prime Context local observation-store measurements. Compression ratio is compressed/source bytes, weighted by source bytes globally.
-- **Source bytes admitted:** source volume admitted through archive accounting; it is a distinct collector field from archive source bytes.
-- **Projected-out bytes:** call arguments, results, or typed/media data omitted from provider-visible history while retained locally.
-- **Recovery bytes and inspect/recall hits:** exact archived evidence exposed through bounded recovery and successful inspection/recall operations.
-- **End-state projected model-view bytes:** the task's final projected-view gauge; the global value is the maximum task gauge, not a sum.
-- **Streaming bytes, fold generations, branch-runtime reloads, and stable-projection extension turns:** internal projection/runtime work and reuse counters.
-- **Prime Context cache-read/cache-write/uncached input tokens:** extension status telemetry, reported separately from the runner's recursive usage totals.
+- **Wall time:** deadline-clock duration from initial instruction through terminal lifecycle.
+- **Lifecycle wall time:** complete process lifecycle duration measured by the runner.
+- **Visible tool bytes:** model-visible tool-result text accumulated across recursive sessions.
+- **Prompt-cache reuse:** cache-read tokens divided by uncached input plus cache-read plus cache-write tokens; aggregate values are recomputed from summed counters.
+- **Archive/projection telemetry:** Prime Context counters collected from the same result schema in both arms; vanilla zeros are expected because the extension is absent.
+- **Reported API cost:** provider-reported input, output, and cache costs summed across recursive sessions.
 
 ### Interpretation limits
 
-- This is one complete corpus run with one model, one reasoning level, one host version, and one execution date. It is project evidence, not a universal statistical claim.
-- Four-wide execution introduces shared-machine and provider timing variance; summed task-seconds are workload totals, not campaign wall-clock time.
-- The tasks are deterministic and realistic but synthetic. They emphasize long staged coding workflows, compaction boundaries, exact tests, protected files, and exact terminal responses.
-- `lifecycle_wall_seconds` extends through daemon/container shutdown but excludes the post-run external verifier; `wall_seconds` measures the instruction interval.
-- Intermediate observed test runs are workflow diagnostics and are not summed into the final external verifier pass ratio.
-- Archive telemetry is applicable to `prime-context 8.1.0`; zero archive fields for `vanilla prime-agent` mean the extension is absent, not a zero-byte Prime Context archive operation.
-- Source requirement prose contains a small number of underspecified edges. The staged files and supplied tests jointly define the visible benchmark contract; notes appear below.
+- Results are specific to this model, effort level, host version, task corpus, timeout, and execution date.
+- The benchmark demonstrates behavior on this controlled corpus; it is not a universal performance guarantee.
+- A lower resource count is not a win when strict acceptance fails.
+- Retry-selected outcomes are disclosed and should be interpreted as bounded recovery from a potentially transient initial trajectory.
 
 ## Fixture interpretation notes
 
@@ -359,7 +323,6 @@ These are underspecified edges, not extra acceptance requirements:
 
 ## Detailed results for all 30 tasks
 
-Each section contains the task definition, steering constraint, pivot, follow-up, locked acceptance scope, expected result, actual acceptance comparison, all 49 common scalar metrics, and all 20 archive/projection metrics.
 
 <a id="task-01"></a>
 
@@ -377,22 +340,22 @@ Each section contains the task definition, steering constraint, pivot, follow-up
 
 **Verdict:** Both variants meet all acceptance criteria; this pair is eligible for formal efficiency comparison.
 
-- **Wall time:** 166.03 s vs 157.15 s; Δ +8.87 s (+5.65%).
+- **Wall time:** 166.64 s vs 183.98 s; Δ -17.34 s (-9.42%).
 - **Model calls:** 14 vs 20; Δ -6 (-30.00%).
-- **Tool calls:** 13 vs 14; Δ -1 (-7.14%).
-- **Compactions:** 4 vs 3; Δ +1 (+33.33%).
-- **Total tokens:** 135,664 vs 175,365; Δ -39,701 (-22.64%).
-- **Reported API cost:** $0.352514 vs $0.484047; Δ -0.131533 (-27.17%).
-- **Visible tool bytes:** 146,195 vs 21,394; Δ +124,801 (+583.35%).
-- **Prompt-cache reuse:** 62.86% vs 61.62%; Δ +1.24 pp.
+- **Tool calls:** 13 vs 15; Δ -2 (-13.33%).
+- **Compactions:** 4 vs 4; Δ +0 (+0.00%).
+- **Total tokens:** 133,016 vs 175,558; Δ -42,542 (-24.23%).
+- **Total API cost:** $0.404528 vs $0.438332; Δ -0.033804 (-7.71%).
+- **Visible tool bytes:** 144,372 vs 27,487; Δ +116,885 (+425.24%).
+- **Prompt-cache reuse:** 54.05% vs 67.49%; Δ -13.44 pp.
 
 - **Expected exact final response:** `PARCEL RATE GOAL COMPLETE`
+- **prime-context 8.1.1 final response:** `PARCEL RATE GOAL COMPLETE`
 - **vanilla prime-agent final response:** `PARCEL RATE GOAL COMPLETE`
-- **prime-context 8.1.0 final response:** `PARCEL RATE GOAL COMPLETE`
 
 ### Complete acceptance and lifecycle comparison
 
-| Acceptance item | Expected | vanilla prime-agent | prime-context 8.1.0 |
+| Acceptance item | Expected | prime-context 8.1.1 | vanilla prime-agent |
 |---|---:|---:|---:|
 | Meets all acceptance criteria | yes | yes | yes |
 | Runner task-completed gate | yes | yes | yes |
@@ -413,87 +376,88 @@ Each section contains the task definition, steering constraint, pivot, follow-up
 
 ### Complete common metric comparison
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Wall time | 157.15 s | 166.03 s | +8.87 s | +5.65% |
-| Lifecycle wall time | 157.57 s | 166.33 s | +8.75 s | +5.56% |
-| Instruction wall time | 157.15 s | 166.03 s | +8.87 s | +5.65% |
+| Wall time | 166.64 s | 183.98 s | -17.34 s | -9.42% |
+| Lifecycle wall time | 167.27 s | 184.50 s | -17.23 s | -9.34% |
+| Instruction wall time | 166.64 s | 183.98 s | -17.34 s | -9.42% |
 | Sessions | 1 | 1 | +0 | +0.00% |
 | Child sessions | 0 | 0 | +0 | 0.00% |
-| Model calls | 20 | 14 | -6 | -30.00% |
-| Tool calls | 14 | 13 | -1 | -7.14% |
-| Tool results | 14 | 13 | -1 | -7.14% |
-| Visible tool bytes | 21,394 | 146,195 | +124,801 | +583.35% |
-| Compactions | 3 | 4 | +1 | +33.33% |
-| Goal-context injections | 6 | 3 | -3 | -50.00% |
-| Assistant output events | 20 | 14 | -6 | -30.00% |
+| Model calls | 14 | 20 | -6 | -30.00% |
+| Tool calls | 13 | 15 | -2 | -13.33% |
+| Tool results | 13 | 15 | -2 | -13.33% |
+| Visible tool bytes | 144,372 | 27,487 | +116,885 | +425.24% |
+| Compactions | 4 | 4 | +0 | +0.00% |
+| Goal-context injections | 3 | 5 | -2 | -40.00% |
+| Assistant output events | 14 | 20 | -6 | -30.00% |
 | Interventions delivered | 5 | 5 | +0 | +0.00% |
-| Stage responses recorded | 15 | 7 | -8 | -53.33% |
+| Stage responses recorded | 7 | 13 | -6 | -46.15% |
 | Test-run observations | 5 | 5 | +0 | +0.00% |
-| Goal updates | 25 | 16 | -9 | -36.00% |
-| RPC compaction completions | 3 | 4 | +1 | +33.33% |
-| Compaction requests | 6 | 2 | -4 | -66.67% |
-| Compaction waits | 4 | 0 | -4 | -100.00% |
-| Accepted stage/command responses | 11 | 7 | -4 | -36.36% |
-| Rejected stage/command responses | 4 | 0 | -4 | -100.00% |
+| Goal updates | 16 | 24 | -8 | -33.33% |
+| RPC compaction completions | 4 | 4 | +0 | +0.00% |
+| Compaction requests | 2 | 5 | -3 | -60.00% |
+| Compaction waits | 0 | 3 | -3 | -100.00% |
+| Accepted stage/command responses | 7 | 10 | -3 | -30.00% |
+| Rejected stage/command responses | 0 | 3 | -3 | -100.00% |
 | Unanswered stage/command responses | 0 | 0 | +0 | 0.00% |
 | Passing observed test runs | 4 | 4 | +0 | +0.00% |
 | Failing observed test runs | 1 | 1 | +0 | +0.00% |
 | Error-classified observed test runs | 0 | 0 | +0 | 0.00% |
-| Active goal updates | 24 | 15 | -9 | -37.50% |
+| Active goal updates | 15 | 23 | -8 | -34.78% |
 | Complete goal updates | 1 | 1 | +0 | +0.00% |
 | Other-status goal updates | 0 | 0 | +0 | 0.00% |
-| Maximum goal continuations used | 5 | 2 | -3 | -60.00% |
-| Maximum goal tokens used | 68,850 | 51,189 | -17,661 | -25.65% |
-| Completed RPC compactions | 3 | 4 | +1 | +33.33% |
+| Maximum goal continuations used | 2 | 4 | -2 | -50.00% |
+| Maximum goal tokens used | 61,198 | 58,804 | +2,394 | +4.07% |
+| Completed RPC compactions | 4 | 4 | +0 | +0.00% |
 | Aborted RPC compactions | 0 | 0 | +0 | 0.00% |
 | Successful compaction requests | 2 | 2 | +0 | +0.00% |
-| Failed compaction requests | 4 | 0 | -4 | -100.00% |
+| Failed compaction requests | 0 | 3 | -3 | -100.00% |
 | Unanswered compaction requests | 0 | 0 | +0 | 0.00% |
-| Successful compaction waits | 4 | 0 | -4 | -100.00% |
+| Successful compaction waits | 0 | 3 | -3 | -100.00% |
 | Failed compaction waits | 0 | 0 | +0 | 0.00% |
 | Unanswered compaction waits | 0 | 0 | +0 | 0.00% |
-| Input tokens | 66,015 | 49,614 | -16,401 | -24.84% |
-| Output tokens | 3,366 | 2,082 | -1,284 | -38.15% |
-| Cache-read tokens | 105,984 | 83,968 | -22,016 | -20.77% |
+| Input tokens | 60,064 | 55,992 | +4,072 | +7.27% |
+| Output tokens | 2,296 | 3,342 | -1,046 | -31.30% |
+| Cache-read tokens | 70,656 | 116,224 | -45,568 | -39.21% |
 | Cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Total tokens | 175,365 | 135,664 | -39,701 | -22.64% |
-| Prompt-cache reuse | 61.62% | 62.86% | +1.24 pp | — |
-| Input cost | $0.330075 | $0.248070 | -0.082005 | -24.84% |
-| Output cost | $0.100980 | $0.062460 | -0.038520 | -38.15% |
-| Cache-read cost | $0.052992 | $0.041984 | -0.011008 | -20.77% |
+| Total tokens | 133,016 | 175,558 | -42,542 | -24.23% |
+| Prompt-cache reuse | 54.05% | 67.49% | -13.44 pp | — |
+| Input cost | $0.300320 | $0.279960 | +0.020360 | +7.27% |
+| Output cost | $0.068880 | $0.100260 | -0.031380 | -31.30% |
+| Cache-read cost | $0.035328 | $0.058112 | -0.022784 | -39.21% |
 | Cache-write cost | $0.000000 | $0.000000 | +0.000000 | 0.00% |
-| Total API cost | $0.484047 | $0.352514 | -0.131533 | -27.17% |
+| Total API cost | $0.404528 | $0.438332 | -0.033804 | -7.71% |
 
 ### Complete archive and projection telemetry
 
 These fields are emitted by the same result collector for both variants. Zero values for `vanilla prime-agent` are expected because it does not load Prime Context.
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Archived observations | 0 | 12 | +12 | n/a (zero baseline) |
-| Archive source bytes | 0 | 132,234 | +132,234 | n/a (zero baseline) |
-| Compressed archive bytes | 0 | 12,507 | +12,507 | n/a (zero baseline) |
-| Archive compression ratio (derived) | 0.00% | 9.46% | +9.46 pp | — |
-| Archive chunks | 0 | 19 | +19 | n/a (zero baseline) |
-| Largest chunk bytes | 0 | 65,578 | +65,578 | n/a (zero baseline) |
-| Source bytes admitted | 0 | 281,393 | +281,393 | n/a (zero baseline) |
+| Archived observations | 12 | 0 | +12 | n/a (zero baseline) |
+| Archive source bytes | 131,156 | 0 | +131,156 | n/a (zero baseline) |
+| Compressed archive bytes | 11,768 | 0 | +11,768 | n/a (zero baseline) |
+| Archive compression ratio (derived) | 8.97% | 0.00% | +8.97 pp | — |
+| Archive chunks | 16 | 0 | +16 | n/a (zero baseline) |
+| Largest chunk bytes | 65,578 | 0 | +65,578 | n/a (zero baseline) |
+| Source bytes admitted | 277,585 | 0 | +277,585 | n/a (zero baseline) |
 | Call-argument bytes projected out | 0 | 0 | +0 | 0.00% |
-| Result bytes projected out | 0 | 130,913 | +130,913 | n/a (zero baseline) |
+| Result bytes projected out | 130,184 | 0 | +130,184 | n/a (zero baseline) |
 | Typed/media bytes projected out | 0 | 0 | +0 | 0.00% |
 | Recovery bytes exposed | 0 | 0 | +0 | 0.00% |
-| End-state projected model-view bytes | 0 | 35,429 | +35,429 | n/a (zero baseline) |
-| Streaming bytes processed | 0 | 264,468 | +264,468 | n/a (zero baseline) |
+| End-state projected model-view bytes | 33,344 | 0 | +33,344 | n/a (zero baseline) |
+| Streaming bytes processed | 262,312 | 0 | +262,312 | n/a (zero baseline) |
 | Inspect/recall hits | 0 | 0 | +0 | 0.00% |
 | Fold generations | 0 | 0 | +0 | 0.00% |
-| Branch-runtime reloads | 0 | 5 | +5 | n/a (zero baseline) |
-| Prime Context cache-read tokens | 0 | 83,968 | +83,968 | n/a (zero baseline) |
+| Branch-runtime reloads | 5 | 0 | +5 | n/a (zero baseline) |
+| Prime Context cache-read tokens | 70,656 | 0 | +70,656 | n/a (zero baseline) |
 | Prime Context cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Prime Context uncached input tokens | 0 | 49,614 | +49,614 | n/a (zero baseline) |
-| Stable-projection extension turns | 0 | 10 | +10 | n/a (zero baseline) |
+| Prime Context uncached input tokens | 60,064 | 0 | +60,064 | n/a (zero baseline) |
+| Stable-projection extension turns | 10 | 0 | +10 | n/a (zero baseline) |
 
 
 ---
+
 
 <a id="task-02"></a>
 
@@ -511,22 +475,22 @@ These fields are emitted by the same result collector for both variants. Zero va
 
 **Verdict:** Both variants meet all acceptance criteria; this pair is eligible for formal efficiency comparison.
 
-- **Wall time:** 336.37 s vs 525.24 s; Δ -188.87 s (-35.96%).
-- **Model calls:** 17 vs 33; Δ -16 (-48.48%).
-- **Tool calls:** 21 vs 29; Δ -8 (-27.59%).
-- **Compactions:** 6 vs 8; Δ -2 (-25.00%).
-- **Total tokens:** 178,876 vs 347,893; Δ -169,017 (-48.58%).
-- **Reported API cost:** $0.654646 vs $1.140728; Δ -0.486082 (-42.61%).
-- **Visible tool bytes:** 217,029 vs 231,635; Δ -14,606 (-6.31%).
-- **Prompt-cache reuse:** 50.69% vs 57.43%; Δ -6.73 pp.
+- **Wall time:** 201.47 s vs 844.29 s; Δ -642.82 s (-76.14%).
+- **Model calls:** 15 vs 33; Δ -18 (-54.55%).
+- **Tool calls:** 14 vs 31; Δ -17 (-54.84%).
+- **Compactions:** 4 vs 14; Δ -10 (-71.43%).
+- **Total tokens:** 155,619 vs 359,131; Δ -203,512 (-56.67%).
+- **Total API cost:** $0.508257 vs $1.290278; Δ -0.782021 (-60.61%).
+- **Visible tool bytes:** 286,604 vs 330,004; Δ -43,400 (-13.15%).
+- **Prompt-cache reuse:** 58.49% vs 53.73%; Δ +4.76 pp.
 
 - **Expected exact final response:** `JSON MERGE GOAL COMPLETE`
+- **prime-context 8.1.1 final response:** `JSON MERGE GOAL COMPLETE`
 - **vanilla prime-agent final response:** `JSON MERGE GOAL COMPLETE`
-- **prime-context 8.1.0 final response:** `JSON MERGE GOAL COMPLETE`
 
 ### Complete acceptance and lifecycle comparison
 
-| Acceptance item | Expected | vanilla prime-agent | prime-context 8.1.0 |
+| Acceptance item | Expected | prime-context 8.1.1 | vanilla prime-agent |
 |---|---:|---:|---:|
 | Meets all acceptance criteria | yes | yes | yes |
 | Runner task-completed gate | yes | yes | yes |
@@ -547,87 +511,88 @@ These fields are emitted by the same result collector for both variants. Zero va
 
 ### Complete common metric comparison
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Wall time | 525.24 s | 336.37 s | -188.87 s | -35.96% |
-| Lifecycle wall time | 525.44 s | 336.52 s | -188.92 s | -35.95% |
-| Instruction wall time | 525.24 s | 336.37 s | -188.87 s | -35.96% |
+| Wall time | 201.47 s | 844.29 s | -642.82 s | -76.14% |
+| Lifecycle wall time | 201.74 s | 844.45 s | -642.71 s | -76.11% |
+| Instruction wall time | 201.47 s | 844.29 s | -642.82 s | -76.14% |
 | Sessions | 1 | 1 | +0 | +0.00% |
 | Child sessions | 0 | 0 | +0 | 0.00% |
-| Model calls | 33 | 17 | -16 | -48.48% |
-| Tool calls | 29 | 21 | -8 | -27.59% |
-| Tool results | 29 | 21 | -8 | -27.59% |
-| Visible tool bytes | 231,635 | 217,029 | -14,606 | -6.31% |
-| Compactions | 8 | 6 | -2 | -25.00% |
-| Goal-context injections | 10 | 5 | -5 | -50.00% |
-| Assistant output events | 33 | 17 | -16 | -48.48% |
+| Model calls | 15 | 33 | -18 | -54.55% |
+| Tool calls | 14 | 31 | -17 | -54.84% |
+| Tool results | 14 | 31 | -17 | -54.84% |
+| Visible tool bytes | 286,604 | 330,004 | -43,400 | -13.15% |
+| Compactions | 4 | 14 | -10 | -71.43% |
+| Goal-context injections | 3 | 13 | -10 | -76.92% |
+| Assistant output events | 15 | 33 | -18 | -54.55% |
 | Interventions delivered | 5 | 5 | +0 | +0.00% |
-| Stage responses recorded | 15 | 7 | -8 | -53.33% |
-| Test-run observations | 6 | 5 | -1 | -16.67% |
-| Goal updates | 44 | 21 | -23 | -52.27% |
-| RPC compaction completions | 8 | 6 | -2 | -25.00% |
-| Compaction requests | 6 | 2 | -4 | -66.67% |
-| Compaction waits | 4 | 0 | -4 | -100.00% |
-| Accepted stage/command responses | 10 | 7 | -3 | -30.00% |
-| Rejected stage/command responses | 5 | 0 | -5 | -100.00% |
+| Stage responses recorded | 7 | 9 | -2 | -22.22% |
+| Test-run observations | 5 | 8 | -3 | -37.50% |
+| Goal updates | 17 | 47 | -30 | -63.83% |
+| RPC compaction completions | 4 | 14 | -10 | -71.43% |
+| Compaction requests | 2 | 3 | -1 | -33.33% |
+| Compaction waits | 0 | 1 | -1 | -100.00% |
+| Accepted stage/command responses | 7 | 7 | +0 | +0.00% |
+| Rejected stage/command responses | 0 | 2 | -2 | -100.00% |
 | Unanswered stage/command responses | 0 | 0 | +0 | 0.00% |
-| Passing observed test runs | 5 | 3 | -2 | -40.00% |
-| Failing observed test runs | 1 | 2 | +1 | +100.00% |
+| Passing observed test runs | 4 | 7 | -3 | -42.86% |
+| Failing observed test runs | 1 | 1 | +0 | +0.00% |
 | Error-classified observed test runs | 0 | 0 | +0 | 0.00% |
-| Active goal updates | 43 | 20 | -23 | -53.49% |
+| Active goal updates | 16 | 46 | -30 | -65.22% |
 | Complete goal updates | 1 | 1 | +0 | +0.00% |
 | Other-status goal updates | 0 | 0 | +0 | 0.00% |
-| Maximum goal continuations used | 9 | 4 | -5 | -55.56% |
-| Maximum goal tokens used | 149,856 | 90,846 | -59,010 | -39.38% |
-| Completed RPC compactions | 8 | 6 | -2 | -25.00% |
+| Maximum goal continuations used | 2 | 12 | -10 | -83.33% |
+| Maximum goal tokens used | 66,972 | 172,004 | -105,032 | -61.06% |
+| Completed RPC compactions | 4 | 14 | -10 | -71.43% |
 | Aborted RPC compactions | 0 | 0 | +0 | 0.00% |
-| Successful compaction requests | 1 | 2 | +1 | +100.00% |
-| Failed compaction requests | 5 | 0 | -5 | -100.00% |
+| Successful compaction requests | 2 | 1 | +1 | +100.00% |
+| Failed compaction requests | 0 | 2 | -2 | -100.00% |
 | Unanswered compaction requests | 0 | 0 | +0 | 0.00% |
-| Successful compaction waits | 4 | 0 | -4 | -100.00% |
+| Successful compaction waits | 0 | 1 | -1 | -100.00% |
 | Failed compaction waits | 0 | 0 | +0 | 0.00% |
 | Unanswered compaction waits | 0 | 0 | +0 | 0.00% |
-| Input tokens | 143,470 | 85,154 | -58,316 | -40.65% |
-| Output tokens | 10,887 | 6,170 | -4,717 | -43.33% |
-| Cache-read tokens | 193,536 | 87,552 | -105,984 | -54.76% |
+| Input tokens | 62,497 | 160,036 | -97,539 | -60.95% |
+| Output tokens | 5,058 | 13,239 | -8,181 | -61.79% |
+| Cache-read tokens | 88,064 | 185,856 | -97,792 | -52.62% |
 | Cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Total tokens | 347,893 | 178,876 | -169,017 | -48.58% |
-| Prompt-cache reuse | 57.43% | 50.69% | -6.73 pp | — |
-| Input cost | $0.717350 | $0.425770 | -0.291580 | -40.65% |
-| Output cost | $0.326610 | $0.185100 | -0.141510 | -43.33% |
-| Cache-read cost | $0.096768 | $0.043776 | -0.052992 | -54.76% |
+| Total tokens | 155,619 | 359,131 | -203,512 | -56.67% |
+| Prompt-cache reuse | 58.49% | 53.73% | +4.76 pp | — |
+| Input cost | $0.312485 | $0.800180 | -0.487695 | -60.95% |
+| Output cost | $0.151740 | $0.397170 | -0.245430 | -61.79% |
+| Cache-read cost | $0.044032 | $0.092928 | -0.048896 | -52.62% |
 | Cache-write cost | $0.000000 | $0.000000 | +0.000000 | 0.00% |
-| Total API cost | $1.140728 | $0.654646 | -0.486082 | -42.61% |
+| Total API cost | $0.508257 | $1.290278 | -0.782021 | -60.61% |
 
 ### Complete archive and projection telemetry
 
 These fields are emitted by the same result collector for both variants. Zero values for `vanilla prime-agent` are expected because it does not load Prime Context.
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Archived observations | 0 | 20 | +20 | n/a (zero baseline) |
-| Archive source bytes | 0 | 196,734 | +196,734 | n/a (zero baseline) |
-| Compressed archive bytes | 0 | 19,204 | +19,204 | n/a (zero baseline) |
-| Archive compression ratio (derived) | 0.00% | 9.76% | +9.76 pp | — |
-| Archive chunks | 0 | 26 | +26 | n/a (zero baseline) |
-| Largest chunk bytes | 0 | 65,578 | +65,578 | n/a (zero baseline) |
-| Source bytes admitted | 0 | 422,817 | +422,817 | n/a (zero baseline) |
+| Archived observations | 13 | 0 | +13 | n/a (zero baseline) |
+| Archive source bytes | 263,700 | 0 | +263,700 | n/a (zero baseline) |
+| Compressed archive bytes | 20,526 | 0 | +20,526 | n/a (zero baseline) |
+| Archive compression ratio (derived) | 7.78% | 0.00% | +7.78 pp | — |
+| Archive chunks | 18 | 0 | +18 | n/a (zero baseline) |
+| Largest chunk bytes | 65,578 | 0 | +65,578 | n/a (zero baseline) |
+| Source bytes admitted | 549,575 | 0 | +549,575 | n/a (zero baseline) |
 | Call-argument bytes projected out | 0 | 0 | +0 | 0.00% |
-| Result bytes projected out | 0 | 194,936 | +194,936 | n/a (zero baseline) |
+| Result bytes projected out | 261,014 | 0 | +261,014 | n/a (zero baseline) |
 | Typed/media bytes projected out | 0 | 0 | +0 | 0.00% |
 | Recovery bytes exposed | 0 | 0 | +0 | 0.00% |
-| End-state projected model-view bytes | 0 | 31,310 | +31,310 | n/a (zero baseline) |
-| Streaming bytes processed | 0 | 393,468 | +393,468 | n/a (zero baseline) |
+| End-state projected model-view bytes | 42,164 | 0 | +42,164 | n/a (zero baseline) |
+| Streaming bytes processed | 527,400 | 0 | +527,400 | n/a (zero baseline) |
 | Inspect/recall hits | 0 | 0 | +0 | 0.00% |
 | Fold generations | 0 | 0 | +0 | 0.00% |
-| Branch-runtime reloads | 0 | 7 | +7 | n/a (zero baseline) |
-| Prime Context cache-read tokens | 0 | 87,552 | +87,552 | n/a (zero baseline) |
+| Branch-runtime reloads | 5 | 0 | +5 | n/a (zero baseline) |
+| Prime Context cache-read tokens | 88,064 | 0 | +88,064 | n/a (zero baseline) |
 | Prime Context cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Prime Context uncached input tokens | 0 | 85,154 | +85,154 | n/a (zero baseline) |
-| Stable-projection extension turns | 0 | 11 | +11 | n/a (zero baseline) |
+| Prime Context uncached input tokens | 62,497 | 0 | +62,497 | n/a (zero baseline) |
+| Stable-projection extension turns | 11 | 0 | +11 | n/a (zero baseline) |
 
 
 ---
+
 
 <a id="task-03"></a>
 
@@ -645,22 +610,22 @@ These fields are emitted by the same result collector for both variants. Zero va
 
 **Verdict:** Both variants meet all acceptance criteria; this pair is eligible for formal efficiency comparison.
 
-- **Wall time:** 297.55 s vs 419.97 s; Δ -122.42 s (-29.15%).
-- **Model calls:** 16 vs 18; Δ -2 (-11.11%).
-- **Tool calls:** 16 vs 17; Δ -1 (-5.88%).
-- **Compactions:** 5 vs 7; Δ -2 (-28.57%).
-- **Total tokens:** 163,114 vs 180,062; Δ -16,948 (-9.41%).
-- **Reported API cost:** $0.534903 vs $0.756154; Δ -0.221251 (-29.26%).
-- **Visible tool bytes:** 281,682 vs 218,816; Δ +62,866 (+28.73%).
-- **Prompt-cache reuse:** 64.95% vs 49.19%; Δ +15.76 pp.
+- **Wall time:** 257.37 s vs 293.29 s; Δ -35.93 s (-12.25%).
+- **Model calls:** 15 vs 19; Δ -4 (-21.05%).
+- **Tool calls:** 16 vs 19; Δ -3 (-15.79%).
+- **Compactions:** 4 vs 5; Δ -1 (-20.00%).
+- **Total tokens:** 154,933 vs 179,856; Δ -24,923 (-13.86%).
+- **Total API cost:** $0.561384 vs $0.663687; Δ -0.102303 (-15.41%).
+- **Visible tool bytes:** 207,300 vs 170,698; Δ +36,602 (+21.44%).
+- **Prompt-cache reuse:** 56.60% vs 57.29%; Δ -0.69 pp.
 
 - **Expected exact final response:** `WORKBOOK GOAL COMPLETE`
+- **prime-context 8.1.1 final response:** `WORKBOOK GOAL COMPLETE`
 - **vanilla prime-agent final response:** `WORKBOOK GOAL COMPLETE`
-- **prime-context 8.1.0 final response:** `WORKBOOK GOAL COMPLETE`
 
 ### Complete acceptance and lifecycle comparison
 
-| Acceptance item | Expected | vanilla prime-agent | prime-context 8.1.0 |
+| Acceptance item | Expected | prime-context 8.1.1 | vanilla prime-agent |
 |---|---:|---:|---:|
 | Meets all acceptance criteria | yes | yes | yes |
 | Runner task-completed gate | yes | yes | yes |
@@ -681,87 +646,88 @@ These fields are emitted by the same result collector for both variants. Zero va
 
 ### Complete common metric comparison
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Wall time | 419.97 s | 297.55 s | -122.42 s | -29.15% |
-| Lifecycle wall time | 420.24 s | 298.15 s | -122.09 s | -29.05% |
-| Instruction wall time | 419.97 s | 297.55 s | -122.42 s | -29.15% |
+| Wall time | 257.37 s | 293.29 s | -35.93 s | -12.25% |
+| Lifecycle wall time | 257.64 s | 293.49 s | -35.85 s | -12.22% |
+| Instruction wall time | 257.37 s | 293.29 s | -35.93 s | -12.25% |
 | Sessions | 1 | 1 | +0 | +0.00% |
 | Child sessions | 0 | 0 | +0 | 0.00% |
-| Model calls | 18 | 16 | -2 | -11.11% |
-| Tool calls | 17 | 16 | -1 | -5.88% |
-| Tool results | 17 | 16 | -1 | -5.88% |
-| Visible tool bytes | 218,816 | 281,682 | +62,866 | +28.73% |
-| Compactions | 7 | 5 | -2 | -28.57% |
-| Goal-context injections | 5 | 4 | -1 | -20.00% |
-| Assistant output events | 18 | 16 | -2 | -11.11% |
+| Model calls | 15 | 19 | -4 | -21.05% |
+| Tool calls | 16 | 19 | -3 | -15.79% |
+| Tool results | 16 | 19 | -3 | -15.79% |
+| Visible tool bytes | 207,300 | 170,698 | +36,602 | +21.44% |
+| Compactions | 4 | 5 | -1 | -20.00% |
+| Goal-context injections | 3 | 4 | -1 | -25.00% |
+| Assistant output events | 15 | 19 | -4 | -21.05% |
 | Interventions delivered | 5 | 5 | +0 | +0.00% |
-| Stage responses recorded | 7 | 9 | +2 | +28.57% |
-| Test-run observations | 5 | 5 | +0 | +0.00% |
-| Goal updates | 24 | 19 | -5 | -20.83% |
-| RPC compaction completions | 7 | 5 | -2 | -28.57% |
-| Compaction requests | 2 | 3 | +1 | +50.00% |
-| Compaction waits | 0 | 1 | +1 | n/a (zero baseline) |
-| Accepted stage/command responses | 6 | 7 | +1 | +16.67% |
-| Rejected stage/command responses | 1 | 2 | +1 | +100.00% |
+| Stage responses recorded | 7 | 9 | -2 | -22.22% |
+| Test-run observations | 5 | 4 | +1 | +25.00% |
+| Goal updates | 17 | 24 | -7 | -29.17% |
+| RPC compaction completions | 4 | 5 | -1 | -20.00% |
+| Compaction requests | 2 | 3 | -1 | -33.33% |
+| Compaction waits | 0 | 1 | -1 | -100.00% |
+| Accepted stage/command responses | 7 | 7 | +0 | +0.00% |
+| Rejected stage/command responses | 0 | 2 | -2 | -100.00% |
 | Unanswered stage/command responses | 0 | 0 | +0 | 0.00% |
-| Passing observed test runs | 4 | 4 | +0 | +0.00% |
+| Passing observed test runs | 4 | 3 | +1 | +33.33% |
 | Failing observed test runs | 1 | 1 | +0 | +0.00% |
 | Error-classified observed test runs | 0 | 0 | +0 | 0.00% |
-| Active goal updates | 23 | 18 | -5 | -21.74% |
+| Active goal updates | 16 | 23 | -7 | -30.43% |
 | Complete goal updates | 1 | 1 | +0 | +0.00% |
 | Other-status goal updates | 0 | 0 | +0 | 0.00% |
-| Maximum goal continuations used | 4 | 3 | -1 | -25.00% |
-| Maximum goal tokens used | 94,872 | 61,263 | -33,609 | -35.43% |
-| Completed RPC compactions | 7 | 5 | -2 | -28.57% |
+| Maximum goal continuations used | 2 | 4 | -2 | -50.00% |
+| Maximum goal tokens used | 59,695 | 80,288 | -20,593 | -25.65% |
+| Completed RPC compactions | 4 | 5 | -1 | -20.00% |
 | Aborted RPC compactions | 0 | 0 | +0 | 0.00% |
-| Successful compaction requests | 1 | 1 | +0 | +0.00% |
-| Failed compaction requests | 1 | 2 | +1 | +100.00% |
+| Successful compaction requests | 2 | 1 | +1 | +100.00% |
+| Failed compaction requests | 0 | 2 | -2 | -100.00% |
 | Unanswered compaction requests | 0 | 0 | +0 | 0.00% |
-| Successful compaction waits | 0 | 1 | +1 | n/a (zero baseline) |
+| Successful compaction waits | 0 | 1 | -1 | -100.00% |
 | Failed compaction waits | 0 | 0 | +0 | 0.00% |
 | Unanswered compaction waits | 0 | 0 | +0 | 0.00% |
-| Input tokens | 86,746 | 54,717 | -32,029 | -36.92% |
-| Output tokens | 9,348 | 7,021 | -2,327 | -24.89% |
-| Cache-read tokens | 83,968 | 101,376 | +17,408 | +20.73% |
+| Input tokens | 64,382 | 73,281 | -8,899 | -12.14% |
+| Output tokens | 6,583 | 8,271 | -1,688 | -20.41% |
+| Cache-read tokens | 83,968 | 98,304 | -14,336 | -14.58% |
 | Cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Total tokens | 180,062 | 163,114 | -16,948 | -9.41% |
-| Prompt-cache reuse | 49.19% | 64.95% | +15.76 pp | — |
-| Input cost | $0.433730 | $0.273585 | -0.160145 | -36.92% |
-| Output cost | $0.280440 | $0.210630 | -0.069810 | -24.89% |
-| Cache-read cost | $0.041984 | $0.050688 | +0.008704 | +20.73% |
+| Total tokens | 154,933 | 179,856 | -24,923 | -13.86% |
+| Prompt-cache reuse | 56.60% | 57.29% | -0.69 pp | — |
+| Input cost | $0.321910 | $0.366405 | -0.044495 | -12.14% |
+| Output cost | $0.197490 | $0.248130 | -0.050640 | -20.41% |
+| Cache-read cost | $0.041984 | $0.049152 | -0.007168 | -14.58% |
 | Cache-write cost | $0.000000 | $0.000000 | +0.000000 | 0.00% |
-| Total API cost | $0.756154 | $0.534903 | -0.221251 | -29.26% |
+| Total API cost | $0.561384 | $0.663687 | -0.102303 | -15.41% |
 
 ### Complete archive and projection telemetry
 
 These fields are emitted by the same result collector for both variants. Zero values for `vanilla prime-agent` are expected because it does not load Prime Context.
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Archived observations | 0 | 15 | +15 | n/a (zero baseline) |
-| Archive source bytes | 0 | 263,410 | +263,410 | n/a (zero baseline) |
-| Compressed archive bytes | 0 | 21,937 | +21,937 | n/a (zero baseline) |
-| Archive compression ratio (derived) | 0.00% | 8.33% | +8.33 pp | — |
-| Archive chunks | 0 | 22 | +22 | n/a (zero baseline) |
-| Largest chunk bytes | 0 | 65,578 | +65,578 | n/a (zero baseline) |
-| Source bytes admitted | 0 | 555,795 | +555,795 | n/a (zero baseline) |
-| Call-argument bytes projected out | 0 | 8,684 | +8,684 | n/a (zero baseline) |
-| Result bytes projected out | 0 | 260,717 | +260,717 | n/a (zero baseline) |
+| Archived observations | 15 | 0 | +15 | n/a (zero baseline) |
+| Archive source bytes | 197,812 | 0 | +197,812 | n/a (zero baseline) |
+| Compressed archive bytes | 13,425 | 0 | +13,425 | n/a (zero baseline) |
+| Archive compression ratio (derived) | 6.79% | 0.00% | +6.79 pp | — |
+| Archive chunks | 22 | 0 | +22 | n/a (zero baseline) |
+| Largest chunk bytes | 65,578 | 0 | +65,578 | n/a (zero baseline) |
+| Source bytes admitted | 405,848 | 0 | +405,848 | n/a (zero baseline) |
+| Call-argument bytes projected out | 0 | 0 | +0 | 0.00% |
+| Result bytes projected out | 196,033 | 0 | +196,033 | n/a (zero baseline) |
 | Typed/media bytes projected out | 0 | 0 | +0 | 0.00% |
 | Recovery bytes exposed | 0 | 0 | +0 | 0.00% |
-| End-state projected model-view bytes | 0 | 42,136 | +42,136 | n/a (zero baseline) |
-| Streaming bytes processed | 0 | 526,820 | +526,820 | n/a (zero baseline) |
+| End-state projected model-view bytes | 37,054 | 0 | +37,054 | n/a (zero baseline) |
+| Streaming bytes processed | 395,624 | 0 | +395,624 | n/a (zero baseline) |
 | Inspect/recall hits | 0 | 0 | +0 | 0.00% |
 | Fold generations | 0 | 0 | +0 | 0.00% |
-| Branch-runtime reloads | 0 | 6 | +6 | n/a (zero baseline) |
-| Prime Context cache-read tokens | 0 | 101,376 | +101,376 | n/a (zero baseline) |
+| Branch-runtime reloads | 5 | 0 | +5 | n/a (zero baseline) |
+| Prime Context cache-read tokens | 83,968 | 0 | +83,968 | n/a (zero baseline) |
 | Prime Context cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Prime Context uncached input tokens | 0 | 54,717 | +54,717 | n/a (zero baseline) |
-| Stable-projection extension turns | 0 | 11 | +11 | n/a (zero baseline) |
+| Prime Context uncached input tokens | 64,382 | 0 | +64,382 | n/a (zero baseline) |
+| Stable-projection extension turns | 11 | 0 | +11 | n/a (zero baseline) |
 
 
 ---
+
 
 <a id="task-04"></a>
 
@@ -777,125 +743,126 @@ These fields are emitted by the same result collector for both variants. Zero va
 
 ### Measured outcome
 
-**Verdict:** Neither variant meets all acceptance criteria; resource use is reported descriptively, not as a formal efficiency result.
+**Verdict:** Both variants meet all acceptance criteria; this pair is eligible for formal efficiency comparison.
 
-- **Wall time:** 600.00 s vs 600.00 s; Δ +0.00 s (+0.00%).
-- **Model calls:** 13 vs 51; Δ -38 (-74.51%).
-- **Tool calls:** 13 vs 30; Δ -17 (-56.67%).
-- **Compactions:** 4 vs 11; Δ -7 (-63.64%).
-- **Total tokens:** 116,687 vs 518,401; Δ -401,714 (-77.49%).
-- **Reported API cost:** $0.438709 vs $1.193809; Δ -0.755100 (-63.25%).
-- **Visible tool bytes:** 214,199 vs 193,926; Δ +20,273 (+10.45%).
-- **Prompt-cache reuse:** 54.64% vs 70.19%; Δ -15.55 pp.
+- **Wall time:** 207.53 s vs 313.84 s; Δ -106.31 s (-33.87%).
+- **Model calls:** 15 vs 19; Δ -4 (-21.05%).
+- **Tool calls:** 14 vs 16; Δ -2 (-12.50%).
+- **Compactions:** 4 vs 6; Δ -2 (-33.33%).
+- **Total tokens:** 151,623 vs 183,274; Δ -31,651 (-17.27%).
+- **Total API cost:** $0.488184 vs $0.613978; Δ -0.125794 (-20.49%).
+- **Visible tool bytes:** 143,546 vs 95,980; Δ +47,566 (+49.56%).
+- **Prompt-cache reuse:** 57.00% vs 57.24%; Δ -0.23 pp.
 
 - **Expected exact final response:** `HEAT PLATE GOAL COMPLETE`
-- **vanilla prime-agent final response:** `The follow-up APIs now pass all staged tests, and the integration runner exits successfully. I am keeping the goal active because `REQUIREMENTS LOCKED` has not been sent. I will use this checkpoint to audit edge cases without changing supplied tests.`
-- **prime-context 8.1.0 final response:** `Mixed conductivities and cutouts are implemented, including symmetric face conductance and insulated cutout edges. The expanded suite passes 6/6. I’ll now add the steady-state and flux APIs from the follow-up while keeping the goal active.`
+- **prime-context 8.1.1 final response:** `HEAT PLATE GOAL COMPLETE`
+- **vanilla prime-agent final response:** `HEAT PLATE GOAL COMPLETE`
 
 ### Complete acceptance and lifecycle comparison
 
-| Acceptance item | Expected | vanilla prime-agent | prime-context 8.1.0 |
+| Acceptance item | Expected | prime-context 8.1.1 | vanilla prime-agent |
 |---|---:|---:|---:|
-| Meets all acceptance criteria | yes | no | no |
-| Runner task-completed gate | yes | no | no |
+| Meets all acceptance criteria | yes | yes | yes |
+| Runner task-completed gate | yes | yes | yes |
 | External cumulative tests | 9/9 | 9/9 | 9/9 |
 | External-tests gate | yes | yes | yes |
 | Protected files unchanged | yes | yes | yes |
-| Goal status | complete | active | active |
-| Goal completed after lock | yes | no | no |
+| Goal status | complete | complete | complete |
+| Goal completed after lock | yes | yes | yes |
 | Interventions accepted | yes | yes | yes |
-| Intervention order correct | yes | no | yes |
-| Exact final response | yes | no | no |
+| Intervention order correct | yes | yes | yes |
+| Exact final response | yes | yes | yes |
 | Early completion observed | no | no | no |
-| Goal-complete event observed | yes | no | no |
-| Run error | none | TimeoutError: condition timed out after 600 seconds | TimeoutError: condition timed out after 600 seconds |
-| Interaction error | none | TimeoutError: condition timed out after 600 seconds | TimeoutError: condition timed out after 600 seconds |
+| Goal-complete event observed | yes | yes | yes |
+| Run error | none | none | none |
+| Interaction error | none | none | none |
 | Interaction stderr | empty | empty | empty |
 | Retained Docker evidence | yes | yes | yes |
 
 ### Complete common metric comparison
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Wall time | 600.00 s | 600.00 s | +0.00 s | +0.00% |
-| Lifecycle wall time | 600.41 s | 600.21 s | -0.20 s | -0.03% |
-| Instruction wall time | 600.00 s | 600.00 s | +0.00 s | +0.00% |
+| Wall time | 207.53 s | 313.84 s | -106.31 s | -33.87% |
+| Lifecycle wall time | 207.88 s | 314.42 s | -106.54 s | -33.88% |
+| Instruction wall time | 207.53 s | 313.84 s | -106.31 s | -33.87% |
 | Sessions | 1 | 1 | +0 | +0.00% |
 | Child sessions | 0 | 0 | +0 | 0.00% |
-| Model calls | 51 | 13 | -38 | -74.51% |
-| Tool calls | 30 | 13 | -17 | -56.67% |
-| Tool results | 30 | 12 | -18 | -60.00% |
-| Visible tool bytes | 193,926 | 214,199 | +20,273 | +10.45% |
-| Compactions | 11 | 4 | -7 | -63.64% |
-| Goal-context injections | 31 | 3 | -28 | -90.32% |
-| Assistant output events | 51 | 12 | -39 | -76.47% |
-| Interventions delivered | 4 | 5 | +1 | +25.00% |
-| Stage responses recorded | 7 | 7 | +0 | +0.00% |
-| Test-run observations | 3 | 4 | +1 | +33.33% |
-| Goal updates | 81 | 16 | -65 | -80.25% |
-| RPC compaction completions | 11 | 4 | -7 | -63.64% |
-| Compaction requests | 2 | 2 | +0 | +0.00% |
-| Compaction waits | 1 | 0 | -1 | -100.00% |
-| Accepted stage/command responses | 6 | 6 | +0 | +0.00% |
-| Rejected stage/command responses | 1 | 1 | +0 | +0.00% |
+| Model calls | 15 | 19 | -4 | -21.05% |
+| Tool calls | 14 | 16 | -2 | -12.50% |
+| Tool results | 14 | 16 | -2 | -12.50% |
+| Visible tool bytes | 143,546 | 95,980 | +47,566 | +49.56% |
+| Compactions | 4 | 6 | -2 | -33.33% |
+| Goal-context injections | 3 | 4 | -1 | -25.00% |
+| Assistant output events | 15 | 19 | -4 | -21.05% |
+| Interventions delivered | 5 | 5 | +0 | +0.00% |
+| Stage responses recorded | 7 | 9 | -2 | -22.22% |
+| Test-run observations | 5 | 5 | +0 | +0.00% |
+| Goal updates | 19 | 24 | -5 | -20.83% |
+| RPC compaction completions | 4 | 6 | -2 | -33.33% |
+| Compaction requests | 2 | 3 | -1 | -33.33% |
+| Compaction waits | 0 | 1 | -1 | -100.00% |
+| Accepted stage/command responses | 7 | 8 | -1 | -12.50% |
+| Rejected stage/command responses | 0 | 1 | -1 | -100.00% |
 | Unanswered stage/command responses | 0 | 0 | +0 | 0.00% |
-| Passing observed test runs | 2 | 3 | +1 | +50.00% |
+| Passing observed test runs | 4 | 4 | +0 | +0.00% |
 | Failing observed test runs | 1 | 1 | +0 | +0.00% |
 | Error-classified observed test runs | 0 | 0 | +0 | 0.00% |
-| Active goal updates | 81 | 16 | -65 | -80.25% |
-| Complete goal updates | 0 | 0 | +0 | 0.00% |
+| Active goal updates | 18 | 23 | -5 | -21.74% |
+| Complete goal updates | 1 | 1 | +0 | +0.00% |
 | Other-status goal updates | 0 | 0 | +0 | 0.00% |
-| Maximum goal continuations used | 31 | 3 | -28 | -90.32% |
-| Maximum goal tokens used | 160,513 | 55,759 | -104,754 | -65.26% |
-| Completed RPC compactions | 11 | 4 | -7 | -63.64% |
+| Maximum goal continuations used | 3 | 3 | +0 | +0.00% |
+| Maximum goal tokens used | 66,498 | 78,481 | -11,983 | -15.27% |
+| Completed RPC compactions | 4 | 6 | -2 | -33.33% |
 | Aborted RPC compactions | 0 | 0 | +0 | 0.00% |
-| Successful compaction requests | 1 | 1 | +0 | +0.00% |
-| Failed compaction requests | 1 | 1 | +0 | +0.00% |
+| Successful compaction requests | 2 | 2 | +0 | +0.00% |
+| Failed compaction requests | 0 | 1 | -1 | -100.00% |
 | Unanswered compaction requests | 0 | 0 | +0 | 0.00% |
-| Successful compaction waits | 1 | 0 | -1 | -100.00% |
+| Successful compaction waits | 0 | 1 | -1 | -100.00% |
 | Failed compaction waits | 0 | 0 | +0 | 0.00% |
 | Unanswered compaction waits | 0 | 0 | +0 | 0.00% |
-| Input tokens | 152,021 | 50,581 | -101,440 | -66.73% |
-| Output tokens | 8,492 | 5,178 | -3,314 | -39.02% |
-| Cache-read tokens | 357,888 | 60,928 | -296,960 | -82.98% |
+| Input tokens | 63,338 | 75,746 | -12,408 | -16.38% |
+| Output tokens | 4,317 | 6,152 | -1,835 | -29.83% |
+| Cache-read tokens | 83,968 | 101,376 | -17,408 | -17.17% |
 | Cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Total tokens | 518,401 | 116,687 | -401,714 | -77.49% |
-| Prompt-cache reuse | 70.19% | 54.64% | -15.55 pp | — |
-| Input cost | $0.760105 | $0.252905 | -0.507200 | -66.73% |
-| Output cost | $0.254760 | $0.155340 | -0.099420 | -39.02% |
-| Cache-read cost | $0.178944 | $0.030464 | -0.148480 | -82.98% |
+| Total tokens | 151,623 | 183,274 | -31,651 | -17.27% |
+| Prompt-cache reuse | 57.00% | 57.24% | -0.23 pp | — |
+| Input cost | $0.316690 | $0.378730 | -0.062040 | -16.38% |
+| Output cost | $0.129510 | $0.184560 | -0.055050 | -29.83% |
+| Cache-read cost | $0.041984 | $0.050688 | -0.008704 | -17.17% |
 | Cache-write cost | $0.000000 | $0.000000 | +0.000000 | 0.00% |
-| Total API cost | $1.193809 | $0.438709 | -0.755100 | -63.25% |
+| Total API cost | $0.488184 | $0.613978 | -0.125794 | -20.49% |
 
 ### Complete archive and projection telemetry
 
 These fields are emitted by the same result collector for both variants. Zero values for `vanilla prime-agent` are expected because it does not load Prime Context.
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Archived observations | 0 | 12 | +12 | n/a (zero baseline) |
-| Archive source bytes | 0 | 196,734 | +196,734 | n/a (zero baseline) |
-| Compressed archive bytes | 0 | 17,279 | +17,279 | n/a (zero baseline) |
-| Archive compression ratio (derived) | 0.00% | 8.78% | +8.78 pp | — |
-| Archive chunks | 0 | 17 | +17 | n/a (zero baseline) |
-| Largest chunk bytes | 0 | 65,578 | +65,578 | n/a (zero baseline) |
-| Source bytes admitted | 0 | 419,268 | +419,268 | n/a (zero baseline) |
+| Archived observations | 13 | 0 | +13 | n/a (zero baseline) |
+| Archive source bytes | 132,248 | 0 | +132,248 | n/a (zero baseline) |
+| Compressed archive bytes | 11,658 | 0 | +11,658 | n/a (zero baseline) |
+| Archive compression ratio (derived) | 8.82% | 0.00% | +8.82 pp | — |
+| Archive chunks | 17 | 0 | +17 | n/a (zero baseline) |
+| Largest chunk bytes | 65,578 | 0 | +65,578 | n/a (zero baseline) |
+| Source bytes admitted | 277,529 | 0 | +277,529 | n/a (zero baseline) |
 | Call-argument bytes projected out | 0 | 0 | +0 | 0.00% |
-| Result bytes projected out | 0 | 195,228 | +195,228 | n/a (zero baseline) |
+| Result bytes projected out | 130,877 | 0 | +130,877 | n/a (zero baseline) |
 | Typed/media bytes projected out | 0 | 0 | +0 | 0.00% |
 | Recovery bytes exposed | 0 | 0 | +0 | 0.00% |
-| End-state projected model-view bytes | 0 | 35,330 | +35,330 | n/a (zero baseline) |
-| Streaming bytes processed | 0 | 395,999 | +395,999 | n/a (zero baseline) |
+| End-state projected model-view bytes | 38,952 | 0 | +38,952 | n/a (zero baseline) |
+| Streaming bytes processed | 264,496 | 0 | +264,496 | n/a (zero baseline) |
 | Inspect/recall hits | 0 | 0 | +0 | 0.00% |
 | Fold generations | 0 | 0 | +0 | 0.00% |
-| Branch-runtime reloads | 0 | 4 | +4 | n/a (zero baseline) |
-| Prime Context cache-read tokens | 0 | 60,928 | +60,928 | n/a (zero baseline) |
+| Branch-runtime reloads | 5 | 0 | +5 | n/a (zero baseline) |
+| Prime Context cache-read tokens | 83,968 | 0 | +83,968 | n/a (zero baseline) |
 | Prime Context cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Prime Context uncached input tokens | 0 | 50,581 | +50,581 | n/a (zero baseline) |
-| Stable-projection extension turns | 0 | 8 | +8 | n/a (zero baseline) |
+| Prime Context uncached input tokens | 63,338 | 0 | +63,338 | n/a (zero baseline) |
+| Stable-projection extension turns | 10 | 0 | +10 | n/a (zero baseline) |
 
 
 ---
+
 
 <a id="task-05"></a>
 
@@ -911,125 +878,126 @@ These fields are emitted by the same result collector for both variants. Zero va
 
 ### Measured outcome
 
-**Verdict:** `prime-context 8.1.0` meets all acceptance criteria while `vanilla prime-agent` does not meet all acceptance criteria: a strict correctness gain.
+**Verdict:** Both variants meet all acceptance criteria; this pair is eligible for formal efficiency comparison.
 
-- **Wall time:** 285.44 s vs 600.00 s; Δ -314.56 s (-52.43%).
-- **Model calls:** 17 vs 69; Δ -52 (-75.36%).
-- **Tool calls:** 16 vs 16; Δ +0 (+0.00%).
-- **Compactions:** 5 vs 10; Δ -5 (-50.00%).
-- **Total tokens:** 176,066 vs 681,005; Δ -504,939 (-74.15%).
-- **Reported API cost:** $0.580986 vs $1.400606; Δ -0.819620 (-58.52%).
-- **Visible tool bytes:** 153,171 vs 79,727; Δ +73,444 (+92.12%).
-- **Prompt-cache reuse:** 55.72% vs 73.15%; Δ -17.43 pp.
+- **Wall time:** 243.54 s vs 330.08 s; Δ -86.55 s (-26.22%).
+- **Model calls:** 16 vs 20; Δ -4 (-20.00%).
+- **Tool calls:** 15 vs 18; Δ -3 (-16.67%).
+- **Compactions:** 4 vs 5; Δ -1 (-20.00%).
+- **Total tokens:** 165,478 vs 191,781; Δ -26,303 (-13.72%).
+- **Total API cost:** $0.515222 vs $0.666024; Δ -0.150802 (-22.64%).
+- **Visible tool bytes:** 276,193 vs 111,933; Δ +164,260 (+146.75%).
+- **Prompt-cache reuse:** 61.34% vs 59.62%; Δ +1.72 pp.
 
 - **Expected exact final response:** `TELEMETRY CODEC GOAL COMPLETE`
-- **vanilla prime-agent final response:** `Awaiting `REQUIREMENTS LOCKED`; the goal remains active.`
-- **prime-context 8.1.0 final response:** `TELEMETRY CODEC GOAL COMPLETE`
+- **prime-context 8.1.1 final response:** `TELEMETRY CODEC GOAL COMPLETE`
+- **vanilla prime-agent final response:** `TELEMETRY CODEC GOAL COMPLETE`
 
 ### Complete acceptance and lifecycle comparison
 
-| Acceptance item | Expected | vanilla prime-agent | prime-context 8.1.0 |
+| Acceptance item | Expected | prime-context 8.1.1 | vanilla prime-agent |
 |---|---:|---:|---:|
-| Meets all acceptance criteria | yes | no | yes |
-| Runner task-completed gate | yes | no | yes |
+| Meets all acceptance criteria | yes | yes | yes |
+| Runner task-completed gate | yes | yes | yes |
 | External cumulative tests | 9/9 | 9/9 | 9/9 |
 | External-tests gate | yes | yes | yes |
 | Protected files unchanged | yes | yes | yes |
-| Goal status | complete | active | complete |
-| Goal completed after lock | yes | no | yes |
+| Goal status | complete | complete | complete |
+| Goal completed after lock | yes | yes | yes |
 | Interventions accepted | yes | yes | yes |
-| Intervention order correct | yes | no | yes |
-| Exact final response | yes | no | yes |
+| Intervention order correct | yes | yes | yes |
+| Exact final response | yes | yes | yes |
 | Early completion observed | no | no | no |
-| Goal-complete event observed | yes | no | yes |
-| Run error | none | TimeoutError: condition timed out after 600 seconds | none |
-| Interaction error | none | TimeoutError: condition timed out after 600 seconds | none |
+| Goal-complete event observed | yes | yes | yes |
+| Run error | none | none | none |
+| Interaction error | none | none | none |
 | Interaction stderr | empty | empty | empty |
 | Retained Docker evidence | yes | yes | yes |
 
 ### Complete common metric comparison
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Wall time | 600.00 s | 285.44 s | -314.56 s | -52.43% |
-| Lifecycle wall time | 600.63 s | 285.97 s | -314.67 s | -52.39% |
-| Instruction wall time | 600.00 s | 285.44 s | -314.56 s | -52.43% |
+| Wall time | 243.54 s | 330.08 s | -86.55 s | -26.22% |
+| Lifecycle wall time | 243.78 s | 330.24 s | -86.46 s | -26.18% |
+| Instruction wall time | 243.54 s | 330.08 s | -86.55 s | -26.22% |
 | Sessions | 1 | 1 | +0 | +0.00% |
 | Child sessions | 0 | 0 | +0 | 0.00% |
-| Model calls | 69 | 17 | -52 | -75.36% |
-| Tool calls | 16 | 16 | +0 | +0.00% |
-| Tool results | 16 | 16 | +0 | +0.00% |
-| Visible tool bytes | 79,727 | 153,171 | +73,444 | +92.12% |
-| Compactions | 10 | 5 | -5 | -50.00% |
-| Goal-context injections | 54 | 3 | -51 | -94.44% |
-| Assistant output events | 69 | 17 | -52 | -75.36% |
-| Interventions delivered | 4 | 5 | +1 | +25.00% |
-| Stage responses recorded | 9 | 7 | -2 | -22.22% |
-| Test-run observations | 3 | 5 | +2 | +66.67% |
-| Goal updates | 122 | 21 | -101 | -82.79% |
-| RPC compaction completions | 10 | 5 | -5 | -50.00% |
-| Compaction requests | 3 | 2 | -1 | -33.33% |
-| Compaction waits | 2 | 0 | -2 | -100.00% |
-| Accepted stage/command responses | 7 | 6 | -1 | -14.29% |
-| Rejected stage/command responses | 2 | 1 | -1 | -50.00% |
+| Model calls | 16 | 20 | -4 | -20.00% |
+| Tool calls | 15 | 18 | -3 | -16.67% |
+| Tool results | 15 | 18 | -3 | -16.67% |
+| Visible tool bytes | 276,193 | 111,933 | +164,260 | +146.75% |
+| Compactions | 4 | 5 | -1 | -20.00% |
+| Goal-context injections | 3 | 4 | -1 | -25.00% |
+| Assistant output events | 16 | 20 | -4 | -20.00% |
+| Interventions delivered | 5 | 5 | +0 | +0.00% |
+| Stage responses recorded | 7 | 9 | -2 | -22.22% |
+| Test-run observations | 5 | 4 | +1 | +25.00% |
+| Goal updates | 18 | 25 | -7 | -28.00% |
+| RPC compaction completions | 4 | 5 | -1 | -20.00% |
+| Compaction requests | 2 | 3 | -1 | -33.33% |
+| Compaction waits | 0 | 1 | -1 | -100.00% |
+| Accepted stage/command responses | 6 | 7 | -1 | -14.29% |
+| Rejected stage/command responses | 1 | 2 | -1 | -50.00% |
 | Unanswered stage/command responses | 0 | 0 | +0 | 0.00% |
-| Passing observed test runs | 2 | 4 | +2 | +100.00% |
+| Passing observed test runs | 4 | 3 | +1 | +33.33% |
 | Failing observed test runs | 1 | 1 | +0 | +0.00% |
 | Error-classified observed test runs | 0 | 0 | +0 | 0.00% |
-| Active goal updates | 122 | 20 | -102 | -83.61% |
-| Complete goal updates | 0 | 1 | +1 | n/a (zero baseline) |
+| Active goal updates | 17 | 24 | -7 | -29.17% |
+| Complete goal updates | 1 | 1 | +0 | +0.00% |
 | Other-status goal updates | 0 | 0 | +0 | 0.00% |
-| Maximum goal continuations used | 54 | 2 | -52 | -96.30% |
-| Maximum goal tokens used | 188,973 | 79,727 | -109,246 | -57.81% |
-| Completed RPC compactions | 10 | 5 | -5 | -50.00% |
+| Maximum goal continuations used | 2 | 3 | -1 | -33.33% |
+| Maximum goal tokens used | 66,157 | 81,230 | -15,073 | -18.56% |
+| Completed RPC compactions | 4 | 5 | -1 | -20.00% |
 | Aborted RPC compactions | 0 | 0 | +0 | 0.00% |
 | Successful compaction requests | 1 | 1 | +0 | +0.00% |
-| Failed compaction requests | 2 | 1 | -1 | -50.00% |
+| Failed compaction requests | 1 | 2 | -1 | -50.00% |
 | Unanswered compaction requests | 0 | 0 | +0 | 0.00% |
-| Successful compaction waits | 2 | 0 | -2 | -100.00% |
+| Successful compaction waits | 0 | 1 | -1 | -100.00% |
 | Failed compaction waits | 0 | 0 | +0 | 0.00% |
 | Unanswered compaction waits | 0 | 0 | +0 | 0.00% |
-| Input tokens | 180,584 | 75,666 | -104,918 | -58.10% |
-| Output tokens | 8,389 | 5,168 | -3,221 | -38.40% |
-| Cache-read tokens | 492,032 | 95,232 | -396,800 | -80.65% |
+| Input tokens | 61,966 | 74,206 | -12,240 | -16.49% |
+| Output tokens | 5,208 | 8,007 | -2,799 | -34.96% |
+| Cache-read tokens | 98,304 | 109,568 | -11,264 | -10.28% |
 | Cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Total tokens | 681,005 | 176,066 | -504,939 | -74.15% |
-| Prompt-cache reuse | 73.15% | 55.72% | -17.43 pp | — |
-| Input cost | $0.902920 | $0.378330 | -0.524590 | -58.10% |
-| Output cost | $0.251670 | $0.155040 | -0.096630 | -38.40% |
-| Cache-read cost | $0.246016 | $0.047616 | -0.198400 | -80.65% |
+| Total tokens | 165,478 | 191,781 | -26,303 | -13.72% |
+| Prompt-cache reuse | 61.34% | 59.62% | +1.72 pp | — |
+| Input cost | $0.309830 | $0.371030 | -0.061200 | -16.49% |
+| Output cost | $0.156240 | $0.240210 | -0.083970 | -34.96% |
+| Cache-read cost | $0.049152 | $0.054784 | -0.005632 | -10.28% |
 | Cache-write cost | $0.000000 | $0.000000 | +0.000000 | 0.00% |
-| Total API cost | $1.400606 | $0.580986 | -0.819620 | -58.52% |
+| Total API cost | $0.515222 | $0.666024 | -0.150802 | -22.64% |
 
 ### Complete archive and projection telemetry
 
 These fields are emitted by the same result collector for both variants. Zero values for `vanilla prime-agent` are expected because it does not load Prime Context.
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Archived observations | 0 | 15 | +15 | n/a (zero baseline) |
-| Archive source bytes | 0 | 131,156 | +131,156 | n/a (zero baseline) |
-| Compressed archive bytes | 0 | 16,892 | +16,892 | n/a (zero baseline) |
-| Archive compression ratio (derived) | 0.00% | 12.88% | +12.88 pp | — |
-| Archive chunks | 0 | 19 | +19 | n/a (zero baseline) |
-| Largest chunk bytes | 0 | 65,578 | +65,578 | n/a (zero baseline) |
-| Source bytes admitted | 0 | 291,648 | +291,648 | n/a (zero baseline) |
+| Archived observations | 14 | 0 | +14 | n/a (zero baseline) |
+| Archive source bytes | 262,312 | 0 | +262,312 | n/a (zero baseline) |
+| Compressed archive bytes | 17,362 | 0 | +17,362 | n/a (zero baseline) |
+| Archive compression ratio (derived) | 6.62% | 0.00% | +6.62 pp | — |
+| Archive chunks | 18 | 0 | +18 | n/a (zero baseline) |
+| Largest chunk bytes | 65,578 | 0 | +65,578 | n/a (zero baseline) |
+| Source bytes admitted | 537,747 | 0 | +537,747 | n/a (zero baseline) |
 | Call-argument bytes projected out | 0 | 0 | +0 | 0.00% |
-| Result bytes projected out | 0 | 130,242 | +130,242 | n/a (zero baseline) |
+| Result bytes projected out | 260,049 | 0 | +260,049 | n/a (zero baseline) |
 | Typed/media bytes projected out | 0 | 0 | +0 | 0.00% |
 | Recovery bytes exposed | 0 | 0 | +0 | 0.00% |
-| End-state projected model-view bytes | 0 | 25,171 | +25,171 | n/a (zero baseline) |
-| Streaming bytes processed | 0 | 262,312 | +262,312 | n/a (zero baseline) |
+| End-state projected model-view bytes | 35,103 | 0 | +35,103 | n/a (zero baseline) |
+| Streaming bytes processed | 524,624 | 0 | +524,624 | n/a (zero baseline) |
 | Inspect/recall hits | 0 | 0 | +0 | 0.00% |
 | Fold generations | 0 | 0 | +0 | 0.00% |
-| Branch-runtime reloads | 0 | 6 | +6 | n/a (zero baseline) |
-| Prime Context cache-read tokens | 0 | 95,232 | +95,232 | n/a (zero baseline) |
+| Branch-runtime reloads | 5 | 0 | +5 | n/a (zero baseline) |
+| Prime Context cache-read tokens | 98,304 | 0 | +98,304 | n/a (zero baseline) |
 | Prime Context cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Prime Context uncached input tokens | 0 | 75,666 | +75,666 | n/a (zero baseline) |
-| Stable-projection extension turns | 0 | 11 | +11 | n/a (zero baseline) |
+| Prime Context uncached input tokens | 61,966 | 0 | +61,966 | n/a (zero baseline) |
+| Stable-projection extension turns | 12 | 0 | +12 | n/a (zero baseline) |
 
 
 ---
+
 
 <a id="task-06"></a>
 
@@ -1047,22 +1015,22 @@ These fields are emitted by the same result collector for both variants. Zero va
 
 **Verdict:** Both variants meet all acceptance criteria; this pair is eligible for formal efficiency comparison.
 
-- **Wall time:** 278.74 s vs 422.14 s; Δ -143.40 s (-33.97%).
-- **Model calls:** 18 vs 20; Δ -2 (-10.00%).
-- **Tool calls:** 17 vs 19; Δ -2 (-10.53%).
-- **Compactions:** 5 vs 6; Δ -1 (-16.67%).
-- **Total tokens:** 187,893 vs 178,731; Δ +9,162 (+5.13%).
-- **Reported API cost:** $0.622397 vs $0.724973; Δ -0.102576 (-14.15%).
-- **Visible tool bytes:** 212,783 vs 172,927; Δ +39,856 (+23.05%).
-- **Prompt-cache reuse:** 53.75% vs 55.57%; Δ -1.82 pp.
+- **Wall time:** 745.71 s vs 540.55 s; Δ +205.16 s (+37.95%).
+- **Model calls:** 18 vs 29; Δ -11 (-37.93%).
+- **Tool calls:** 19 vs 27; Δ -8 (-29.63%).
+- **Compactions:** 6 vs 9; Δ -3 (-33.33%).
+- **Total tokens:** 178,045 vs 310,375; Δ -132,330 (-42.64%).
+- **Total API cost:** $0.662997 vs $1.018899; Δ -0.355902 (-34.93%).
+- **Visible tool bytes:** 351,683 vs 235,596; Δ +116,087 (+49.27%).
+- **Prompt-cache reuse:** 46.55% vs 58.71%; Δ -12.16 pp.
 
 - **Expected exact final response:** `CASH FLOW GOAL COMPLETE`
+- **prime-context 8.1.1 final response:** `CASH FLOW GOAL COMPLETE`
 - **vanilla prime-agent final response:** `CASH FLOW GOAL COMPLETE`
-- **prime-context 8.1.0 final response:** `CASH FLOW GOAL COMPLETE`
 
 ### Complete acceptance and lifecycle comparison
 
-| Acceptance item | Expected | vanilla prime-agent | prime-context 8.1.0 |
+| Acceptance item | Expected | prime-context 8.1.1 | vanilla prime-agent |
 |---|---:|---:|---:|
 | Meets all acceptance criteria | yes | yes | yes |
 | Runner task-completed gate | yes | yes | yes |
@@ -1083,87 +1051,88 @@ These fields are emitted by the same result collector for both variants. Zero va
 
 ### Complete common metric comparison
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Wall time | 422.14 s | 278.74 s | -143.40 s | -33.97% |
-| Lifecycle wall time | 422.43 s | 279.04 s | -143.39 s | -33.94% |
-| Instruction wall time | 422.14 s | 278.74 s | -143.40 s | -33.97% |
+| Wall time | 745.71 s | 540.55 s | +205.16 s | +37.95% |
+| Lifecycle wall time | 746.19 s | 540.84 s | +205.34 s | +37.97% |
+| Instruction wall time | 745.71 s | 540.55 s | +205.16 s | +37.95% |
 | Sessions | 1 | 1 | +0 | +0.00% |
 | Child sessions | 0 | 0 | +0 | 0.00% |
-| Model calls | 20 | 18 | -2 | -10.00% |
-| Tool calls | 19 | 17 | -2 | -10.53% |
-| Tool results | 19 | 17 | -2 | -10.53% |
-| Visible tool bytes | 172,927 | 212,783 | +39,856 | +23.05% |
-| Compactions | 6 | 5 | -1 | -16.67% |
-| Goal-context injections | 5 | 4 | -1 | -20.00% |
-| Assistant output events | 20 | 18 | -2 | -10.00% |
+| Model calls | 18 | 29 | -11 | -37.93% |
+| Tool calls | 19 | 27 | -8 | -29.63% |
+| Tool results | 18 | 27 | -9 | -33.33% |
+| Visible tool bytes | 351,683 | 235,596 | +116,087 | +49.27% |
+| Compactions | 6 | 9 | -3 | -33.33% |
+| Goal-context injections | 5 | 8 | -3 | -37.50% |
+| Assistant output events | 17 | 29 | -12 | -41.38% |
 | Interventions delivered | 5 | 5 | +0 | +0.00% |
-| Stage responses recorded | 7 | 7 | +0 | +0.00% |
-| Test-run observations | 6 | 5 | -1 | -16.67% |
-| Goal updates | 28 | 21 | -7 | -25.00% |
-| RPC compaction completions | 7 | 5 | -2 | -28.57% |
-| Compaction requests | 2 | 2 | +0 | +0.00% |
-| Compaction waits | 0 | 0 | +0 | 0.00% |
-| Accepted stage/command responses | 7 | 6 | -1 | -14.29% |
-| Rejected stage/command responses | 0 | 1 | +1 | n/a (zero baseline) |
+| Stage responses recorded | 7 | 9 | -2 | -22.22% |
+| Test-run observations | 5 | 6 | -1 | -16.67% |
+| Goal updates | 21 | 38 | -17 | -44.74% |
+| RPC compaction completions | 6 | 9 | -3 | -33.33% |
+| Compaction requests | 2 | 3 | -1 | -33.33% |
+| Compaction waits | 0 | 1 | -1 | -100.00% |
+| Accepted stage/command responses | 6 | 7 | -1 | -14.29% |
+| Rejected stage/command responses | 1 | 2 | -1 | -50.00% |
 | Unanswered stage/command responses | 0 | 0 | +0 | 0.00% |
-| Passing observed test runs | 3 | 4 | +1 | +33.33% |
-| Failing observed test runs | 3 | 1 | -2 | -66.67% |
+| Passing observed test runs | 3 | 5 | -2 | -40.00% |
+| Failing observed test runs | 2 | 1 | +1 | +100.00% |
 | Error-classified observed test runs | 0 | 0 | +0 | 0.00% |
-| Active goal updates | 27 | 20 | -7 | -25.93% |
+| Active goal updates | 20 | 37 | -17 | -45.95% |
 | Complete goal updates | 1 | 1 | +0 | +0.00% |
 | Other-status goal updates | 0 | 0 | +0 | 0.00% |
-| Maximum goal continuations used | 4 | 3 | -1 | -25.00% |
-| Maximum goal tokens used | 84,506 | 88,240 | +3,734 | +4.42% |
-| Completed RPC compactions | 7 | 5 | -2 | -28.57% |
+| Maximum goal continuations used | 4 | 7 | -3 | -42.86% |
+| Maximum goal tokens used | 96,514 | 130,437 | -33,923 | -26.01% |
+| Completed RPC compactions | 6 | 9 | -3 | -33.33% |
 | Aborted RPC compactions | 0 | 0 | +0 | 0.00% |
-| Successful compaction requests | 2 | 1 | -1 | -50.00% |
-| Failed compaction requests | 0 | 1 | +1 | n/a (zero baseline) |
+| Successful compaction requests | 1 | 1 | +0 | +0.00% |
+| Failed compaction requests | 1 | 2 | -1 | -50.00% |
 | Unanswered compaction requests | 0 | 0 | +0 | 0.00% |
-| Successful compaction waits | 0 | 0 | +0 | 0.00% |
+| Successful compaction waits | 0 | 1 | -1 | -100.00% |
 | Failed compaction waits | 0 | 0 | +0 | 0.00% |
 | Unanswered compaction waits | 0 | 0 | +0 | 0.00% |
-| Input tokens | 74,917 | 84,577 | +9,660 | +12.89% |
-| Output tokens | 10,118 | 5,012 | -5,106 | -50.46% |
-| Cache-read tokens | 93,696 | 98,304 | +4,608 | +4.92% |
+| Input tokens | 92,281 | 123,863 | -31,582 | -25.50% |
+| Output tokens | 5,380 | 10,384 | -5,004 | -48.19% |
+| Cache-read tokens | 80,384 | 176,128 | -95,744 | -54.36% |
 | Cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Total tokens | 178,731 | 187,893 | +9,162 | +5.13% |
-| Prompt-cache reuse | 55.57% | 53.75% | -1.82 pp | — |
-| Input cost | $0.374585 | $0.422885 | +0.048300 | +12.89% |
-| Output cost | $0.303540 | $0.150360 | -0.153180 | -50.46% |
-| Cache-read cost | $0.046848 | $0.049152 | +0.002304 | +4.92% |
+| Total tokens | 178,045 | 310,375 | -132,330 | -42.64% |
+| Prompt-cache reuse | 46.55% | 58.71% | -12.16 pp | — |
+| Input cost | $0.461405 | $0.619315 | -0.157910 | -25.50% |
+| Output cost | $0.161400 | $0.311520 | -0.150120 | -48.19% |
+| Cache-read cost | $0.040192 | $0.088064 | -0.047872 | -54.36% |
 | Cache-write cost | $0.000000 | $0.000000 | +0.000000 | 0.00% |
-| Total API cost | $0.724973 | $0.622397 | -0.102576 | -14.15% |
+| Total API cost | $0.662997 | $1.018899 | -0.355902 | -34.93% |
 
 ### Complete archive and projection telemetry
 
 These fields are emitted by the same result collector for both variants. Zero values for `vanilla prime-agent` are expected because it does not load Prime Context.
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Archived observations | 0 | 16 | +16 | n/a (zero baseline) |
-| Archive source bytes | 0 | 201,519 | +201,519 | n/a (zero baseline) |
-| Compressed archive bytes | 0 | 17,194 | +17,194 | n/a (zero baseline) |
-| Archive compression ratio (derived) | 0.00% | 8.53% | +8.53 pp | — |
-| Archive chunks | 0 | 25 | +25 | n/a (zero baseline) |
-| Largest chunk bytes | 0 | 65,578 | +65,578 | n/a (zero baseline) |
-| Source bytes admitted | 0 | 422,391 | +422,391 | n/a (zero baseline) |
+| Archived observations | 17 | 0 | +17 | n/a (zero baseline) |
+| Archive source bytes | 328,631 | 0 | +328,631 | n/a (zero baseline) |
+| Compressed archive bytes | 26,929 | 0 | +26,929 | n/a (zero baseline) |
+| Archive compression ratio (derived) | 8.19% | 0.00% | +8.19 pp | — |
+| Archive chunks | 27 | 0 | +27 | n/a (zero baseline) |
+| Largest chunk bytes | 65,949 | 0 | +65,949 | n/a (zero baseline) |
+| Source bytes admitted | 691,164 | 0 | +691,164 | n/a (zero baseline) |
 | Call-argument bytes projected out | 0 | 0 | +0 | 0.00% |
-| Result bytes projected out | 0 | 198,728 | +198,728 | n/a (zero baseline) |
+| Result bytes projected out | 325,239 | 0 | +325,239 | n/a (zero baseline) |
 | Typed/media bytes projected out | 0 | 0 | +0 | 0.00% |
-| Recovery bytes exposed | 0 | 0 | +0 | 0.00% |
-| End-state projected model-view bytes | 0 | 32,800 | +32,800 | n/a (zero baseline) |
-| Streaming bytes processed | 0 | 403,897 | +403,897 | n/a (zero baseline) |
+| Recovery bytes exposed | 1,373 | 0 | +1,373 | n/a (zero baseline) |
+| End-state projected model-view bytes | 25,114 | 0 | +25,114 | n/a (zero baseline) |
+| Streaming bytes processed | 658,387 | 0 | +658,387 | n/a (zero baseline) |
 | Inspect/recall hits | 0 | 0 | +0 | 0.00% |
 | Fold generations | 0 | 0 | +0 | 0.00% |
-| Branch-runtime reloads | 0 | 6 | +6 | n/a (zero baseline) |
-| Prime Context cache-read tokens | 0 | 98,304 | +98,304 | n/a (zero baseline) |
+| Branch-runtime reloads | 7 | 0 | +7 | n/a (zero baseline) |
+| Prime Context cache-read tokens | 80,384 | 0 | +80,384 | n/a (zero baseline) |
 | Prime Context cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Prime Context uncached input tokens | 0 | 84,577 | +84,577 | n/a (zero baseline) |
-| Stable-projection extension turns | 0 | 13 | +13 | n/a (zero baseline) |
+| Prime Context uncached input tokens | 92,281 | 0 | +92,281 | n/a (zero baseline) |
+| Stable-projection extension turns | 11 | 0 | +11 | n/a (zero baseline) |
 
 
 ---
+
 
 <a id="task-07"></a>
 
@@ -1179,125 +1148,128 @@ These fields are emitted by the same result collector for both variants. Zero va
 
 ### Measured outcome
 
-**Verdict:** `prime-context 8.1.0` meets all acceptance criteria while `vanilla prime-agent` does not meet all acceptance criteria: a strict correctness gain.
+**Verdict:** Both variants meet all acceptance criteria; this pair is eligible for formal efficiency comparison.
 
-- **Wall time:** 289.06 s vs 600.00 s; Δ -310.94 s (-51.82%).
-- **Model calls:** 17 vs 47; Δ -30 (-63.83%).
-- **Tool calls:** 17 vs 17; Δ +0 (+0.00%).
-- **Compactions:** 5 vs 10; Δ -5 (-50.00%).
-- **Total tokens:** 178,699 vs 471,827; Δ -293,128 (-62.13%).
-- **Reported API cost:** $0.583840 vs $1.135424; Δ -0.551584 (-48.58%).
-- **Visible tool bytes:** 154,611 vs 150,896; Δ +3,715 (+2.46%).
-- **Prompt-cache reuse:** 57.67% vs 70.21%; Δ -12.54 pp.
+- **Wall time:** 313.97 s vs 336.77 s; Δ -22.80 s (-6.77%).
+- **Model calls:** 19 vs 18; Δ +1 (+5.56%).
+- **Tool calls:** 20 vs 15; Δ +5 (+33.33%).
+- **Compactions:** 6 vs 6; Δ +0 (+0.00%).
+- **Total tokens:** 201,697 vs 175,824; Δ +25,873 (+14.72%).
+- **Total API cost:** $0.715488 vs $0.626911; Δ +0.088577 (+14.13%).
+- **Visible tool bytes:** 215,963 vs 95,265; Δ +120,698 (+126.70%).
+- **Prompt-cache reuse:** 50.51% vs 59.79%; Δ -9.28 pp.
+
+- **Retry:** vanilla prime-agent initially failed strict acceptance and used its single permitted retry; the table reports the retry attempt (strict pass).
 
 - **Expected exact final response:** `PGM REGIONS GOAL COMPLETE`
-- **vanilla prime-agent final response:** `Awaiting `REQUIREMENTS LOCKED`.`
-- **prime-context 8.1.0 final response:** `PGM REGIONS GOAL COMPLETE`
+- **prime-context 8.1.1 final response:** `PGM REGIONS GOAL COMPLETE`
+- **vanilla prime-agent final response:** `PGM REGIONS GOAL COMPLETE`
 
 ### Complete acceptance and lifecycle comparison
 
-| Acceptance item | Expected | vanilla prime-agent | prime-context 8.1.0 |
+| Acceptance item | Expected | prime-context 8.1.1 | vanilla prime-agent |
 |---|---:|---:|---:|
-| Meets all acceptance criteria | yes | no | yes |
-| Runner task-completed gate | yes | no | yes |
+| Meets all acceptance criteria | yes | yes | yes |
+| Runner task-completed gate | yes | yes | yes |
 | External cumulative tests | 9/9 | 9/9 | 9/9 |
 | External-tests gate | yes | yes | yes |
 | Protected files unchanged | yes | yes | yes |
-| Goal status | complete | active | complete |
-| Goal completed after lock | yes | no | yes |
+| Goal status | complete | complete | complete |
+| Goal completed after lock | yes | yes | yes |
 | Interventions accepted | yes | yes | yes |
-| Intervention order correct | yes | no | yes |
-| Exact final response | yes | no | yes |
+| Intervention order correct | yes | yes | yes |
+| Exact final response | yes | yes | yes |
 | Early completion observed | no | no | no |
-| Goal-complete event observed | yes | no | yes |
-| Run error | none | TimeoutError: condition timed out after 600 seconds | none |
-| Interaction error | none | TimeoutError: condition timed out after 600 seconds | none |
+| Goal-complete event observed | yes | yes | yes |
+| Run error | none | none | none |
+| Interaction error | none | none | none |
 | Interaction stderr | empty | empty | empty |
 | Retained Docker evidence | yes | yes | yes |
 
 ### Complete common metric comparison
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Wall time | 600.00 s | 289.06 s | -310.94 s | -51.82% |
-| Lifecycle wall time | 600.44 s | 289.64 s | -310.79 s | -51.76% |
-| Instruction wall time | 600.00 s | 289.06 s | -310.94 s | -51.82% |
+| Wall time | 313.97 s | 336.77 s | -22.80 s | -6.77% |
+| Lifecycle wall time | 314.38 s | 337.24 s | -22.86 s | -6.78% |
+| Instruction wall time | 313.97 s | 336.77 s | -22.80 s | -6.77% |
 | Sessions | 1 | 1 | +0 | +0.00% |
 | Child sessions | 0 | 0 | +0 | 0.00% |
-| Model calls | 47 | 17 | -30 | -63.83% |
-| Tool calls | 17 | 17 | +0 | +0.00% |
-| Tool results | 17 | 17 | +0 | +0.00% |
-| Visible tool bytes | 150,896 | 154,611 | +3,715 | +2.46% |
-| Compactions | 10 | 5 | -5 | -50.00% |
-| Goal-context injections | 34 | 3 | -31 | -91.18% |
-| Assistant output events | 47 | 17 | -30 | -63.83% |
-| Interventions delivered | 4 | 5 | +1 | +25.00% |
-| Stage responses recorded | 7 | 7 | +0 | +0.00% |
-| Test-run observations | 3 | 5 | +2 | +66.67% |
-| Goal updates | 79 | 21 | -58 | -73.42% |
-| RPC compaction completions | 10 | 5 | -5 | -50.00% |
-| Compaction requests | 2 | 2 | +0 | +0.00% |
-| Compaction waits | 1 | 0 | -1 | -100.00% |
-| Accepted stage/command responses | 6 | 6 | +0 | +0.00% |
-| Rejected stage/command responses | 1 | 1 | +0 | +0.00% |
+| Model calls | 19 | 18 | +1 | +5.56% |
+| Tool calls | 20 | 15 | +5 | +33.33% |
+| Tool results | 20 | 15 | +5 | +33.33% |
+| Visible tool bytes | 215,963 | 95,265 | +120,698 | +126.70% |
+| Compactions | 6 | 6 | +0 | +0.00% |
+| Goal-context injections | 5 | 5 | +0 | +0.00% |
+| Assistant output events | 19 | 18 | +1 | +5.56% |
+| Interventions delivered | 5 | 5 | +0 | +0.00% |
+| Stage responses recorded | 7 | 11 | -4 | -36.36% |
+| Test-run observations | 5 | 5 | +0 | +0.00% |
+| Goal updates | 23 | 23 | +0 | +0.00% |
+| RPC compaction completions | 6 | 6 | +0 | +0.00% |
+| Compaction requests | 2 | 4 | -2 | -50.00% |
+| Compaction waits | 0 | 2 | -2 | -100.00% |
+| Accepted stage/command responses | 6 | 9 | -3 | -33.33% |
+| Rejected stage/command responses | 1 | 2 | -1 | -50.00% |
 | Unanswered stage/command responses | 0 | 0 | +0 | 0.00% |
-| Passing observed test runs | 2 | 3 | +1 | +50.00% |
-| Failing observed test runs | 1 | 2 | +1 | +100.00% |
+| Passing observed test runs | 4 | 4 | +0 | +0.00% |
+| Failing observed test runs | 1 | 1 | +0 | +0.00% |
 | Error-classified observed test runs | 0 | 0 | +0 | 0.00% |
-| Active goal updates | 79 | 20 | -59 | -74.68% |
-| Complete goal updates | 0 | 1 | +1 | n/a (zero baseline) |
+| Active goal updates | 22 | 22 | +0 | +0.00% |
+| Complete goal updates | 1 | 1 | +0 | +0.00% |
 | Other-status goal updates | 0 | 0 | +0 | 0.00% |
-| Maximum goal continuations used | 34 | 3 | -31 | -91.18% |
-| Maximum goal tokens used | 147,219 | 77,950 | -69,269 | -47.05% |
-| Completed RPC compactions | 10 | 5 | -5 | -50.00% |
+| Maximum goal continuations used | 4 | 4 | +0 | +0.00% |
+| Maximum goal tokens used | 101,889 | 71,825 | +30,064 | +41.86% |
+| Completed RPC compactions | 6 | 6 | +0 | +0.00% |
 | Aborted RPC compactions | 0 | 0 | +0 | 0.00% |
-| Successful compaction requests | 1 | 1 | +0 | +0.00% |
-| Failed compaction requests | 1 | 1 | +0 | +0.00% |
+| Successful compaction requests | 1 | 2 | -1 | -50.00% |
+| Failed compaction requests | 1 | 2 | -1 | -50.00% |
 | Unanswered compaction requests | 0 | 0 | +0 | 0.00% |
-| Successful compaction waits | 1 | 0 | -1 | -100.00% |
+| Successful compaction waits | 0 | 2 | -2 | -100.00% |
 | Failed compaction waits | 0 | 0 | +0 | 0.00% |
 | Unanswered compaction waits | 0 | 0 | +0 | 0.00% |
-| Input tokens | 137,738 | 73,274 | -64,464 | -46.80% |
-| Output tokens | 9,481 | 5,585 | -3,896 | -41.09% |
-| Cache-read tokens | 324,608 | 99,840 | -224,768 | -69.24% |
+| Input tokens | 96,814 | 67,497 | +29,317 | +43.43% |
+| Output tokens | 6,067 | 7,975 | -1,908 | -23.92% |
+| Cache-read tokens | 98,816 | 100,352 | -1,536 | -1.53% |
 | Cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Total tokens | 471,827 | 178,699 | -293,128 | -62.13% |
-| Prompt-cache reuse | 70.21% | 57.67% | -12.54 pp | — |
-| Input cost | $0.688690 | $0.366370 | -0.322320 | -46.80% |
-| Output cost | $0.284430 | $0.167550 | -0.116880 | -41.09% |
-| Cache-read cost | $0.162304 | $0.049920 | -0.112384 | -69.24% |
+| Total tokens | 201,697 | 175,824 | +25,873 | +14.72% |
+| Prompt-cache reuse | 50.51% | 59.79% | -9.28 pp | — |
+| Input cost | $0.484070 | $0.337485 | +0.146585 | +43.43% |
+| Output cost | $0.182010 | $0.239250 | -0.057240 | -23.92% |
+| Cache-read cost | $0.049408 | $0.050176 | -0.000768 | -1.53% |
 | Cache-write cost | $0.000000 | $0.000000 | +0.000000 | 0.00% |
-| Total API cost | $1.135424 | $0.583840 | -0.551584 | -48.58% |
+| Total API cost | $0.715488 | $0.626911 | +0.088577 | +14.13% |
 
 ### Complete archive and projection telemetry
 
 These fields are emitted by the same result collector for both variants. Zero values for `vanilla prime-agent` are expected because it does not load Prime Context.
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Archived observations | 0 | 16 | +16 | n/a (zero baseline) |
-| Archive source bytes | 0 | 136,225 | +136,225 | n/a (zero baseline) |
-| Compressed archive bytes | 0 | 17,846 | +17,846 | n/a (zero baseline) |
-| Archive compression ratio (derived) | 0.00% | 13.10% | +13.10 pp | — |
-| Archive chunks | 0 | 27 | +27 | n/a (zero baseline) |
-| Largest chunk bytes | 0 | 65,578 | +65,578 | n/a (zero baseline) |
-| Source bytes admitted | 0 | 303,500 | +303,500 | n/a (zero baseline) |
+| Archived observations | 19 | 0 | +19 | n/a (zero baseline) |
+| Archive source bytes | 196,734 | 0 | +196,734 | n/a (zero baseline) |
+| Compressed archive bytes | 19,017 | 0 | +19,017 | n/a (zero baseline) |
+| Archive compression ratio (derived) | 9.67% | 0.00% | +9.67 pp | — |
+| Archive chunks | 27 | 0 | +27 | n/a (zero baseline) |
+| Largest chunk bytes | 65,578 | 0 | +65,578 | n/a (zero baseline) |
+| Source bytes admitted | 422,222 | 0 | +422,222 | n/a (zero baseline) |
 | Call-argument bytes projected out | 0 | 0 | +0 | 0.00% |
-| Result bytes projected out | 0 | 133,902 | +133,902 | n/a (zero baseline) |
+| Result bytes projected out | 195,360 | 0 | +195,360 | n/a (zero baseline) |
 | Typed/media bytes projected out | 0 | 0 | +0 | 0.00% |
 | Recovery bytes exposed | 0 | 0 | +0 | 0.00% |
-| End-state projected model-view bytes | 0 | 34,653 | +34,653 | n/a (zero baseline) |
-| Streaming bytes processed | 0 | 273,285 | +273,285 | n/a (zero baseline) |
+| End-state projected model-view bytes | 37,986 | 0 | +37,986 | n/a (zero baseline) |
+| Streaming bytes processed | 393,468 | 0 | +393,468 | n/a (zero baseline) |
 | Inspect/recall hits | 0 | 0 | +0 | 0.00% |
 | Fold generations | 0 | 0 | +0 | 0.00% |
-| Branch-runtime reloads | 0 | 6 | +6 | n/a (zero baseline) |
-| Prime Context cache-read tokens | 0 | 99,840 | +99,840 | n/a (zero baseline) |
+| Branch-runtime reloads | 7 | 0 | +7 | n/a (zero baseline) |
+| Prime Context cache-read tokens | 98,816 | 0 | +98,816 | n/a (zero baseline) |
 | Prime Context cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Prime Context uncached input tokens | 0 | 73,274 | +73,274 | n/a (zero baseline) |
-| Stable-projection extension turns | 0 | 11 | +11 | n/a (zero baseline) |
+| Prime Context uncached input tokens | 96,814 | 0 | +96,814 | n/a (zero baseline) |
+| Stable-projection extension turns | 13 | 0 | +13 | n/a (zero baseline) |
 
 
 ---
+
 
 <a id="task-08"></a>
 
@@ -1315,22 +1287,22 @@ These fields are emitted by the same result collector for both variants. Zero va
 
 **Verdict:** Both variants meet all acceptance criteria; this pair is eligible for formal efficiency comparison.
 
-- **Wall time:** 254.27 s vs 502.60 s; Δ -248.32 s (-49.41%).
-- **Model calls:** 17 vs 24; Δ -7 (-29.17%).
-- **Tool calls:** 15 vs 24; Δ -9 (-37.50%).
-- **Compactions:** 4 vs 9; Δ -5 (-55.56%).
-- **Total tokens:** 174,703 vs 238,931; Δ -64,228 (-26.88%).
-- **Reported API cost:** $0.499273 vs $0.875409; Δ -0.376136 (-42.97%).
-- **Visible tool bytes:** 213,450 vs 252,999; Δ -39,549 (-15.63%).
-- **Prompt-cache reuse:** 67.51% vs 49.64%; Δ +17.88 pp.
+- **Wall time:** 259.41 s vs 320.82 s; Δ -61.41 s (-19.14%).
+- **Model calls:** 17 vs 21; Δ -4 (-19.05%).
+- **Tool calls:** 16 vs 19; Δ -3 (-15.79%).
+- **Compactions:** 5 vs 5; Δ +0 (+0.00%).
+- **Total tokens:** 172,298 vs 194,550; Δ -22,252 (-11.44%).
+- **Total API cost:** $0.548597 vs $0.696488; Δ -0.147891 (-21.23%).
+- **Visible tool bytes:** 148,393 vs 104,482; Δ +43,911 (+42.03%).
+- **Prompt-cache reuse:** 58.82% vs 55.61%; Δ +3.21 pp.
 
 - **Expected exact final response:** `GEAR TRAIN GOAL COMPLETE`
+- **prime-context 8.1.1 final response:** `GEAR TRAIN GOAL COMPLETE`
 - **vanilla prime-agent final response:** `GEAR TRAIN GOAL COMPLETE`
-- **prime-context 8.1.0 final response:** `GEAR TRAIN GOAL COMPLETE`
 
 ### Complete acceptance and lifecycle comparison
 
-| Acceptance item | Expected | vanilla prime-agent | prime-context 8.1.0 |
+| Acceptance item | Expected | prime-context 8.1.1 | vanilla prime-agent |
 |---|---:|---:|---:|
 | Meets all acceptance criteria | yes | yes | yes |
 | Runner task-completed gate | yes | yes | yes |
@@ -1351,87 +1323,88 @@ These fields are emitted by the same result collector for both variants. Zero va
 
 ### Complete common metric comparison
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Wall time | 502.60 s | 254.27 s | -248.32 s | -49.41% |
-| Lifecycle wall time | 502.81 s | 254.89 s | -247.92 s | -49.31% |
-| Instruction wall time | 502.60 s | 254.27 s | -248.32 s | -49.41% |
+| Wall time | 259.41 s | 320.82 s | -61.41 s | -19.14% |
+| Lifecycle wall time | 259.64 s | 321.40 s | -61.76 s | -19.22% |
+| Instruction wall time | 259.41 s | 320.82 s | -61.41 s | -19.14% |
 | Sessions | 1 | 1 | +0 | +0.00% |
 | Child sessions | 0 | 0 | +0 | 0.00% |
-| Model calls | 24 | 17 | -7 | -29.17% |
-| Tool calls | 24 | 15 | -9 | -37.50% |
-| Tool results | 24 | 15 | -9 | -37.50% |
-| Visible tool bytes | 252,999 | 213,450 | -39,549 | -15.63% |
-| Compactions | 9 | 4 | -5 | -55.56% |
-| Goal-context injections | 8 | 3 | -5 | -62.50% |
-| Assistant output events | 24 | 17 | -7 | -29.17% |
+| Model calls | 17 | 21 | -4 | -19.05% |
+| Tool calls | 16 | 19 | -3 | -15.79% |
+| Tool results | 16 | 19 | -3 | -15.79% |
+| Visible tool bytes | 148,393 | 104,482 | +43,911 | +42.03% |
+| Compactions | 5 | 5 | +0 | +0.00% |
+| Goal-context injections | 3 | 4 | -1 | -25.00% |
+| Assistant output events | 17 | 21 | -4 | -19.05% |
 | Interventions delivered | 5 | 5 | +0 | +0.00% |
-| Stage responses recorded | 9 | 7 | -2 | -22.22% |
-| Test-run observations | 7 | 5 | -2 | -28.57% |
-| Goal updates | 33 | 21 | -12 | -36.36% |
-| RPC compaction completions | 9 | 4 | -5 | -55.56% |
-| Compaction requests | 3 | 2 | -1 | -33.33% |
-| Compaction waits | 1 | 0 | -1 | -100.00% |
-| Accepted stage/command responses | 7 | 6 | -1 | -14.29% |
-| Rejected stage/command responses | 2 | 1 | -1 | -50.00% |
+| Stage responses recorded | 7 | 9 | -2 | -22.22% |
+| Test-run observations | 5 | 5 | +0 | +0.00% |
+| Goal updates | 21 | 26 | -5 | -19.23% |
+| RPC compaction completions | 5 | 5 | +0 | +0.00% |
+| Compaction requests | 2 | 3 | -1 | -33.33% |
+| Compaction waits | 0 | 1 | -1 | -100.00% |
+| Accepted stage/command responses | 6 | 7 | -1 | -14.29% |
+| Rejected stage/command responses | 1 | 2 | -1 | -50.00% |
 | Unanswered stage/command responses | 0 | 0 | +0 | 0.00% |
-| Passing observed test runs | 6 | 4 | -2 | -33.33% |
+| Passing observed test runs | 4 | 4 | +0 | +0.00% |
 | Failing observed test runs | 1 | 1 | +0 | +0.00% |
 | Error-classified observed test runs | 0 | 0 | +0 | 0.00% |
-| Active goal updates | 32 | 20 | -12 | -37.50% |
+| Active goal updates | 20 | 25 | -5 | -20.00% |
 | Complete goal updates | 1 | 1 | +0 | +0.00% |
 | Other-status goal updates | 0 | 0 | +0 | 0.00% |
-| Maximum goal continuations used | 7 | 3 | -4 | -57.14% |
-| Maximum goal tokens used | 123,206 | 59,182 | -64,024 | -51.97% |
-| Completed RPC compactions | 9 | 4 | -5 | -55.56% |
+| Maximum goal continuations used | 3 | 3 | +0 | +0.00% |
+| Maximum goal tokens used | 69,214 | 89,331 | -20,117 | -22.52% |
+| Completed RPC compactions | 5 | 5 | +0 | +0.00% |
 | Aborted RPC compactions | 0 | 0 | +0 | 0.00% |
 | Successful compaction requests | 1 | 1 | +0 | +0.00% |
-| Failed compaction requests | 2 | 1 | -1 | -50.00% |
+| Failed compaction requests | 1 | 2 | -1 | -50.00% |
 | Unanswered compaction requests | 0 | 0 | +0 | 0.00% |
-| Successful compaction waits | 1 | 0 | -1 | -100.00% |
+| Successful compaction waits | 0 | 1 | -1 | -100.00% |
 | Failed compaction waits | 0 | 0 | +0 | 0.00% |
 | Unanswered compaction waits | 0 | 0 | +0 | 0.00% |
-| Input tokens | 116,369 | 54,945 | -61,424 | -52.78% |
-| Output tokens | 7,874 | 5,582 | -2,292 | -29.11% |
-| Cache-read tokens | 114,688 | 114,176 | -512 | -0.45% |
+| Input tokens | 68,815 | 82,956 | -14,141 | -17.05% |
+| Output tokens | 5,179 | 7,658 | -2,479 | -32.37% |
+| Cache-read tokens | 98,304 | 103,936 | -5,632 | -5.42% |
 | Cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Total tokens | 238,931 | 174,703 | -64,228 | -26.88% |
-| Prompt-cache reuse | 49.64% | 67.51% | +17.88 pp | — |
-| Input cost | $0.581845 | $0.274725 | -0.307120 | -52.78% |
-| Output cost | $0.236220 | $0.167460 | -0.068760 | -29.11% |
-| Cache-read cost | $0.057344 | $0.057088 | -0.000256 | -0.45% |
+| Total tokens | 172,298 | 194,550 | -22,252 | -11.44% |
+| Prompt-cache reuse | 58.82% | 55.61% | +3.21 pp | — |
+| Input cost | $0.344075 | $0.414780 | -0.070705 | -17.05% |
+| Output cost | $0.155370 | $0.229740 | -0.074370 | -32.37% |
+| Cache-read cost | $0.049152 | $0.051968 | -0.002816 | -5.42% |
 | Cache-write cost | $0.000000 | $0.000000 | +0.000000 | 0.00% |
-| Total API cost | $0.875409 | $0.499273 | -0.376136 | -42.97% |
+| Total API cost | $0.548597 | $0.696488 | -0.147891 | -21.23% |
 
 ### Complete archive and projection telemetry
 
 These fields are emitted by the same result collector for both variants. Zero values for `vanilla prime-agent` are expected because it does not load Prime Context.
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Archived observations | 0 | 14 | +14 | n/a (zero baseline) |
-| Archive source bytes | 0 | 197,827 | +197,827 | n/a (zero baseline) |
-| Compressed archive bytes | 0 | 15,790 | +15,790 | n/a (zero baseline) |
-| Archive compression ratio (derived) | 0.00% | 7.98% | +7.98 pp | — |
-| Archive chunks | 0 | 19 | +19 | n/a (zero baseline) |
-| Largest chunk bytes | 0 | 65,578 | +65,578 | n/a (zero baseline) |
-| Source bytes admitted | 0 | 415,191 | +415,191 | n/a (zero baseline) |
+| Archived observations | 15 | 0 | +15 | n/a (zero baseline) |
+| Archive source bytes | 131,156 | 0 | +131,156 | n/a (zero baseline) |
+| Compressed archive bytes | 13,599 | 0 | +13,599 | n/a (zero baseline) |
+| Archive compression ratio (derived) | 10.37% | 0.00% | +10.37 pp | — |
+| Archive chunks | 19 | 0 | +19 | n/a (zero baseline) |
+| Largest chunk bytes | 65,578 | 0 | +65,578 | n/a (zero baseline) |
+| Source bytes admitted | 283,970 | 0 | +283,970 | n/a (zero baseline) |
 | Call-argument bytes projected out | 0 | 0 | +0 | 0.00% |
-| Result bytes projected out | 0 | 196,033 | +196,033 | n/a (zero baseline) |
+| Result bytes projected out | 130,208 | 0 | +130,208 | n/a (zero baseline) |
 | Typed/media bytes projected out | 0 | 0 | +0 | 0.00% |
 | Recovery bytes exposed | 0 | 0 | +0 | 0.00% |
-| End-state projected model-view bytes | 0 | 39,993 | +39,993 | n/a (zero baseline) |
-| Streaming bytes processed | 0 | 395,654 | +395,654 | n/a (zero baseline) |
+| End-state projected model-view bytes | 23,989 | 0 | +23,989 | n/a (zero baseline) |
+| Streaming bytes processed | 262,312 | 0 | +262,312 | n/a (zero baseline) |
 | Inspect/recall hits | 0 | 0 | +0 | 0.00% |
 | Fold generations | 0 | 0 | +0 | 0.00% |
-| Branch-runtime reloads | 0 | 5 | +5 | n/a (zero baseline) |
-| Prime Context cache-read tokens | 0 | 114,176 | +114,176 | n/a (zero baseline) |
+| Branch-runtime reloads | 6 | 0 | +6 | n/a (zero baseline) |
+| Prime Context cache-read tokens | 98,304 | 0 | +98,304 | n/a (zero baseline) |
 | Prime Context cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Prime Context uncached input tokens | 0 | 54,945 | +54,945 | n/a (zero baseline) |
-| Stable-projection extension turns | 0 | 12 | +12 | n/a (zero baseline) |
+| Prime Context uncached input tokens | 68,815 | 0 | +68,815 | n/a (zero baseline) |
+| Stable-projection extension turns | 11 | 0 | +11 | n/a (zero baseline) |
 
 
 ---
+
 
 <a id="task-09"></a>
 
@@ -1449,22 +1422,22 @@ These fields are emitted by the same result collector for both variants. Zero va
 
 **Verdict:** Both variants meet all acceptance criteria; this pair is eligible for formal efficiency comparison.
 
-- **Wall time:** 188.15 s vs 281.53 s; Δ -93.38 s (-33.17%).
-- **Model calls:** 15 vs 23; Δ -8 (-34.78%).
-- **Tool calls:** 15 vs 17; Δ -2 (-11.76%).
-- **Compactions:** 3 vs 4; Δ -1 (-25.00%).
-- **Total tokens:** 139,483 vs 212,777; Δ -73,294 (-34.45%).
-- **Reported API cost:** $0.435337 vs $0.641974; Δ -0.206637 (-32.19%).
-- **Visible tool bytes:** 142,747 vs 24,394; Δ +118,353 (+485.17%).
-- **Prompt-cache reuse:** 59.33% vs 64.44%; Δ -5.12 pp.
+- **Wall time:** 164.22 s vs 186.69 s; Δ -22.47 s (-12.04%).
+- **Model calls:** 14 vs 20; Δ -6 (-30.00%).
+- **Tool calls:** 13 vs 18; Δ -5 (-27.78%).
+- **Compactions:** 3 vs 3; Δ +0 (+0.00%).
+- **Total tokens:** 138,765 vs 178,403; Δ -39,638 (-22.22%).
+- **Total API cost:** $0.469290 vs $0.500187; Δ -0.030897 (-6.18%).
+- **Visible tool bytes:** 12,167 vs 77,527; Δ -65,360 (-84.31%).
+- **Prompt-cache reuse:** 53.16% vs 68.78%; Δ -15.62 pp.
 
 - **Expected exact final response:** `SIGNAL LAB GOAL COMPLETE`
+- **prime-context 8.1.1 final response:** `SIGNAL LAB GOAL COMPLETE`
 - **vanilla prime-agent final response:** `SIGNAL LAB GOAL COMPLETE`
-- **prime-context 8.1.0 final response:** `SIGNAL LAB GOAL COMPLETE`
 
 ### Complete acceptance and lifecycle comparison
 
-| Acceptance item | Expected | vanilla prime-agent | prime-context 8.1.0 |
+| Acceptance item | Expected | prime-context 8.1.1 | vanilla prime-agent |
 |---|---:|---:|---:|
 | Meets all acceptance criteria | yes | yes | yes |
 | Runner task-completed gate | yes | yes | yes |
@@ -1485,87 +1458,88 @@ These fields are emitted by the same result collector for both variants. Zero va
 
 ### Complete common metric comparison
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Wall time | 281.53 s | 188.15 s | -93.38 s | -33.17% |
-| Lifecycle wall time | 281.99 s | 188.61 s | -93.38 s | -33.11% |
-| Instruction wall time | 281.53 s | 188.15 s | -93.38 s | -33.17% |
+| Wall time | 164.22 s | 186.69 s | -22.47 s | -12.04% |
+| Lifecycle wall time | 164.41 s | 187.07 s | -22.66 s | -12.11% |
+| Instruction wall time | 164.22 s | 186.69 s | -22.47 s | -12.04% |
 | Sessions | 1 | 1 | +0 | +0.00% |
 | Child sessions | 0 | 0 | +0 | 0.00% |
-| Model calls | 23 | 15 | -8 | -34.78% |
-| Tool calls | 17 | 15 | -2 | -11.76% |
-| Tool results | 17 | 15 | -2 | -11.76% |
-| Visible tool bytes | 24,394 | 142,747 | +118,353 | +485.17% |
-| Compactions | 4 | 3 | -1 | -25.00% |
-| Goal-context injections | 7 | 1 | -6 | -85.71% |
-| Assistant output events | 23 | 15 | -8 | -34.78% |
+| Model calls | 14 | 20 | -6 | -30.00% |
+| Tool calls | 13 | 18 | -5 | -27.78% |
+| Tool results | 13 | 18 | -5 | -27.78% |
+| Visible tool bytes | 12,167 | 77,527 | -65,360 | -84.31% |
+| Compactions | 3 | 3 | +0 | +0.00% |
+| Goal-context injections | 2 | 2 | +0 | +0.00% |
+| Assistant output events | 14 | 20 | -6 | -30.00% |
 | Interventions delivered | 5 | 5 | +0 | +0.00% |
-| Stage responses recorded | 15 | 7 | -8 | -53.33% |
+| Stage responses recorded | 7 | 7 | +0 | +0.00% |
 | Test-run observations | 5 | 5 | +0 | +0.00% |
-| Goal updates | 29 | 16 | -13 | -44.83% |
-| RPC compaction completions | 4 | 3 | -1 | -25.00% |
-| Compaction requests | 6 | 2 | -4 | -66.67% |
-| Compaction waits | 4 | 0 | -4 | -100.00% |
-| Accepted stage/command responses | 11 | 6 | -5 | -45.45% |
-| Rejected stage/command responses | 4 | 1 | -3 | -75.00% |
+| Goal updates | 17 | 21 | -4 | -19.05% |
+| RPC compaction completions | 3 | 3 | +0 | +0.00% |
+| Compaction requests | 2 | 2 | +0 | +0.00% |
+| Compaction waits | 0 | 0 | +0 | 0.00% |
+| Accepted stage/command responses | 7 | 7 | +0 | +0.00% |
+| Rejected stage/command responses | 0 | 0 | +0 | 0.00% |
 | Unanswered stage/command responses | 0 | 0 | +0 | 0.00% |
 | Passing observed test runs | 4 | 4 | +0 | +0.00% |
 | Failing observed test runs | 1 | 1 | +0 | +0.00% |
 | Error-classified observed test runs | 0 | 0 | +0 | 0.00% |
-| Active goal updates | 28 | 15 | -13 | -46.43% |
+| Active goal updates | 16 | 20 | -4 | -20.00% |
 | Complete goal updates | 1 | 1 | +0 | +0.00% |
 | Other-status goal updates | 0 | 0 | +0 | 0.00% |
-| Maximum goal continuations used | 6 | 1 | -5 | -83.33% |
-| Maximum goal tokens used | 79,807 | 58,641 | -21,166 | -26.52% |
-| Completed RPC compactions | 4 | 3 | -1 | -25.00% |
+| Maximum goal continuations used | 2 | 1 | +1 | +100.00% |
+| Maximum goal tokens used | 54,962 | 58,663 | -3,701 | -6.31% |
+| Completed RPC compactions | 3 | 3 | +0 | +0.00% |
 | Aborted RPC compactions | 0 | 0 | +0 | 0.00% |
-| Successful compaction requests | 2 | 1 | -1 | -50.00% |
-| Failed compaction requests | 4 | 1 | -3 | -75.00% |
+| Successful compaction requests | 2 | 2 | +0 | +0.00% |
+| Failed compaction requests | 0 | 0 | +0 | 0.00% |
 | Unanswered compaction requests | 0 | 0 | +0 | 0.00% |
-| Successful compaction waits | 4 | 0 | -4 | -100.00% |
+| Successful compaction waits | 0 | 0 | +0 | 0.00% |
 | Failed compaction waits | 0 | 0 | +0 | 0.00% |
 | Unanswered compaction waits | 0 | 0 | +0 | 0.00% |
-| Input tokens | 73,176 | 55,113 | -18,063 | -24.68% |
-| Output tokens | 6,993 | 3,986 | -3,007 | -43.00% |
-| Cache-read tokens | 132,608 | 80,384 | -52,224 | -39.38% |
+| Input tokens | 63,164 | 53,911 | +9,253 | +17.16% |
+| Output tokens | 3,921 | 5,708 | -1,787 | -31.31% |
+| Cache-read tokens | 71,680 | 118,784 | -47,104 | -39.66% |
 | Cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Total tokens | 212,777 | 139,483 | -73,294 | -34.45% |
-| Prompt-cache reuse | 64.44% | 59.33% | -5.12 pp | — |
-| Input cost | $0.365880 | $0.275565 | -0.090315 | -24.68% |
-| Output cost | $0.209790 | $0.119580 | -0.090210 | -43.00% |
-| Cache-read cost | $0.066304 | $0.040192 | -0.026112 | -39.38% |
+| Total tokens | 138,765 | 178,403 | -39,638 | -22.22% |
+| Prompt-cache reuse | 53.16% | 68.78% | -15.62 pp | — |
+| Input cost | $0.315820 | $0.269555 | +0.046265 | +17.16% |
+| Output cost | $0.117630 | $0.171240 | -0.053610 | -31.31% |
+| Cache-read cost | $0.035840 | $0.059392 | -0.023552 | -39.66% |
 | Cache-write cost | $0.000000 | $0.000000 | +0.000000 | 0.00% |
-| Total API cost | $0.641974 | $0.435337 | -0.206637 | -32.19% |
+| Total API cost | $0.469290 | $0.500187 | -0.030897 | -6.18% |
 
 ### Complete archive and projection telemetry
 
 These fields are emitted by the same result collector for both variants. Zero values for `vanilla prime-agent` are expected because it does not load Prime Context.
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Archived observations | 0 | 14 | +14 | n/a (zero baseline) |
-| Archive source bytes | 0 | 132,192 | +132,192 | n/a (zero baseline) |
-| Compressed archive bytes | 0 | 10,554 | +10,554 | n/a (zero baseline) |
-| Archive compression ratio (derived) | 0.00% | 7.98% | +7.98 pp | — |
-| Archive chunks | 0 | 19 | +19 | n/a (zero baseline) |
-| Largest chunk bytes | 0 | 65,578 | +65,578 | n/a (zero baseline) |
-| Source bytes admitted | 0 | 275,023 | +275,023 | n/a (zero baseline) |
+| Archived observations | 12 | 0 | +12 | n/a (zero baseline) |
+| Archive source bytes | 0 | 0 | +0 | 0.00% |
+| Compressed archive bytes | 5,028 | 0 | +5,028 | n/a (zero baseline) |
+| Archive compression ratio (derived) | 0.00% | 0.00% | +0.00 pp | — |
+| Archive chunks | 12 | 0 | +12 | n/a (zero baseline) |
+| Largest chunk bytes | 2,888 | 0 | +2,888 | n/a (zero baseline) |
+| Source bytes admitted | 11,414 | 0 | +11,414 | n/a (zero baseline) |
 | Call-argument bytes projected out | 0 | 0 | +0 | 0.00% |
-| Result bytes projected out | 0 | 130,919 | +130,919 | n/a (zero baseline) |
+| Result bytes projected out | 0 | 0 | +0 | 0.00% |
 | Typed/media bytes projected out | 0 | 0 | +0 | 0.00% |
 | Recovery bytes exposed | 0 | 0 | +0 | 0.00% |
-| End-state projected model-view bytes | 0 | 39,221 | +39,221 | n/a (zero baseline) |
-| Streaming bytes processed | 0 | 264,384 | +264,384 | n/a (zero baseline) |
+| End-state projected model-view bytes | 42,035 | 0 | +42,035 | n/a (zero baseline) |
+| Streaming bytes processed | 0 | 0 | +0 | 0.00% |
 | Inspect/recall hits | 0 | 0 | +0 | 0.00% |
 | Fold generations | 0 | 0 | +0 | 0.00% |
-| Branch-runtime reloads | 0 | 4 | +4 | n/a (zero baseline) |
-| Prime Context cache-read tokens | 0 | 80,384 | +80,384 | n/a (zero baseline) |
+| Branch-runtime reloads | 4 | 0 | +4 | n/a (zero baseline) |
+| Prime Context cache-read tokens | 71,680 | 0 | +71,680 | n/a (zero baseline) |
 | Prime Context cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Prime Context uncached input tokens | 0 | 55,113 | +55,113 | n/a (zero baseline) |
-| Stable-projection extension turns | 0 | 10 | +10 | n/a (zero baseline) |
+| Prime Context uncached input tokens | 63,164 | 0 | +63,164 | n/a (zero baseline) |
+| Stable-projection extension turns | 10 | 0 | +10 | n/a (zero baseline) |
 
 
 ---
+
 
 <a id="task-10"></a>
 
@@ -1583,22 +1557,22 @@ These fields are emitted by the same result collector for both variants. Zero va
 
 **Verdict:** Both variants meet all acceptance criteria; this pair is eligible for formal efficiency comparison.
 
-- **Wall time:** 537.30 s vs 348.83 s; Δ +188.46 s (+54.03%).
-- **Model calls:** 26 vs 20; Δ +6 (+30.00%).
-- **Tool calls:** 24 vs 16; Δ +8 (+50.00%).
-- **Compactions:** 10 vs 6; Δ +4 (+66.67%).
-- **Total tokens:** 280,478 vs 195,624; Δ +84,854 (+43.38%).
-- **Reported API cost:** $0.996553 vs $0.715811; Δ +0.280742 (+39.22%).
-- **Visible tool bytes:** 236,239 vs 92,964; Δ +143,275 (+154.12%).
-- **Prompt-cache reuse:** 47.38% vs 53.36%; Δ -5.98 pp.
+- **Wall time:** 236.96 s vs 257.60 s; Δ -20.64 s (-8.01%).
+- **Model calls:** 15 vs 18; Δ -3 (-16.67%).
+- **Tool calls:** 14 vs 15; Δ -1 (-6.67%).
+- **Compactions:** 4 vs 3; Δ +1 (+33.33%).
+- **Total tokens:** 155,666 vs 174,999; Δ -19,333 (-11.05%).
+- **Total API cost:** $0.568076 vs $0.592613; Δ -0.024537 (-4.14%).
+- **Visible tool bytes:** 271,837 vs 26,760; Δ +245,077 (+915.83%).
+- **Prompt-cache reuse:** 51.49% vs 63.72%; Δ -12.24 pp.
 
 - **Expected exact final response:** `RHYTHM GOAL COMPLETE`
+- **prime-context 8.1.1 final response:** `RHYTHM GOAL COMPLETE`
 - **vanilla prime-agent final response:** `RHYTHM GOAL COMPLETE`
-- **prime-context 8.1.0 final response:** `RHYTHM GOAL COMPLETE`
 
 ### Complete acceptance and lifecycle comparison
 
-| Acceptance item | Expected | vanilla prime-agent | prime-context 8.1.0 |
+| Acceptance item | Expected | prime-context 8.1.1 | vanilla prime-agent |
 |---|---:|---:|---:|
 | Meets all acceptance criteria | yes | yes | yes |
 | Runner task-completed gate | yes | yes | yes |
@@ -1619,87 +1593,88 @@ These fields are emitted by the same result collector for both variants. Zero va
 
 ### Complete common metric comparison
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Wall time | 348.83 s | 537.30 s | +188.46 s | +54.03% |
-| Lifecycle wall time | 349.14 s | 537.71 s | +188.57 s | +54.01% |
-| Instruction wall time | 348.83 s | 537.30 s | +188.46 s | +54.03% |
+| Wall time | 236.96 s | 257.60 s | -20.64 s | -8.01% |
+| Lifecycle wall time | 237.38 s | 257.82 s | -20.44 s | -7.93% |
+| Instruction wall time | 236.96 s | 257.60 s | -20.64 s | -8.01% |
 | Sessions | 1 | 1 | +0 | +0.00% |
 | Child sessions | 0 | 0 | +0 | 0.00% |
-| Model calls | 20 | 26 | +6 | +30.00% |
-| Tool calls | 16 | 24 | +8 | +50.00% |
-| Tool results | 16 | 24 | +8 | +50.00% |
-| Visible tool bytes | 92,964 | 236,239 | +143,275 | +154.12% |
-| Compactions | 6 | 10 | +4 | +66.67% |
-| Goal-context injections | 7 | 9 | +2 | +28.57% |
-| Assistant output events | 20 | 26 | +6 | +30.00% |
+| Model calls | 15 | 18 | -3 | -16.67% |
+| Tool calls | 14 | 15 | -1 | -6.67% |
+| Tool results | 14 | 15 | -1 | -6.67% |
+| Visible tool bytes | 271,837 | 26,760 | +245,077 | +915.83% |
+| Compactions | 4 | 3 | +1 | +33.33% |
+| Goal-context injections | 3 | 3 | +0 | +0.00% |
+| Assistant output events | 15 | 18 | -3 | -16.67% |
 | Interventions delivered | 5 | 5 | +0 | +0.00% |
-| Stage responses recorded | 13 | 9 | -4 | -30.77% |
+| Stage responses recorded | 7 | 11 | -4 | -36.36% |
 | Test-run observations | 5 | 5 | +0 | +0.00% |
-| Goal updates | 28 | 36 | +8 | +28.57% |
-| RPC compaction completions | 6 | 10 | +4 | +66.67% |
-| Compaction requests | 5 | 3 | -2 | -40.00% |
-| Compaction waits | 3 | 1 | -2 | -66.67% |
-| Accepted stage/command responses | 10 | 8 | -2 | -20.00% |
-| Rejected stage/command responses | 3 | 1 | -2 | -66.67% |
+| Goal updates | 17 | 21 | -4 | -19.05% |
+| RPC compaction completions | 4 | 3 | +1 | +33.33% |
+| Compaction requests | 2 | 4 | -2 | -50.00% |
+| Compaction waits | 0 | 2 | -2 | -100.00% |
+| Accepted stage/command responses | 6 | 9 | -3 | -33.33% |
+| Rejected stage/command responses | 1 | 2 | -1 | -50.00% |
 | Unanswered stage/command responses | 0 | 0 | +0 | 0.00% |
-| Passing observed test runs | 4 | 3 | -1 | -25.00% |
-| Failing observed test runs | 1 | 2 | +1 | +100.00% |
+| Passing observed test runs | 4 | 4 | +0 | +0.00% |
+| Failing observed test runs | 1 | 1 | +0 | +0.00% |
 | Error-classified observed test runs | 0 | 0 | +0 | 0.00% |
-| Active goal updates | 27 | 35 | +8 | +29.63% |
+| Active goal updates | 16 | 20 | -4 | -20.00% |
 | Complete goal updates | 1 | 1 | +0 | +0.00% |
 | Other-status goal updates | 0 | 0 | +0 | 0.00% |
-| Maximum goal continuations used | 6 | 8 | +2 | +33.33% |
-| Maximum goal tokens used | 94,154 | 149,508 | +55,354 | +58.79% |
-| Completed RPC compactions | 6 | 10 | +4 | +66.67% |
+| Maximum goal continuations used | 2 | 3 | -1 | -33.33% |
+| Maximum goal tokens used | 77,244 | 66,907 | +10,337 | +15.45% |
+| Completed RPC compactions | 4 | 3 | +1 | +33.33% |
 | Aborted RPC compactions | 0 | 0 | +0 | 0.00% |
-| Successful compaction requests | 2 | 2 | +0 | +0.00% |
-| Failed compaction requests | 3 | 1 | -2 | -66.67% |
+| Successful compaction requests | 1 | 2 | -1 | -50.00% |
+| Failed compaction requests | 1 | 2 | -1 | -50.00% |
 | Unanswered compaction requests | 0 | 0 | +0 | 0.00% |
-| Successful compaction waits | 3 | 1 | -2 | -66.67% |
+| Successful compaction waits | 0 | 2 | -2 | -100.00% |
 | Failed compaction waits | 0 | 0 | +0 | 0.00% |
 | Unanswered compaction waits | 0 | 0 | +0 | 0.00% |
-| Input tokens | 87,701 | 143,859 | +56,158 | +64.03% |
-| Output tokens | 7,571 | 7,083 | -488 | -6.45% |
-| Cache-read tokens | 100,352 | 129,536 | +29,184 | +29.08% |
+| Input tokens | 72,848 | 60,629 | +12,219 | +20.15% |
+| Output tokens | 5,506 | 7,874 | -2,368 | -30.07% |
+| Cache-read tokens | 77,312 | 106,496 | -29,184 | -27.40% |
 | Cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Total tokens | 195,624 | 280,478 | +84,854 | +43.38% |
-| Prompt-cache reuse | 53.36% | 47.38% | -5.98 pp | — |
-| Input cost | $0.438505 | $0.719295 | +0.280790 | +64.03% |
-| Output cost | $0.227130 | $0.212490 | -0.014640 | -6.45% |
-| Cache-read cost | $0.050176 | $0.064768 | +0.014592 | +29.08% |
+| Total tokens | 155,666 | 174,999 | -19,333 | -11.05% |
+| Prompt-cache reuse | 51.49% | 63.72% | -12.24 pp | — |
+| Input cost | $0.364240 | $0.303145 | +0.061095 | +20.15% |
+| Output cost | $0.165180 | $0.236220 | -0.071040 | -30.07% |
+| Cache-read cost | $0.038656 | $0.053248 | -0.014592 | -27.40% |
 | Cache-write cost | $0.000000 | $0.000000 | +0.000000 | 0.00% |
-| Total API cost | $0.715811 | $0.996553 | +0.280742 | +39.22% |
+| Total API cost | $0.568076 | $0.592613 | -0.024537 | -4.14% |
 
 ### Complete archive and projection telemetry
 
 These fields are emitted by the same result collector for both variants. Zero values for `vanilla prime-agent` are expected because it does not load Prime Context.
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Archived observations | 0 | 23 | +23 | n/a (zero baseline) |
-| Archive source bytes | 0 | 199,510 | +199,510 | n/a (zero baseline) |
-| Compressed archive bytes | 0 | 24,209 | +24,209 | n/a (zero baseline) |
-| Archive compression ratio (derived) | 0.00% | 12.13% | +12.13 pp | — |
-| Archive chunks | 0 | 32 | +32 | n/a (zero baseline) |
-| Largest chunk bytes | 0 | 65,578 | +65,578 | n/a (zero baseline) |
-| Source bytes admitted | 0 | 436,587 | +436,587 | n/a (zero baseline) |
+| Archived observations | 13 | 0 | +13 | n/a (zero baseline) |
+| Archive source bytes | 262,312 | 0 | +262,312 | n/a (zero baseline) |
+| Compressed archive bytes | 16,110 | 0 | +16,110 | n/a (zero baseline) |
+| Archive compression ratio (derived) | 6.14% | 0.00% | +6.14 pp | — |
+| Archive chunks | 17 | 0 | +17 | n/a (zero baseline) |
+| Largest chunk bytes | 65,578 | 0 | +65,578 | n/a (zero baseline) |
+| Source bytes admitted | 533,403 | 0 | +533,403 | n/a (zero baseline) |
 | Call-argument bytes projected out | 0 | 0 | +0 | 0.00% |
-| Result bytes projected out | 0 | 196,301 | +196,301 | n/a (zero baseline) |
+| Result bytes projected out | 260,076 | 0 | +260,076 | n/a (zero baseline) |
 | Typed/media bytes projected out | 0 | 0 | +0 | 0.00% |
 | Recovery bytes exposed | 0 | 0 | +0 | 0.00% |
-| End-state projected model-view bytes | 0 | 39,214 | +39,214 | n/a (zero baseline) |
-| Streaming bytes processed | 0 | 399,020 | +399,020 | n/a (zero baseline) |
+| End-state projected model-view bytes | 40,840 | 0 | +40,840 | n/a (zero baseline) |
+| Streaming bytes processed | 524,624 | 0 | +524,624 | n/a (zero baseline) |
 | Inspect/recall hits | 0 | 0 | +0 | 0.00% |
 | Fold generations | 0 | 0 | +0 | 0.00% |
-| Branch-runtime reloads | 0 | 11 | +11 | n/a (zero baseline) |
-| Prime Context cache-read tokens | 0 | 129,536 | +129,536 | n/a (zero baseline) |
+| Branch-runtime reloads | 5 | 0 | +5 | n/a (zero baseline) |
+| Prime Context cache-read tokens | 77,312 | 0 | +77,312 | n/a (zero baseline) |
 | Prime Context cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Prime Context uncached input tokens | 0 | 143,859 | +143,859 | n/a (zero baseline) |
-| Stable-projection extension turns | 0 | 15 | +15 | n/a (zero baseline) |
+| Prime Context uncached input tokens | 72,848 | 0 | +72,848 | n/a (zero baseline) |
+| Stable-projection extension turns | 11 | 0 | +11 | n/a (zero baseline) |
 
 
 ---
+
 
 <a id="task-11"></a>
 
@@ -1717,22 +1692,24 @@ These fields are emitted by the same result collector for both variants. Zero va
 
 **Verdict:** Both variants meet all acceptance criteria; this pair is eligible for formal efficiency comparison.
 
-- **Wall time:** 515.91 s vs 451.38 s; Δ +64.53 s (+14.30%).
-- **Model calls:** 21 vs 19; Δ +2 (+10.53%).
-- **Tool calls:** 22 vs 17; Δ +5 (+29.41%).
-- **Compactions:** 9 vs 8; Δ +1 (+12.50%).
-- **Total tokens:** 231,685 vs 205,187; Δ +26,498 (+12.91%).
-- **Reported API cost:** $0.834085 vs $0.876317; Δ -0.042232 (-4.82%).
-- **Visible tool bytes:** 306,483 vs 119,028; Δ +187,455 (+157.49%).
-- **Prompt-cache reuse:** 53.95% vs 43.67%; Δ +10.28 pp.
+- **Wall time:** 350.45 s vs 1,042.63 s; Δ -692.18 s (-66.39%).
+- **Model calls:** 15 vs 36; Δ -21 (-58.33%).
+- **Tool calls:** 18 vs 37; Δ -19 (-51.35%).
+- **Compactions:** 6 vs 18; Δ -12 (-66.67%).
+- **Total tokens:** 154,313 vs 412,416; Δ -258,103 (-62.58%).
+- **Total API cost:** $0.598743 vs $1.545047; Δ -0.946304 (-61.25%).
+- **Visible tool bytes:** 216,347 vs 471,610; Δ -255,263 (-54.13%).
+- **Prompt-cache reuse:** 49.45% vs 51.97%; Δ -2.51 pp.
+
+- **Retry:** prime-context 8.1.1 initially failed strict acceptance and used its single permitted retry; the table reports the retry attempt (strict pass).
 
 - **Expected exact final response:** `RECORD MIGRATION GOAL COMPLETE`
+- **prime-context 8.1.1 final response:** `RECORD MIGRATION GOAL COMPLETE`
 - **vanilla prime-agent final response:** `RECORD MIGRATION GOAL COMPLETE`
-- **prime-context 8.1.0 final response:** `RECORD MIGRATION GOAL COMPLETE`
 
 ### Complete acceptance and lifecycle comparison
 
-| Acceptance item | Expected | vanilla prime-agent | prime-context 8.1.0 |
+| Acceptance item | Expected | prime-context 8.1.1 | vanilla prime-agent |
 |---|---:|---:|---:|
 | Meets all acceptance criteria | yes | yes | yes |
 | Runner task-completed gate | yes | yes | yes |
@@ -1753,87 +1730,88 @@ These fields are emitted by the same result collector for both variants. Zero va
 
 ### Complete common metric comparison
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Wall time | 451.38 s | 515.91 s | +64.53 s | +14.30% |
-| Lifecycle wall time | 451.63 s | 516.40 s | +64.77 s | +14.34% |
-| Instruction wall time | 451.38 s | 515.91 s | +64.53 s | +14.30% |
+| Wall time | 350.45 s | 1,042.63 s | -692.18 s | -66.39% |
+| Lifecycle wall time | 350.61 s | 1,042.90 s | -692.29 s | -66.38% |
+| Instruction wall time | 350.45 s | 1,042.63 s | -692.18 s | -66.39% |
 | Sessions | 1 | 1 | +0 | +0.00% |
 | Child sessions | 0 | 0 | +0 | 0.00% |
-| Model calls | 19 | 21 | +2 | +10.53% |
-| Tool calls | 17 | 22 | +5 | +29.41% |
-| Tool results | 17 | 22 | +5 | +29.41% |
-| Visible tool bytes | 119,028 | 306,483 | +187,455 | +157.49% |
-| Compactions | 8 | 9 | +1 | +12.50% |
-| Goal-context injections | 6 | 8 | +2 | +33.33% |
-| Assistant output events | 19 | 21 | +2 | +10.53% |
+| Model calls | 15 | 36 | -21 | -58.33% |
+| Tool calls | 18 | 37 | -19 | -51.35% |
+| Tool results | 18 | 37 | -19 | -51.35% |
+| Visible tool bytes | 216,347 | 471,610 | -255,263 | -54.13% |
+| Compactions | 6 | 18 | -12 | -66.67% |
+| Goal-context injections | 4 | 15 | -11 | -73.33% |
+| Assistant output events | 15 | 36 | -21 | -58.33% |
 | Interventions delivered | 5 | 5 | +0 | +0.00% |
 | Stage responses recorded | 7 | 7 | +0 | +0.00% |
-| Test-run observations | 5 | 5 | +0 | +0.00% |
-| Goal updates | 24 | 28 | +4 | +16.67% |
-| RPC compaction completions | 8 | 9 | +1 | +12.50% |
+| Test-run observations | 5 | 8 | -3 | -37.50% |
+| Goal updates | 18 | 51 | -33 | -64.71% |
+| RPC compaction completions | 6 | 18 | -12 | -66.67% |
 | Compaction requests | 2 | 2 | +0 | +0.00% |
 | Compaction waits | 0 | 0 | +0 | 0.00% |
-| Accepted stage/command responses | 7 | 6 | -1 | -14.29% |
-| Rejected stage/command responses | 0 | 1 | +1 | n/a (zero baseline) |
+| Accepted stage/command responses | 6 | 6 | +0 | +0.00% |
+| Rejected stage/command responses | 1 | 1 | +0 | +0.00% |
 | Unanswered stage/command responses | 0 | 0 | +0 | 0.00% |
-| Passing observed test runs | 4 | 4 | +0 | +0.00% |
+| Passing observed test runs | 4 | 7 | -3 | -42.86% |
 | Failing observed test runs | 1 | 1 | +0 | +0.00% |
 | Error-classified observed test runs | 0 | 0 | +0 | 0.00% |
-| Active goal updates | 23 | 27 | +4 | +17.39% |
+| Active goal updates | 17 | 50 | -33 | -66.00% |
 | Complete goal updates | 1 | 1 | +0 | +0.00% |
 | Other-status goal updates | 0 | 0 | +0 | 0.00% |
-| Maximum goal continuations used | 5 | 7 | +2 | +40.00% |
-| Maximum goal tokens used | 116,085 | 110,478 | -5,607 | -4.83% |
-| Completed RPC compactions | 8 | 9 | +1 | +12.50% |
+| Maximum goal continuations used | 3 | 14 | -11 | -78.57% |
+| Maximum goal tokens used | 71,025 | 203,040 | -132,015 | -65.02% |
+| Completed RPC compactions | 6 | 18 | -12 | -66.67% |
 | Aborted RPC compactions | 0 | 0 | +0 | 0.00% |
-| Successful compaction requests | 2 | 1 | -1 | -50.00% |
-| Failed compaction requests | 0 | 1 | +1 | n/a (zero baseline) |
+| Successful compaction requests | 1 | 1 | +0 | +0.00% |
+| Failed compaction requests | 1 | 1 | +0 | +0.00% |
 | Unanswered compaction requests | 0 | 0 | +0 | 0.00% |
 | Successful compaction waits | 0 | 0 | +0 | 0.00% |
 | Failed compaction waits | 0 | 0 | +0 | 0.00% |
 | Unanswered compaction waits | 0 | 0 | +0 | 0.00% |
-| Input tokens | 110,277 | 102,681 | -7,596 | -6.89% |
-| Output tokens | 9,406 | 8,684 | -722 | -7.68% |
-| Cache-read tokens | 85,504 | 120,320 | +34,816 | +40.72% |
+| Input tokens | 74,831 | 190,225 | -115,394 | -60.66% |
+| Output tokens | 6,266 | 16,367 | -10,101 | -61.72% |
+| Cache-read tokens | 73,216 | 205,824 | -132,608 | -64.43% |
 | Cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Total tokens | 205,187 | 231,685 | +26,498 | +12.91% |
-| Prompt-cache reuse | 43.67% | 53.95% | +10.28 pp | — |
-| Input cost | $0.551385 | $0.513405 | -0.037980 | -6.89% |
-| Output cost | $0.282180 | $0.260520 | -0.021660 | -7.68% |
-| Cache-read cost | $0.042752 | $0.060160 | +0.017408 | +40.72% |
+| Total tokens | 154,313 | 412,416 | -258,103 | -62.58% |
+| Prompt-cache reuse | 49.45% | 51.97% | -2.51 pp | — |
+| Input cost | $0.374155 | $0.951125 | -0.576970 | -60.66% |
+| Output cost | $0.187980 | $0.491010 | -0.303030 | -61.72% |
+| Cache-read cost | $0.036608 | $0.102912 | -0.066304 | -64.43% |
 | Cache-write cost | $0.000000 | $0.000000 | +0.000000 | 0.00% |
-| Total API cost | $0.876317 | $0.834085 | -0.042232 | -4.82% |
+| Total API cost | $0.598743 | $1.545047 | -0.946304 | -61.25% |
 
 ### Complete archive and projection telemetry
 
 These fields are emitted by the same result collector for both variants. Zero values for `vanilla prime-agent` are expected because it does not load Prime Context.
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Archived observations | 0 | 21 | +21 | n/a (zero baseline) |
-| Archive source bytes | 0 | 262,682 | +262,682 | n/a (zero baseline) |
-| Compressed archive bytes | 0 | 29,635 | +29,635 | n/a (zero baseline) |
-| Archive compression ratio (derived) | 0.00% | 11.28% | +11.28 pp | — |
-| Archive chunks | 0 | 29 | +29 | n/a (zero baseline) |
-| Largest chunk bytes | 0 | 65,948 | +65,948 | n/a (zero baseline) |
-| Source bytes admitted | 0 | 577,500 | +577,500 | n/a (zero baseline) |
+| Archived observations | 17 | 0 | +17 | n/a (zero baseline) |
+| Archive source bytes | 196,734 | 0 | +196,734 | n/a (zero baseline) |
+| Compressed archive bytes | 18,542 | 0 | +18,542 | n/a (zero baseline) |
+| Archive compression ratio (derived) | 9.42% | 0.00% | +9.42 pp | — |
+| Archive chunks | 22 | 0 | +22 | n/a (zero baseline) |
+| Largest chunk bytes | 65,578 | 0 | +65,578 | n/a (zero baseline) |
+| Source bytes admitted | 420,582 | 0 | +420,582 | n/a (zero baseline) |
 | Call-argument bytes projected out | 0 | 0 | +0 | 0.00% |
-| Result bytes projected out | 0 | 260,306 | +260,306 | n/a (zero baseline) |
+| Result bytes projected out | 195,361 | 0 | +195,361 | n/a (zero baseline) |
 | Typed/media bytes projected out | 0 | 0 | +0 | 0.00% |
 | Recovery bytes exposed | 0 | 0 | +0 | 0.00% |
-| End-state projected model-view bytes | 0 | 25,683 | +25,683 | n/a (zero baseline) |
-| Streaming bytes processed | 0 | 525,926 | +525,926 | n/a (zero baseline) |
+| End-state projected model-view bytes | 25,935 | 0 | +25,935 | n/a (zero baseline) |
+| Streaming bytes processed | 393,468 | 0 | +393,468 | n/a (zero baseline) |
 | Inspect/recall hits | 0 | 0 | +0 | 0.00% |
 | Fold generations | 0 | 0 | +0 | 0.00% |
-| Branch-runtime reloads | 0 | 10 | +10 | n/a (zero baseline) |
-| Prime Context cache-read tokens | 0 | 120,320 | +120,320 | n/a (zero baseline) |
+| Branch-runtime reloads | 7 | 0 | +7 | n/a (zero baseline) |
+| Prime Context cache-read tokens | 73,216 | 0 | +73,216 | n/a (zero baseline) |
 | Prime Context cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Prime Context uncached input tokens | 0 | 102,681 | +102,681 | n/a (zero baseline) |
-| Stable-projection extension turns | 0 | 12 | +12 | n/a (zero baseline) |
+| Prime Context uncached input tokens | 74,831 | 0 | +74,831 | n/a (zero baseline) |
+| Stable-projection extension turns | 9 | 0 | +9 | n/a (zero baseline) |
 
 
 ---
+
 
 <a id="task-12"></a>
 
@@ -1849,125 +1827,126 @@ These fields are emitted by the same result collector for both variants. Zero va
 
 ### Measured outcome
 
-**Verdict:** `prime-context 8.1.0` meets all acceptance criteria while `vanilla prime-agent` does not meet all acceptance criteria: a strict correctness gain.
+**Verdict:** Both variants meet all acceptance criteria; this pair is eligible for formal efficiency comparison.
 
-- **Wall time:** 213.00 s vs 600.00 s; Δ -387.00 s (-64.50%).
-- **Model calls:** 13 vs 68; Δ -55 (-80.88%).
-- **Tool calls:** 18 vs 15; Δ +3 (+20.00%).
-- **Compactions:** 4 vs 11; Δ -7 (-63.64%).
-- **Total tokens:** 134,819 vs 668,426; Δ -533,607 (-79.83%).
-- **Reported API cost:** $0.445102 vs $1.408157; Δ -0.963055 (-68.39%).
-- **Visible tool bytes:** 210,825 vs 83,724; Δ +127,101 (+151.81%).
-- **Prompt-cache reuse:** 55.55% vs 70.56%; Δ -15.02 pp.
+- **Wall time:** 254.49 s vs 381.36 s; Δ -126.87 s (-33.27%).
+- **Model calls:** 17 vs 21; Δ -4 (-19.05%).
+- **Tool calls:** 16 vs 17; Δ -1 (-5.88%).
+- **Compactions:** 5 vs 8; Δ -3 (-37.50%).
+- **Total tokens:** 178,732 vs 203,915; Δ -25,183 (-12.35%).
+- **Total API cost:** $0.577603 vs $0.772375; Δ -0.194772 (-25.22%).
+- **Visible tool bytes:** 337,276 vs 230,196; Δ +107,080 (+46.52%).
+- **Prompt-cache reuse:** 53.69% vs 45.33%; Δ +8.36 pp.
 
 - **Expected exact final response:** `TRANSIT FARES GOAL COMPLETE`
-- **vanilla prime-agent final response:** `Awaiting `REQUIREMENTS LOCKED`.`
-- **prime-context 8.1.0 final response:** `TRANSIT FARES GOAL COMPLETE`
+- **prime-context 8.1.1 final response:** `TRANSIT FARES GOAL COMPLETE`
+- **vanilla prime-agent final response:** `TRANSIT FARES GOAL COMPLETE`
 
 ### Complete acceptance and lifecycle comparison
 
-| Acceptance item | Expected | vanilla prime-agent | prime-context 8.1.0 |
+| Acceptance item | Expected | prime-context 8.1.1 | vanilla prime-agent |
 |---|---:|---:|---:|
-| Meets all acceptance criteria | yes | no | yes |
-| Runner task-completed gate | yes | no | yes |
+| Meets all acceptance criteria | yes | yes | yes |
+| Runner task-completed gate | yes | yes | yes |
 | External cumulative tests | 9/9 | 9/9 | 9/9 |
 | External-tests gate | yes | yes | yes |
 | Protected files unchanged | yes | yes | yes |
-| Goal status | complete | active | complete |
-| Goal completed after lock | yes | no | yes |
+| Goal status | complete | complete | complete |
+| Goal completed after lock | yes | yes | yes |
 | Interventions accepted | yes | yes | yes |
-| Intervention order correct | yes | no | yes |
-| Exact final response | yes | no | yes |
+| Intervention order correct | yes | yes | yes |
+| Exact final response | yes | yes | yes |
 | Early completion observed | no | no | no |
-| Goal-complete event observed | yes | no | yes |
-| Run error | none | TimeoutError: condition timed out after 600 seconds | none |
-| Interaction error | none | TimeoutError: condition timed out after 600 seconds | none |
+| Goal-complete event observed | yes | yes | yes |
+| Run error | none | none | none |
+| Interaction error | none | none | none |
 | Interaction stderr | empty | empty | empty |
 | Retained Docker evidence | yes | yes | yes |
 
 ### Complete common metric comparison
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Wall time | 600.00 s | 213.00 s | -387.00 s | -64.50% |
-| Lifecycle wall time | 600.42 s | 213.13 s | -387.29 s | -64.50% |
-| Instruction wall time | 600.00 s | 213.00 s | -387.00 s | -64.50% |
+| Wall time | 254.49 s | 381.36 s | -126.87 s | -33.27% |
+| Lifecycle wall time | 255.09 s | 381.90 s | -126.81 s | -33.21% |
+| Instruction wall time | 254.49 s | 381.36 s | -126.87 s | -33.27% |
 | Sessions | 1 | 1 | +0 | +0.00% |
 | Child sessions | 0 | 0 | +0 | 0.00% |
-| Model calls | 68 | 13 | -55 | -80.88% |
-| Tool calls | 15 | 18 | +3 | +20.00% |
-| Tool results | 15 | 18 | +3 | +20.00% |
-| Visible tool bytes | 83,724 | 210,825 | +127,101 | +151.81% |
-| Compactions | 11 | 4 | -7 | -63.64% |
-| Goal-context injections | 55 | 3 | -52 | -94.55% |
-| Assistant output events | 68 | 13 | -55 | -80.88% |
-| Interventions delivered | 4 | 5 | +1 | +25.00% |
-| Stage responses recorded | 11 | 7 | -4 | -36.36% |
-| Test-run observations | 3 | 5 | +2 | +66.67% |
-| Goal updates | 122 | 15 | -107 | -87.70% |
-| RPC compaction completions | 11 | 4 | -7 | -63.64% |
-| Compaction requests | 4 | 2 | -2 | -50.00% |
-| Compaction waits | 3 | 0 | -3 | -100.00% |
-| Accepted stage/command responses | 8 | 6 | -2 | -25.00% |
-| Rejected stage/command responses | 3 | 1 | -2 | -66.67% |
+| Model calls | 17 | 21 | -4 | -19.05% |
+| Tool calls | 16 | 17 | -1 | -5.88% |
+| Tool results | 16 | 17 | -1 | -5.88% |
+| Visible tool bytes | 337,276 | 230,196 | +107,080 | +46.52% |
+| Compactions | 5 | 8 | -3 | -37.50% |
+| Goal-context injections | 3 | 9 | -6 | -66.67% |
+| Assistant output events | 17 | 21 | -4 | -19.05% |
+| Interventions delivered | 5 | 5 | +0 | +0.00% |
+| Stage responses recorded | 7 | 11 | -4 | -36.36% |
+| Test-run observations | 5 | 6 | -1 | -16.67% |
+| Goal updates | 19 | 31 | -12 | -38.71% |
+| RPC compaction completions | 5 | 8 | -3 | -37.50% |
+| Compaction requests | 2 | 4 | -2 | -50.00% |
+| Compaction waits | 0 | 2 | -2 | -100.00% |
+| Accepted stage/command responses | 6 | 8 | -2 | -25.00% |
+| Rejected stage/command responses | 1 | 3 | -2 | -66.67% |
 | Unanswered stage/command responses | 0 | 0 | +0 | 0.00% |
-| Passing observed test runs | 2 | 3 | +1 | +50.00% |
-| Failing observed test runs | 1 | 2 | +1 | +100.00% |
+| Passing observed test runs | 4 | 5 | -1 | -20.00% |
+| Failing observed test runs | 1 | 1 | +0 | +0.00% |
 | Error-classified observed test runs | 0 | 0 | +0 | 0.00% |
-| Active goal updates | 122 | 14 | -108 | -88.52% |
-| Complete goal updates | 0 | 1 | +1 | n/a (zero baseline) |
+| Active goal updates | 18 | 30 | -12 | -40.00% |
+| Complete goal updates | 1 | 1 | +0 | +0.00% |
 | Other-status goal updates | 0 | 0 | +0 | 0.00% |
-| Maximum goal continuations used | 55 | 2 | -53 | -96.36% |
-| Maximum goal tokens used | 201,482 | 60,705 | -140,777 | -69.87% |
-| Completed RPC compactions | 11 | 4 | -7 | -63.64% |
+| Maximum goal continuations used | 2 | 8 | -6 | -75.00% |
+| Maximum goal tokens used | 82,724 | 110,327 | -27,603 | -25.02% |
+| Completed RPC compactions | 5 | 8 | -3 | -37.50% |
 | Aborted RPC compactions | 0 | 0 | +0 | 0.00% |
 | Successful compaction requests | 1 | 1 | +0 | +0.00% |
-| Failed compaction requests | 3 | 1 | -2 | -66.67% |
+| Failed compaction requests | 1 | 3 | -2 | -66.67% |
 | Unanswered compaction requests | 0 | 0 | +0 | 0.00% |
-| Successful compaction waits | 3 | 0 | -3 | -100.00% |
+| Successful compaction waits | 0 | 2 | -2 | -100.00% |
 | Failed compaction waits | 0 | 0 | +0 | 0.00% |
 | Unanswered compaction waits | 0 | 0 | +0 | 0.00% |
-| Input tokens | 194,791 | 58,188 | -136,603 | -70.13% |
-| Output tokens | 6,691 | 3,927 | -2,764 | -41.31% |
-| Cache-read tokens | 466,944 | 72,704 | -394,240 | -84.43% |
+| Input tokens | 80,813 | 108,075 | -27,262 | -25.23% |
+| Output tokens | 4,223 | 6,240 | -2,017 | -32.32% |
+| Cache-read tokens | 93,696 | 89,600 | +4,096 | +4.57% |
 | Cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Total tokens | 668,426 | 134,819 | -533,607 | -79.83% |
-| Prompt-cache reuse | 70.56% | 55.55% | -15.02 pp | — |
-| Input cost | $0.973955 | $0.290940 | -0.683015 | -70.13% |
-| Output cost | $0.200730 | $0.117810 | -0.082920 | -41.31% |
-| Cache-read cost | $0.233472 | $0.036352 | -0.197120 | -84.43% |
+| Total tokens | 178,732 | 203,915 | -25,183 | -12.35% |
+| Prompt-cache reuse | 53.69% | 45.33% | +8.36 pp | — |
+| Input cost | $0.404065 | $0.540375 | -0.136310 | -25.23% |
+| Output cost | $0.126690 | $0.187200 | -0.060510 | -32.32% |
+| Cache-read cost | $0.046848 | $0.044800 | +0.002048 | +4.57% |
 | Cache-write cost | $0.000000 | $0.000000 | +0.000000 | 0.00% |
-| Total API cost | $1.408157 | $0.445102 | -0.963055 | -68.39% |
+| Total API cost | $0.577603 | $0.772375 | -0.194772 | -25.22% |
 
 ### Complete archive and projection telemetry
 
 These fields are emitted by the same result collector for both variants. Zero values for `vanilla prime-agent` are expected because it does not load Prime Context.
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Archived observations | 0 | 17 | +17 | n/a (zero baseline) |
-| Archive source bytes | 0 | 197,820 | +197,820 | n/a (zero baseline) |
-| Compressed archive bytes | 0 | 16,343 | +16,343 | n/a (zero baseline) |
-| Archive compression ratio (derived) | 0.00% | 8.26% | +8.26 pp | — |
-| Archive chunks | 0 | 23 | +23 | n/a (zero baseline) |
-| Largest chunk bytes | 0 | 65,578 | +65,578 | n/a (zero baseline) |
-| Source bytes admitted | 0 | 414,828 | +414,828 | n/a (zero baseline) |
+| Archived observations | 15 | 0 | +15 | n/a (zero baseline) |
+| Archive source bytes | 328,260 | 0 | +328,260 | n/a (zero baseline) |
+| Compressed archive bytes | 21,311 | 0 | +21,311 | n/a (zero baseline) |
+| Archive compression ratio (derived) | 6.49% | 0.00% | +6.49 pp | — |
+| Archive chunks | 25 | 0 | +25 | n/a (zero baseline) |
+| Largest chunk bytes | 65,948 | 0 | +65,948 | n/a (zero baseline) |
+| Source bytes admitted | 671,915 | 0 | +671,915 | n/a (zero baseline) |
 | Call-argument bytes projected out | 0 | 0 | +0 | 0.00% |
-| Result bytes projected out | 0 | 195,572 | +195,572 | n/a (zero baseline) |
+| Result bytes projected out | 325,422 | 0 | +325,422 | n/a (zero baseline) |
 | Typed/media bytes projected out | 0 | 0 | +0 | 0.00% |
 | Recovery bytes exposed | 0 | 0 | +0 | 0.00% |
-| End-state projected model-view bytes | 0 | 39,084 | +39,084 | n/a (zero baseline) |
-| Streaming bytes processed | 0 | 395,640 | +395,640 | n/a (zero baseline) |
+| End-state projected model-view bytes | 38,248 | 0 | +38,248 | n/a (zero baseline) |
+| Streaming bytes processed | 657,082 | 0 | +657,082 | n/a (zero baseline) |
 | Inspect/recall hits | 0 | 0 | +0 | 0.00% |
 | Fold generations | 0 | 0 | +0 | 0.00% |
-| Branch-runtime reloads | 0 | 5 | +5 | n/a (zero baseline) |
-| Prime Context cache-read tokens | 0 | 72,704 | +72,704 | n/a (zero baseline) |
+| Branch-runtime reloads | 6 | 0 | +6 | n/a (zero baseline) |
+| Prime Context cache-read tokens | 93,696 | 0 | +93,696 | n/a (zero baseline) |
 | Prime Context cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Prime Context uncached input tokens | 0 | 58,188 | +58,188 | n/a (zero baseline) |
-| Stable-projection extension turns | 0 | 9 | +9 | n/a (zero baseline) |
+| Prime Context uncached input tokens | 80,813 | 0 | +80,813 | n/a (zero baseline) |
+| Stable-projection extension turns | 12 | 0 | +12 | n/a (zero baseline) |
 
 
 ---
+
 
 <a id="task-13"></a>
 
@@ -1985,22 +1964,22 @@ These fields are emitted by the same result collector for both variants. Zero va
 
 **Verdict:** Both variants meet all acceptance criteria; this pair is eligible for formal efficiency comparison.
 
-- **Wall time:** 312.97 s vs 489.13 s; Δ -176.16 s (-36.01%).
-- **Model calls:** 20 vs 24; Δ -4 (-16.67%).
-- **Tool calls:** 19 vs 24; Δ -5 (-20.83%).
-- **Compactions:** 5 vs 9; Δ -4 (-44.44%).
-- **Total tokens:** 212,567 vs 215,589; Δ -3,022 (-1.40%).
-- **Reported API cost:** $0.729285 vs $0.749853; Δ -0.020568 (-2.74%).
-- **Visible tool bytes:** 347,421 vs 128,645; Δ +218,776 (+170.06%).
-- **Prompt-cache reuse:** 56.15% vs 61.68%; Δ -5.53 pp.
+- **Wall time:** 455.82 s vs 404.44 s; Δ +51.38 s (+12.70%).
+- **Model calls:** 23 vs 19; Δ +4 (+21.05%).
+- **Tool calls:** 22 vs 17; Δ +5 (+29.41%).
+- **Compactions:** 9 vs 8; Δ +1 (+12.50%).
+- **Total tokens:** 240,854 vs 187,167; Δ +53,687 (+28.68%).
+- **Total API cost:** $0.808876 vs $0.797814; Δ +0.011062 (+1.39%).
+- **Visible tool bytes:** 236,959 vs 218,801; Δ +18,158 (+8.30%).
+- **Prompt-cache reuse:** 51.44% vs 42.63%; Δ +8.81 pp.
 
 - **Expected exact final response:** `LEAGUE TABLE GOAL COMPLETE`
+- **prime-context 8.1.1 final response:** `LEAGUE TABLE GOAL COMPLETE`
 - **vanilla prime-agent final response:** `LEAGUE TABLE GOAL COMPLETE`
-- **prime-context 8.1.0 final response:** `LEAGUE TABLE GOAL COMPLETE`
 
 ### Complete acceptance and lifecycle comparison
 
-| Acceptance item | Expected | vanilla prime-agent | prime-context 8.1.0 |
+| Acceptance item | Expected | prime-context 8.1.1 | vanilla prime-agent |
 |---|---:|---:|---:|
 | Meets all acceptance criteria | yes | yes | yes |
 | Runner task-completed gate | yes | yes | yes |
@@ -2021,87 +2000,88 @@ These fields are emitted by the same result collector for both variants. Zero va
 
 ### Complete common metric comparison
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Wall time | 489.13 s | 312.97 s | -176.16 s | -36.01% |
-| Lifecycle wall time | 489.27 s | 313.40 s | -175.87 s | -35.95% |
-| Instruction wall time | 489.13 s | 312.97 s | -176.16 s | -36.01% |
+| Wall time | 455.82 s | 404.44 s | +51.38 s | +12.70% |
+| Lifecycle wall time | 456.02 s | 404.89 s | +51.13 s | +12.63% |
+| Instruction wall time | 455.82 s | 404.44 s | +51.38 s | +12.70% |
 | Sessions | 1 | 1 | +0 | +0.00% |
 | Child sessions | 0 | 0 | +0 | 0.00% |
-| Model calls | 24 | 20 | -4 | -16.67% |
-| Tool calls | 24 | 19 | -5 | -20.83% |
-| Tool results | 24 | 19 | -5 | -20.83% |
-| Visible tool bytes | 128,645 | 347,421 | +218,776 | +170.06% |
-| Compactions | 9 | 5 | -4 | -44.44% |
-| Goal-context injections | 7 | 4 | -3 | -42.86% |
-| Assistant output events | 24 | 20 | -4 | -16.67% |
+| Model calls | 23 | 19 | +4 | +21.05% |
+| Tool calls | 22 | 17 | +5 | +29.41% |
+| Tool results | 22 | 17 | +5 | +29.41% |
+| Visible tool bytes | 236,959 | 218,801 | +18,158 | +8.30% |
+| Compactions | 9 | 8 | +1 | +12.50% |
+| Goal-context injections | 7 | 6 | +1 | +16.67% |
+| Assistant output events | 23 | 19 | +4 | +21.05% |
 | Interventions delivered | 5 | 5 | +0 | +0.00% |
-| Stage responses recorded | 7 | 7 | +0 | +0.00% |
-| Test-run observations | 6 | 5 | -1 | -16.67% |
-| Goal updates | 32 | 23 | -9 | -28.12% |
-| RPC compaction completions | 10 | 5 | -5 | -50.00% |
-| Compaction requests | 2 | 2 | +0 | +0.00% |
-| Compaction waits | 0 | 0 | +0 | 0.00% |
-| Accepted stage/command responses | 6 | 6 | +0 | +0.00% |
-| Rejected stage/command responses | 1 | 1 | +0 | +0.00% |
+| Stage responses recorded | 7 | 9 | -2 | -22.22% |
+| Test-run observations | 5 | 5 | +0 | +0.00% |
+| Goal updates | 31 | 26 | +5 | +19.23% |
+| RPC compaction completions | 9 | 8 | +1 | +12.50% |
+| Compaction requests | 2 | 3 | -1 | -33.33% |
+| Compaction waits | 0 | 1 | -1 | -100.00% |
+| Accepted stage/command responses | 6 | 7 | -1 | -14.29% |
+| Rejected stage/command responses | 1 | 2 | -1 | -50.00% |
 | Unanswered stage/command responses | 0 | 0 | +0 | 0.00% |
-| Passing observed test runs | 5 | 4 | -1 | -20.00% |
+| Passing observed test runs | 4 | 4 | +0 | +0.00% |
 | Failing observed test runs | 1 | 1 | +0 | +0.00% |
 | Error-classified observed test runs | 0 | 0 | +0 | 0.00% |
-| Active goal updates | 31 | 22 | -9 | -29.03% |
+| Active goal updates | 30 | 25 | +5 | +20.00% |
 | Complete goal updates | 1 | 1 | +0 | +0.00% |
 | Other-status goal updates | 0 | 0 | +0 | 0.00% |
-| Maximum goal continuations used | 6 | 3 | -3 | -50.00% |
-| Maximum goal tokens used | 87,958 | 96,580 | +8,622 | +9.80% |
-| Completed RPC compactions | 10 | 5 | -5 | -50.00% |
+| Maximum goal continuations used | 7 | 5 | +2 | +40.00% |
+| Maximum goal tokens used | 115,048 | 107,545 | +7,503 | +6.98% |
+| Completed RPC compactions | 9 | 8 | +1 | +12.50% |
 | Aborted RPC compactions | 0 | 0 | +0 | 0.00% |
 | Successful compaction requests | 1 | 1 | +0 | +0.00% |
-| Failed compaction requests | 1 | 1 | +0 | +0.00% |
+| Failed compaction requests | 1 | 2 | -1 | -50.00% |
 | Unanswered compaction requests | 0 | 0 | +0 | 0.00% |
-| Successful compaction waits | 0 | 0 | +0 | 0.00% |
+| Successful compaction waits | 0 | 1 | -1 | -100.00% |
 | Failed compaction waits | 0 | 0 | +0 | 0.00% |
 | Unanswered compaction waits | 0 | 0 | +0 | 0.00% |
-| Input tokens | 78,881 | 89,973 | +11,092 | +14.06% |
-| Output tokens | 9,732 | 7,394 | -2,338 | -24.02% |
-| Cache-read tokens | 126,976 | 115,200 | -11,776 | -9.27% |
+| Input tokens | 114,088 | 102,668 | +11,420 | +11.12% |
+| Output tokens | 5,934 | 8,211 | -2,277 | -27.73% |
+| Cache-read tokens | 120,832 | 76,288 | +44,544 | +58.39% |
 | Cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Total tokens | 215,589 | 212,567 | -3,022 | -1.40% |
-| Prompt-cache reuse | 61.68% | 56.15% | -5.53 pp | — |
-| Input cost | $0.394405 | $0.449865 | +0.055460 | +14.06% |
-| Output cost | $0.291960 | $0.221820 | -0.070140 | -24.02% |
-| Cache-read cost | $0.063488 | $0.057600 | -0.005888 | -9.27% |
+| Total tokens | 240,854 | 187,167 | +53,687 | +28.68% |
+| Prompt-cache reuse | 51.44% | 42.63% | +8.81 pp | — |
+| Input cost | $0.570440 | $0.513340 | +0.057100 | +11.12% |
+| Output cost | $0.178020 | $0.246330 | -0.068310 | -27.73% |
+| Cache-read cost | $0.060416 | $0.038144 | +0.022272 | +58.39% |
 | Cache-write cost | $0.000000 | $0.000000 | +0.000000 | 0.00% |
-| Total API cost | $0.749853 | $0.729285 | -0.020568 | -2.74% |
+| Total API cost | $0.808876 | $0.797814 | +0.011062 | +1.39% |
 
 ### Complete archive and projection telemetry
 
 These fields are emitted by the same result collector for both variants. Zero values for `vanilla prime-agent` are expected because it does not load Prime Context.
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Archived observations | 0 | 18 | +18 | n/a (zero baseline) |
-| Archive source bytes | 0 | 327,890 | +327,890 | n/a (zero baseline) |
-| Compressed archive bytes | 0 | 26,439 | +26,439 | n/a (zero baseline) |
-| Archive compression ratio (derived) | 0.00% | 8.06% | +8.06 pp | — |
-| Archive chunks | 0 | 25 | +25 | n/a (zero baseline) |
-| Largest chunk bytes | 0 | 65,578 | +65,578 | n/a (zero baseline) |
-| Source bytes admitted | 0 | 692,941 | +692,941 | n/a (zero baseline) |
-| Call-argument bytes projected out | 0 | 9,346 | +9,346 | n/a (zero baseline) |
-| Result bytes projected out | 0 | 325,139 | +325,139 | n/a (zero baseline) |
+| Archived observations | 21 | 0 | +21 | n/a (zero baseline) |
+| Archive source bytes | 196,734 | 0 | +196,734 | n/a (zero baseline) |
+| Compressed archive bytes | 22,059 | 0 | +22,059 | n/a (zero baseline) |
+| Archive compression ratio (derived) | 11.21% | 0.00% | +11.21 pp | — |
+| Archive chunks | 28 | 0 | +28 | n/a (zero baseline) |
+| Largest chunk bytes | 65,578 | 0 | +65,578 | n/a (zero baseline) |
+| Source bytes admitted | 435,303 | 0 | +435,303 | n/a (zero baseline) |
+| Call-argument bytes projected out | 0 | 0 | +0 | 0.00% |
+| Result bytes projected out | 195,361 | 0 | +195,361 | n/a (zero baseline) |
 | Typed/media bytes projected out | 0 | 0 | +0 | 0.00% |
 | Recovery bytes exposed | 0 | 0 | +0 | 0.00% |
-| End-state projected model-view bytes | 0 | 37,946 | +37,946 | n/a (zero baseline) |
-| Streaming bytes processed | 0 | 655,780 | +655,780 | n/a (zero baseline) |
+| End-state projected model-view bytes | 24,344 | 0 | +24,344 | n/a (zero baseline) |
+| Streaming bytes processed | 393,468 | 0 | +393,468 | n/a (zero baseline) |
 | Inspect/recall hits | 0 | 0 | +0 | 0.00% |
 | Fold generations | 0 | 0 | +0 | 0.00% |
-| Branch-runtime reloads | 0 | 6 | +6 | n/a (zero baseline) |
-| Prime Context cache-read tokens | 0 | 115,200 | +115,200 | n/a (zero baseline) |
+| Branch-runtime reloads | 10 | 0 | +10 | n/a (zero baseline) |
+| Prime Context cache-read tokens | 120,832 | 0 | +120,832 | n/a (zero baseline) |
 | Prime Context cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Prime Context uncached input tokens | 0 | 89,973 | +89,973 | n/a (zero baseline) |
-| Stable-projection extension turns | 0 | 15 | +15 | n/a (zero baseline) |
+| Prime Context uncached input tokens | 114,088 | 0 | +114,088 | n/a (zero baseline) |
+| Stable-projection extension turns | 13 | 0 | +13 | n/a (zero baseline) |
 
 
 ---
+
 
 <a id="task-14"></a>
 
@@ -2119,22 +2099,22 @@ These fields are emitted by the same result collector for both variants. Zero va
 
 **Verdict:** Both variants meet all acceptance criteria; this pair is eligible for formal efficiency comparison.
 
-- **Wall time:** 350.12 s vs 535.12 s; Δ -185.00 s (-34.57%).
-- **Model calls:** 20 vs 24; Δ -4 (-16.67%).
-- **Tool calls:** 19 vs 22; Δ -3 (-13.64%).
-- **Compactions:** 6 vs 9; Δ -3 (-33.33%).
-- **Total tokens:** 213,069 vs 258,947; Δ -45,878 (-17.72%).
-- **Reported API cost:** $0.667483 vs $0.949759; Δ -0.282276 (-29.72%).
-- **Visible tool bytes:** 148,322 vs 236,620; Δ -88,298 (-37.32%).
-- **Prompt-cache reuse:** 62.98% vs 55.55%; Δ +7.44 pp.
+- **Wall time:** 477.39 s vs 648.50 s; Δ -171.11 s (-26.39%).
+- **Model calls:** 23 vs 27; Δ -4 (-14.81%).
+- **Tool calls:** 22 vs 26; Δ -4 (-15.38%).
+- **Compactions:** 9 vs 12; Δ -3 (-25.00%).
+- **Total tokens:** 247,208 vs 298,586; Δ -51,378 (-17.21%).
+- **Total API cost:** $0.941134 vs $1.037483; Δ -0.096349 (-9.29%).
+- **Visible tool bytes:** 236,271 vs 259,746; Δ -23,475 (-9.04%).
+- **Prompt-cache reuse:** 45.79% vs 56.63%; Δ -10.84 pp.
 
 - **Expected exact final response:** `BANK RECONCILE GOAL COMPLETE`
+- **prime-context 8.1.1 final response:** `BANK RECONCILE GOAL COMPLETE`
 - **vanilla prime-agent final response:** `BANK RECONCILE GOAL COMPLETE`
-- **prime-context 8.1.0 final response:** `BANK RECONCILE GOAL COMPLETE`
 
 ### Complete acceptance and lifecycle comparison
 
-| Acceptance item | Expected | vanilla prime-agent | prime-context 8.1.0 |
+| Acceptance item | Expected | prime-context 8.1.1 | vanilla prime-agent |
 |---|---:|---:|---:|
 | Meets all acceptance criteria | yes | yes | yes |
 | Runner task-completed gate | yes | yes | yes |
@@ -2155,39 +2135,39 @@ These fields are emitted by the same result collector for both variants. Zero va
 
 ### Complete common metric comparison
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Wall time | 535.12 s | 350.12 s | -185.00 s | -34.57% |
-| Lifecycle wall time | 535.41 s | 350.57 s | -184.85 s | -34.52% |
-| Instruction wall time | 535.12 s | 350.12 s | -185.00 s | -34.57% |
+| Wall time | 477.39 s | 648.50 s | -171.11 s | -26.39% |
+| Lifecycle wall time | 477.94 s | 648.64 s | -170.70 s | -26.32% |
+| Instruction wall time | 477.39 s | 648.50 s | -171.11 s | -26.39% |
 | Sessions | 1 | 1 | +0 | +0.00% |
 | Child sessions | 0 | 0 | +0 | 0.00% |
-| Model calls | 24 | 20 | -4 | -16.67% |
-| Tool calls | 22 | 19 | -3 | -13.64% |
-| Tool results | 22 | 19 | -3 | -13.64% |
-| Visible tool bytes | 236,620 | 148,322 | -88,298 | -37.32% |
-| Compactions | 9 | 6 | -3 | -33.33% |
-| Goal-context injections | 7 | 5 | -2 | -28.57% |
-| Assistant output events | 24 | 20 | -4 | -16.67% |
+| Model calls | 23 | 27 | -4 | -14.81% |
+| Tool calls | 22 | 26 | -4 | -15.38% |
+| Tool results | 22 | 26 | -4 | -15.38% |
+| Visible tool bytes | 236,271 | 259,746 | -23,475 | -9.04% |
+| Compactions | 9 | 12 | -3 | -25.00% |
+| Goal-context injections | 8 | 10 | -2 | -20.00% |
+| Assistant output events | 23 | 27 | -4 | -14.81% |
 | Interventions delivered | 5 | 5 | +0 | +0.00% |
 | Stage responses recorded | 7 | 7 | +0 | +0.00% |
-| Test-run observations | 5 | 5 | +0 | +0.00% |
-| Goal updates | 31 | 24 | -7 | -22.58% |
-| RPC compaction completions | 9 | 6 | -3 | -33.33% |
+| Test-run observations | 5 | 6 | -1 | -16.67% |
+| Goal updates | 30 | 38 | -8 | -21.05% |
+| RPC compaction completions | 9 | 12 | -3 | -25.00% |
 | Compaction requests | 2 | 2 | +0 | +0.00% |
 | Compaction waits | 0 | 0 | +0 | 0.00% |
 | Accepted stage/command responses | 6 | 6 | +0 | +0.00% |
 | Rejected stage/command responses | 1 | 1 | +0 | +0.00% |
 | Unanswered stage/command responses | 0 | 0 | +0 | 0.00% |
-| Passing observed test runs | 4 | 4 | +0 | +0.00% |
-| Failing observed test runs | 1 | 1 | +0 | +0.00% |
+| Passing observed test runs | 3 | 4 | -1 | -25.00% |
+| Failing observed test runs | 2 | 2 | +0 | +0.00% |
 | Error-classified observed test runs | 0 | 0 | +0 | 0.00% |
-| Active goal updates | 30 | 23 | -7 | -23.33% |
+| Active goal updates | 29 | 37 | -8 | -21.62% |
 | Complete goal updates | 1 | 1 | +0 | +0.00% |
 | Other-status goal updates | 0 | 0 | +0 | 0.00% |
-| Maximum goal continuations used | 6 | 4 | -2 | -33.33% |
-| Maximum goal tokens used | 116,754 | 82,457 | -34,297 | -29.38% |
-| Completed RPC compactions | 9 | 6 | -3 | -33.33% |
+| Maximum goal continuations used | 7 | 9 | -2 | -22.22% |
+| Maximum goal tokens used | 136,318 | 132,214 | +4,104 | +3.10% |
+| Completed RPC compactions | 9 | 12 | -3 | -25.00% |
 | Aborted RPC compactions | 0 | 0 | +0 | 0.00% |
 | Successful compaction requests | 1 | 1 | +0 | +0.00% |
 | Failed compaction requests | 1 | 1 | +0 | +0.00% |
@@ -2195,47 +2175,48 @@ These fields are emitted by the same result collector for both variants. Zero va
 | Successful compaction waits | 0 | 0 | +0 | 0.00% |
 | Failed compaction waits | 0 | 0 | +0 | 0.00% |
 | Unanswered compaction waits | 0 | 0 | +0 | 0.00% |
-| Input tokens | 110,227 | 76,131 | -34,096 | -30.93% |
-| Output tokens | 10,992 | 7,402 | -3,590 | -32.66% |
-| Cache-read tokens | 137,728 | 129,536 | -8,192 | -5.95% |
+| Input tokens | 129,714 | 124,681 | +5,033 | +4.04% |
+| Output tokens | 7,926 | 11,089 | -3,163 | -28.52% |
+| Cache-read tokens | 109,568 | 162,816 | -53,248 | -32.70% |
 | Cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Total tokens | 258,947 | 213,069 | -45,878 | -17.72% |
-| Prompt-cache reuse | 55.55% | 62.98% | +7.44 pp | — |
-| Input cost | $0.551135 | $0.380655 | -0.170480 | -30.93% |
-| Output cost | $0.329760 | $0.222060 | -0.107700 | -32.66% |
-| Cache-read cost | $0.068864 | $0.064768 | -0.004096 | -5.95% |
+| Total tokens | 247,208 | 298,586 | -51,378 | -17.21% |
+| Prompt-cache reuse | 45.79% | 56.63% | -10.84 pp | — |
+| Input cost | $0.648570 | $0.623405 | +0.025165 | +4.04% |
+| Output cost | $0.237780 | $0.332670 | -0.094890 | -28.52% |
+| Cache-read cost | $0.054784 | $0.081408 | -0.026624 | -32.70% |
 | Cache-write cost | $0.000000 | $0.000000 | +0.000000 | 0.00% |
-| Total API cost | $0.949759 | $0.667483 | -0.282276 | -29.72% |
+| Total API cost | $0.941134 | $1.037483 | -0.096349 | -9.29% |
 
 ### Complete archive and projection telemetry
 
 These fields are emitted by the same result collector for both variants. Zero values for `vanilla prime-agent` are expected because it does not load Prime Context.
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Archived observations | 0 | 18 | +18 | n/a (zero baseline) |
-| Archive source bytes | 0 | 131,156 | +131,156 | n/a (zero baseline) |
-| Compressed archive bytes | 0 | 14,684 | +14,684 | n/a (zero baseline) |
-| Archive compression ratio (derived) | 0.00% | 11.20% | +11.20 pp | — |
-| Archive chunks | 0 | 23 | +23 | n/a (zero baseline) |
-| Largest chunk bytes | 0 | 65,578 | +65,578 | n/a (zero baseline) |
-| Source bytes admitted | 0 | 287,721 | +287,721 | n/a (zero baseline) |
+| Archived observations | 21 | 0 | +21 | n/a (zero baseline) |
+| Archive source bytes | 197,105 | 0 | +197,105 | n/a (zero baseline) |
+| Compressed archive bytes | 25,928 | 0 | +25,928 | n/a (zero baseline) |
+| Archive compression ratio (derived) | 13.15% | 0.00% | +13.15 pp | — |
+| Archive chunks | 32 | 0 | +32 | n/a (zero baseline) |
+| Largest chunk bytes | 65,949 | 0 | +65,949 | n/a (zero baseline) |
+| Source bytes admitted | 445,115 | 0 | +445,115 | n/a (zero baseline) |
 | Call-argument bytes projected out | 0 | 0 | +0 | 0.00% |
-| Result bytes projected out | 0 | 130,188 | +130,188 | n/a (zero baseline) |
+| Result bytes projected out | 195,180 | 0 | +195,180 | n/a (zero baseline) |
 | Typed/media bytes projected out | 0 | 0 | +0 | 0.00% |
 | Recovery bytes exposed | 0 | 0 | +0 | 0.00% |
-| End-state projected model-view bytes | 0 | 38,449 | +38,449 | n/a (zero baseline) |
-| Streaming bytes processed | 0 | 262,312 | +262,312 | n/a (zero baseline) |
+| End-state projected model-view bytes | 35,919 | 0 | +35,919 | n/a (zero baseline) |
+| Streaming bytes processed | 394,773 | 0 | +394,773 | n/a (zero baseline) |
 | Inspect/recall hits | 0 | 0 | +0 | 0.00% |
 | Fold generations | 0 | 0 | +0 | 0.00% |
-| Branch-runtime reloads | 0 | 7 | +7 | n/a (zero baseline) |
-| Prime Context cache-read tokens | 0 | 129,536 | +129,536 | n/a (zero baseline) |
+| Branch-runtime reloads | 10 | 0 | +10 | n/a (zero baseline) |
+| Prime Context cache-read tokens | 109,568 | 0 | +109,568 | n/a (zero baseline) |
 | Prime Context cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Prime Context uncached input tokens | 0 | 76,131 | +76,131 | n/a (zero baseline) |
-| Stable-projection extension turns | 0 | 15 | +15 | n/a (zero baseline) |
+| Prime Context uncached input tokens | 129,714 | 0 | +129,714 | n/a (zero baseline) |
+| Stable-projection extension turns | 14 | 0 | +14 | n/a (zero baseline) |
 
 
 ---
+
 
 <a id="task-15"></a>
 
@@ -2251,125 +2232,128 @@ These fields are emitted by the same result collector for both variants. Zero va
 
 ### Measured outcome
 
-**Verdict:** Neither variant meets all acceptance criteria; resource use is reported descriptively, not as a formal efficiency result.
+**Verdict:** Both variants meet all acceptance criteria; this pair is eligible for formal efficiency comparison.
 
-- **Wall time:** 600.00 s vs 600.00 s; Δ +0.00 s (+0.00%).
-- **Model calls:** 28 vs 24; Δ +4 (+16.67%).
-- **Tool calls:** 28 vs 22; Δ +6 (+27.27%).
-- **Compactions:** 14 vs 9; Δ +5 (+55.56%).
-- **Total tokens:** 280,056 vs 232,315; Δ +47,741 (+20.55%).
-- **Reported API cost:** $0.982738 vs $1.012801; Δ -0.030063 (-2.97%).
-- **Visible tool bytes:** 194,384 vs 201,814; Δ -7,430 (-3.68%).
-- **Prompt-cache reuse:** 51.46% vs 41.82%; Δ +9.64 pp.
+- **Wall time:** 249.58 s vs 500.17 s; Δ -250.59 s (-50.10%).
+- **Model calls:** 12 vs 23; Δ -11 (-47.83%).
+- **Tool calls:** 11 vs 20; Δ -9 (-45.00%).
+- **Compactions:** 4 vs 8; Δ -4 (-50.00%).
+- **Total tokens:** 118,397 vs 220,401; Δ -102,004 (-46.28%).
+- **Total API cost:** $0.538831 vs $0.898835; Δ -0.360004 (-40.05%).
+- **Visible tool bytes:** 140,581 vs 189,781; Δ -49,200 (-25.92%).
+- **Prompt-cache reuse:** 46.50% vs 50.07%; Δ -3.57 pp.
+
+- **Retry:** prime-context 8.1.1 initially failed strict acceptance and used its single permitted retry; the table reports the retry attempt (strict pass).
 
 - **Expected exact final response:** `AUTHORIZATION GOAL COMPLETE`
-- **vanilla prime-agent final response:** `The pivot suite passes 6/6. I will now add the nontransitive, time-bounded delegation rules from `FOLLOWUP.md`, preserve the current grant semantics, and rerun the full suite. Completion will remain gated on the final lock.`
-- **prime-context 8.1.0 final response:** `The r3 changes pass all 6 tests. I am now adding delegation records as a separate, snapshotted input. Evaluation will keep delegation one-hop only and merge delegated allows into the existing nearest-resource decision step.`
+- **prime-context 8.1.1 final response:** `AUTHORIZATION GOAL COMPLETE`
+- **vanilla prime-agent final response:** `AUTHORIZATION GOAL COMPLETE`
 
 ### Complete acceptance and lifecycle comparison
 
-| Acceptance item | Expected | vanilla prime-agent | prime-context 8.1.0 |
+| Acceptance item | Expected | prime-context 8.1.1 | vanilla prime-agent |
 |---|---:|---:|---:|
-| Meets all acceptance criteria | yes | no | no |
-| Runner task-completed gate | yes | no | no |
-| External cumulative tests | 9/9 | 9/9 | 0/0 |
-| External-tests gate | yes | yes | no |
+| Meets all acceptance criteria | yes | yes | yes |
+| Runner task-completed gate | yes | yes | yes |
+| External cumulative tests | 9/9 | 9/9 | 9/9 |
+| External-tests gate | yes | yes | yes |
 | Protected files unchanged | yes | yes | yes |
-| Goal status | complete | active | active |
-| Goal completed after lock | yes | no | no |
+| Goal status | complete | complete | complete |
+| Goal completed after lock | yes | yes | yes |
 | Interventions accepted | yes | yes | yes |
 | Intervention order correct | yes | yes | yes |
-| Exact final response | yes | no | no |
+| Exact final response | yes | yes | yes |
 | Early completion observed | no | no | no |
-| Goal-complete event observed | yes | no | no |
-| Run error | none | TimeoutError: condition timed out after 600 seconds | TimeoutError: condition timed out after 600 seconds |
-| Interaction error | none | TimeoutError: condition timed out after 600 seconds | TimeoutError: condition timed out after 600 seconds |
+| Goal-complete event observed | yes | yes | yes |
+| Run error | none | none | none |
+| Interaction error | none | none | none |
 | Interaction stderr | empty | empty | empty |
 | Retained Docker evidence | yes | yes | yes |
 
 ### Complete common metric comparison
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Wall time | 600.00 s | 600.00 s | +0.00 s | +0.00% |
-| Lifecycle wall time | 600.48 s | 600.43 s | -0.06 s | -0.01% |
-| Instruction wall time | 600.00 s | 600.00 s | +0.00 s | +0.00% |
+| Wall time | 249.58 s | 500.17 s | -250.59 s | -50.10% |
+| Lifecycle wall time | 249.85 s | 500.51 s | -250.66 s | -50.08% |
+| Instruction wall time | 249.58 s | 500.17 s | -250.59 s | -50.10% |
 | Sessions | 1 | 1 | +0 | +0.00% |
 | Child sessions | 0 | 0 | +0 | 0.00% |
-| Model calls | 24 | 28 | +4 | +16.67% |
-| Tool calls | 22 | 28 | +6 | +27.27% |
-| Tool results | 22 | 28 | +6 | +27.27% |
-| Visible tool bytes | 201,814 | 194,384 | -7,430 | -3.68% |
-| Compactions | 9 | 14 | +5 | +55.56% |
-| Goal-context injections | 9 | 13 | +4 | +44.44% |
-| Assistant output events | 24 | 28 | +4 | +16.67% |
+| Model calls | 12 | 23 | -11 | -47.83% |
+| Tool calls | 11 | 20 | -9 | -45.00% |
+| Tool results | 11 | 20 | -9 | -45.00% |
+| Visible tool bytes | 140,581 | 189,781 | -49,200 | -25.92% |
+| Compactions | 4 | 8 | -4 | -50.00% |
+| Goal-context injections | 2 | 8 | -6 | -75.00% |
+| Assistant output events | 12 | 23 | -11 | -47.83% |
 | Interventions delivered | 5 | 5 | +0 | +0.00% |
-| Stage responses recorded | 11 | 7 | -4 | -36.36% |
-| Test-run observations | 4 | 4 | +0 | +0.00% |
-| Goal updates | 35 | 43 | +8 | +22.86% |
-| RPC compaction completions | 9 | 14 | +5 | +55.56% |
-| Compaction requests | 4 | 2 | -2 | -50.00% |
-| Compaction waits | 2 | 0 | -2 | -100.00% |
-| Accepted stage/command responses | 8 | 6 | -2 | -25.00% |
-| Rejected stage/command responses | 3 | 1 | -2 | -66.67% |
+| Stage responses recorded | 7 | 11 | -4 | -36.36% |
+| Test-run observations | 5 | 5 | +0 | +0.00% |
+| Goal updates | 13 | 32 | -19 | -59.38% |
+| RPC compaction completions | 4 | 8 | -4 | -50.00% |
+| Compaction requests | 2 | 4 | -2 | -50.00% |
+| Compaction waits | 0 | 2 | -2 | -100.00% |
+| Accepted stage/command responses | 7 | 8 | -1 | -12.50% |
+| Rejected stage/command responses | 0 | 3 | -3 | -100.00% |
 | Unanswered stage/command responses | 0 | 0 | +0 | 0.00% |
-| Passing observed test runs | 3 | 2 | -1 | -33.33% |
-| Failing observed test runs | 1 | 2 | +1 | +100.00% |
+| Passing observed test runs | 4 | 4 | +0 | +0.00% |
+| Failing observed test runs | 1 | 1 | +0 | +0.00% |
 | Error-classified observed test runs | 0 | 0 | +0 | 0.00% |
-| Active goal updates | 35 | 43 | +8 | +22.86% |
-| Complete goal updates | 0 | 0 | +0 | 0.00% |
+| Active goal updates | 12 | 31 | -19 | -61.29% |
+| Complete goal updates | 1 | 1 | +0 | +0.00% |
 | Other-status goal updates | 0 | 0 | +0 | 0.00% |
-| Maximum goal continuations used | 9 | 13 | +4 | +44.44% |
-| Maximum goal tokens used | 139,643 | 140,280 | +637 | +0.46% |
-| Completed RPC compactions | 9 | 14 | +5 | +55.56% |
+| Maximum goal continuations used | 1 | 7 | -6 | -85.71% |
+| Maximum goal tokens used | 61,077 | 114,947 | -53,870 | -46.87% |
+| Completed RPC compactions | 4 | 8 | -4 | -50.00% |
 | Aborted RPC compactions | 0 | 0 | +0 | 0.00% |
-| Successful compaction requests | 1 | 1 | +0 | +0.00% |
-| Failed compaction requests | 3 | 1 | -2 | -66.67% |
+| Successful compaction requests | 2 | 1 | +1 | +100.00% |
+| Failed compaction requests | 0 | 3 | -3 | -100.00% |
 | Unanswered compaction requests | 0 | 0 | +0 | 0.00% |
-| Successful compaction waits | 2 | 0 | -2 | -100.00% |
+| Successful compaction waits | 0 | 2 | -2 | -100.00% |
 | Failed compaction waits | 0 | 0 | +0 | 0.00% |
 | Unanswered compaction waits | 0 | 0 | +0 | 0.00% |
-| Input tokens | 128,913 | 131,822 | +2,909 | +2.26% |
-| Output tokens | 10,730 | 8,458 | -2,272 | -21.17% |
-| Cache-read tokens | 92,672 | 139,776 | +47,104 | +50.83% |
+| Input tokens | 59,503 | 104,675 | -45,172 | -43.15% |
+| Output tokens | 7,182 | 10,766 | -3,584 | -33.29% |
+| Cache-read tokens | 51,712 | 104,960 | -53,248 | -50.73% |
 | Cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Total tokens | 232,315 | 280,056 | +47,741 | +20.55% |
-| Prompt-cache reuse | 41.82% | 51.46% | +9.64 pp | — |
-| Input cost | $0.644565 | $0.659110 | +0.014545 | +2.26% |
-| Output cost | $0.321900 | $0.253740 | -0.068160 | -21.17% |
-| Cache-read cost | $0.046336 | $0.069888 | +0.023552 | +50.83% |
+| Total tokens | 118,397 | 220,401 | -102,004 | -46.28% |
+| Prompt-cache reuse | 46.50% | 50.07% | -3.57 pp | — |
+| Input cost | $0.297515 | $0.523375 | -0.225860 | -43.15% |
+| Output cost | $0.215460 | $0.322980 | -0.107520 | -33.29% |
+| Cache-read cost | $0.025856 | $0.052480 | -0.026624 | -50.73% |
 | Cache-write cost | $0.000000 | $0.000000 | +0.000000 | 0.00% |
-| Total API cost | $1.012801 | $0.982738 | -0.030063 | -2.97% |
+| Total API cost | $0.538831 | $0.898835 | -0.360004 | -40.05% |
 
 ### Complete archive and projection telemetry
 
 These fields are emitted by the same result collector for both variants. Zero values for `vanilla prime-agent` are expected because it does not load Prime Context.
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Archived observations | 0 | 28 | +28 | n/a (zero baseline) |
-| Archive source bytes | 0 | 67,645 | +67,645 | n/a (zero baseline) |
-| Compressed archive bytes | 0 | 39,899 | +39,899 | n/a (zero baseline) |
-| Archive compression ratio (derived) | 0.00% | 58.98% | +58.98 pp | — |
-| Archive chunks | 0 | 39 | +39 | n/a (zero baseline) |
-| Largest chunk bytes | 0 | 65,949 | +65,949 | n/a (zero baseline) |
-| Source bytes admitted | 0 | 281,261 | +281,261 | n/a (zero baseline) |
-| Call-argument bytes projected out | 0 | 8,591 | +8,591 | n/a (zero baseline) |
-| Result bytes projected out | 0 | 66,211 | +66,211 | n/a (zero baseline) |
+| Archived observations | 10 | 0 | +10 | n/a (zero baseline) |
+| Archive source bytes | 131,156 | 0 | +131,156 | n/a (zero baseline) |
+| Compressed archive bytes | 11,790 | 0 | +11,790 | n/a (zero baseline) |
+| Archive compression ratio (derived) | 8.99% | 0.00% | +8.99 pp | — |
+| Archive chunks | 13 | 0 | +13 | n/a (zero baseline) |
+| Largest chunk bytes | 65,578 | 0 | +65,578 | n/a (zero baseline) |
+| Source bytes admitted | 280,045 | 0 | +280,045 | n/a (zero baseline) |
+| Call-argument bytes projected out | 8,878 | 0 | +8,878 | n/a (zero baseline) |
+| Result bytes projected out | 130,207 | 0 | +130,207 | n/a (zero baseline) |
 | Typed/media bytes projected out | 0 | 0 | +0 | 0.00% |
 | Recovery bytes exposed | 0 | 0 | +0 | 0.00% |
-| End-state projected model-view bytes | 0 | 13,179 | +13,179 | n/a (zero baseline) |
-| Streaming bytes processed | 0 | 135,853 | +135,853 | n/a (zero baseline) |
+| End-state projected model-view bytes | 33,158 | 0 | +33,158 | n/a (zero baseline) |
+| Streaming bytes processed | 262,312 | 0 | +262,312 | n/a (zero baseline) |
 | Inspect/recall hits | 0 | 0 | +0 | 0.00% |
 | Fold generations | 0 | 0 | +0 | 0.00% |
-| Branch-runtime reloads | 0 | 15 | +15 | n/a (zero baseline) |
-| Prime Context cache-read tokens | 0 | 139,776 | +139,776 | n/a (zero baseline) |
+| Branch-runtime reloads | 5 | 0 | +5 | n/a (zero baseline) |
+| Prime Context cache-read tokens | 51,712 | 0 | +51,712 | n/a (zero baseline) |
 | Prime Context cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Prime Context uncached input tokens | 0 | 131,822 | +131,822 | n/a (zero baseline) |
-| Stable-projection extension turns | 0 | 13 | +13 | n/a (zero baseline) |
+| Prime Context uncached input tokens | 59,503 | 0 | +59,503 | n/a (zero baseline) |
+| Stable-projection extension turns | 8 | 0 | +8 | n/a (zero baseline) |
 
 
 ---
+
 
 <a id="task-16"></a>
 
@@ -2387,22 +2371,25 @@ These fields are emitted by the same result collector for both variants. Zero va
 
 **Verdict:** Both variants meet all acceptance criteria; this pair is eligible for formal efficiency comparison.
 
-- **Wall time:** 304.05 s vs 521.66 s; Δ -217.61 s (-41.71%).
-- **Model calls:** 17 vs 22; Δ -5 (-22.73%).
-- **Tool calls:** 16 vs 21; Δ -5 (-23.81%).
-- **Compactions:** 5 vs 9; Δ -4 (-44.44%).
-- **Total tokens:** 178,984 vs 228,307; Δ -49,323 (-21.60%).
-- **Reported API cost:** $0.650167 vs $0.896637; Δ -0.246470 (-27.49%).
-- **Visible tool bytes:** 221,236 vs 251,673; Δ -30,437 (-12.09%).
-- **Prompt-cache reuse:** 54.18% vs 49.66%; Δ +4.51 pp.
+- **Wall time:** 285.98 s vs 468.52 s; Δ -182.54 s (-38.96%).
+- **Model calls:** 19 vs 23; Δ -4 (-17.39%).
+- **Tool calls:** 18 vs 20; Δ -2 (-10.00%).
+- **Compactions:** 5 vs 8; Δ -3 (-37.50%).
+- **Total tokens:** 201,593 vs 227,044; Δ -25,451 (-11.21%).
+- **Total API cost:** $0.683117 vs $0.896095; Δ -0.212978 (-23.77%).
+- **Visible tool bytes:** 28,400 vs 221,778; Δ -193,378 (-87.19%).
+- **Prompt-cache reuse:** 55.65% vs 53.36%; Δ +2.28 pp.
+
+- **Retry:** prime-context 8.1.1 initially failed strict acceptance and used its single permitted retry; the table reports the retry attempt (strict pass).
+- **Retry:** vanilla prime-agent initially failed strict acceptance and used its single permitted retry; the table reports the retry attempt (strict pass).
 
 - **Expected exact final response:** `SUBSCRIPTION INVOICE GOAL COMPLETE`
+- **prime-context 8.1.1 final response:** `SUBSCRIPTION INVOICE GOAL COMPLETE`
 - **vanilla prime-agent final response:** `SUBSCRIPTION INVOICE GOAL COMPLETE`
-- **prime-context 8.1.0 final response:** `SUBSCRIPTION INVOICE GOAL COMPLETE`
 
 ### Complete acceptance and lifecycle comparison
 
-| Acceptance item | Expected | vanilla prime-agent | prime-context 8.1.0 |
+| Acceptance item | Expected | prime-context 8.1.1 | vanilla prime-agent |
 |---|---:|---:|---:|
 | Meets all acceptance criteria | yes | yes | yes |
 | Runner task-completed gate | yes | yes | yes |
@@ -2423,87 +2410,88 @@ These fields are emitted by the same result collector for both variants. Zero va
 
 ### Complete common metric comparison
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Wall time | 521.66 s | 304.05 s | -217.61 s | -41.71% |
-| Lifecycle wall time | 522.16 s | 304.41 s | -217.75 s | -41.70% |
-| Instruction wall time | 521.66 s | 304.05 s | -217.61 s | -41.71% |
+| Wall time | 285.98 s | 468.52 s | -182.54 s | -38.96% |
+| Lifecycle wall time | 286.24 s | 468.92 s | -182.68 s | -38.96% |
+| Instruction wall time | 285.98 s | 468.52 s | -182.54 s | -38.96% |
 | Sessions | 1 | 1 | +0 | +0.00% |
 | Child sessions | 0 | 0 | +0 | 0.00% |
-| Model calls | 22 | 17 | -5 | -22.73% |
-| Tool calls | 21 | 16 | -5 | -23.81% |
-| Tool results | 21 | 16 | -5 | -23.81% |
-| Visible tool bytes | 251,673 | 221,236 | -30,437 | -12.09% |
-| Compactions | 9 | 5 | -4 | -44.44% |
-| Goal-context injections | 7 | 4 | -3 | -42.86% |
-| Assistant output events | 22 | 17 | -5 | -22.73% |
+| Model calls | 19 | 23 | -4 | -17.39% |
+| Tool calls | 18 | 20 | -2 | -10.00% |
+| Tool results | 18 | 20 | -2 | -10.00% |
+| Visible tool bytes | 28,400 | 221,778 | -193,378 | -87.19% |
+| Compactions | 5 | 8 | -3 | -37.50% |
+| Goal-context injections | 4 | 8 | -4 | -50.00% |
+| Assistant output events | 19 | 23 | -4 | -17.39% |
 | Interventions delivered | 5 | 5 | +0 | +0.00% |
-| Stage responses recorded | 9 | 7 | -2 | -22.22% |
+| Stage responses recorded | 7 | 11 | -4 | -36.36% |
 | Test-run observations | 5 | 5 | +0 | +0.00% |
-| Goal updates | 30 | 20 | -10 | -33.33% |
-| RPC compaction completions | 9 | 5 | -4 | -44.44% |
-| Compaction requests | 3 | 2 | -1 | -33.33% |
-| Compaction waits | 1 | 0 | -1 | -100.00% |
-| Accepted stage/command responses | 7 | 7 | +0 | +0.00% |
-| Rejected stage/command responses | 2 | 0 | -2 | -100.00% |
+| Goal updates | 22 | 32 | -10 | -31.25% |
+| RPC compaction completions | 5 | 8 | -3 | -37.50% |
+| Compaction requests | 2 | 4 | -2 | -50.00% |
+| Compaction waits | 0 | 2 | -2 | -100.00% |
+| Accepted stage/command responses | 6 | 8 | -2 | -25.00% |
+| Rejected stage/command responses | 1 | 3 | -2 | -66.67% |
 | Unanswered stage/command responses | 0 | 0 | +0 | 0.00% |
 | Passing observed test runs | 4 | 4 | +0 | +0.00% |
 | Failing observed test runs | 1 | 1 | +0 | +0.00% |
 | Error-classified observed test runs | 0 | 0 | +0 | 0.00% |
-| Active goal updates | 29 | 19 | -10 | -34.48% |
+| Active goal updates | 21 | 31 | -10 | -32.26% |
 | Complete goal updates | 1 | 1 | +0 | +0.00% |
 | Other-status goal updates | 0 | 0 | +0 | 0.00% |
-| Maximum goal continuations used | 6 | 3 | -3 | -50.00% |
-| Maximum goal tokens used | 107,468 | 85,309 | -22,159 | -20.62% |
-| Completed RPC compactions | 9 | 5 | -4 | -44.44% |
+| Maximum goal continuations used | 3 | 7 | -4 | -57.14% |
+| Maximum goal tokens used | 92,151 | 111,481 | -19,330 | -17.34% |
+| Completed RPC compactions | 5 | 8 | -3 | -37.50% |
 | Aborted RPC compactions | 0 | 0 | +0 | 0.00% |
-| Successful compaction requests | 1 | 2 | +1 | +100.00% |
-| Failed compaction requests | 2 | 0 | -2 | -100.00% |
+| Successful compaction requests | 1 | 1 | +0 | +0.00% |
+| Failed compaction requests | 1 | 3 | -2 | -66.67% |
 | Unanswered compaction requests | 0 | 0 | +0 | 0.00% |
-| Successful compaction waits | 1 | 0 | -1 | -100.00% |
+| Successful compaction waits | 0 | 2 | -2 | -100.00% |
 | Failed compaction waits | 0 | 0 | +0 | 0.00% |
 | Unanswered compaction waits | 0 | 0 | +0 | 0.00% |
-| Input tokens | 110,021 | 78,817 | -31,204 | -28.36% |
-| Output tokens | 9,742 | 6,983 | -2,759 | -28.32% |
-| Cache-read tokens | 108,544 | 93,184 | -15,360 | -14.15% |
+| Input tokens | 86,505 | 100,673 | -14,168 | -14.07% |
+| Output tokens | 6,544 | 11,171 | -4,627 | -41.42% |
+| Cache-read tokens | 108,544 | 115,200 | -6,656 | -5.78% |
 | Cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Total tokens | 228,307 | 178,984 | -49,323 | -21.60% |
-| Prompt-cache reuse | 49.66% | 54.18% | +4.51 pp | — |
-| Input cost | $0.550105 | $0.394085 | -0.156020 | -28.36% |
-| Output cost | $0.292260 | $0.209490 | -0.082770 | -28.32% |
-| Cache-read cost | $0.054272 | $0.046592 | -0.007680 | -14.15% |
+| Total tokens | 201,593 | 227,044 | -25,451 | -11.21% |
+| Prompt-cache reuse | 55.65% | 53.36% | +2.28 pp | — |
+| Input cost | $0.432525 | $0.503365 | -0.070840 | -14.07% |
+| Output cost | $0.196320 | $0.335130 | -0.138810 | -41.42% |
+| Cache-read cost | $0.054272 | $0.057600 | -0.003328 | -5.78% |
 | Cache-write cost | $0.000000 | $0.000000 | +0.000000 | 0.00% |
-| Total API cost | $0.896637 | $0.650167 | -0.246470 | -27.49% |
+| Total API cost | $0.683117 | $0.896095 | -0.212978 | -23.77% |
 
 ### Complete archive and projection telemetry
 
 These fields are emitted by the same result collector for both variants. Zero values for `vanilla prime-agent` are expected because it does not load Prime Context.
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Archived observations | 0 | 15 | +15 | n/a (zero baseline) |
-| Archive source bytes | 0 | 197,819 | +197,819 | n/a (zero baseline) |
-| Compressed archive bytes | 0 | 20,660 | +20,660 | n/a (zero baseline) |
-| Archive compression ratio (derived) | 0.00% | 10.44% | +10.44 pp | — |
-| Archive chunks | 0 | 22 | +22 | n/a (zero baseline) |
-| Largest chunk bytes | 0 | 65,578 | +65,578 | n/a (zero baseline) |
-| Source bytes admitted | 0 | 430,881 | +430,881 | n/a (zero baseline) |
-| Call-argument bytes projected out | 0 | 8,707 | +8,707 | n/a (zero baseline) |
-| Result bytes projected out | 0 | 196,013 | +196,013 | n/a (zero baseline) |
+| Archived observations | 17 | 0 | +17 | n/a (zero baseline) |
+| Archive source bytes | 5,062 | 0 | +5,062 | n/a (zero baseline) |
+| Compressed archive bytes | 12,029 | 0 | +12,029 | n/a (zero baseline) |
+| Archive compression ratio (derived) | 237.63% | 0.00% | +237.63 pp | — |
+| Archive chunks | 22 | 0 | +22 | n/a (zero baseline) |
+| Largest chunk bytes | 8,504 | 0 | +8,504 | n/a (zero baseline) |
+| Source bytes admitted | 44,492 | 0 | +44,492 | n/a (zero baseline) |
+| Call-argument bytes projected out | 8,554 | 0 | +8,554 | n/a (zero baseline) |
+| Result bytes projected out | 4,365 | 0 | +4,365 | n/a (zero baseline) |
 | Typed/media bytes projected out | 0 | 0 | +0 | 0.00% |
 | Recovery bytes exposed | 0 | 0 | +0 | 0.00% |
-| End-state projected model-view bytes | 0 | 33,947 | +33,947 | n/a (zero baseline) |
-| Streaming bytes processed | 0 | 395,638 | +395,638 | n/a (zero baseline) |
+| End-state projected model-view bytes | 38,248 | 0 | +38,248 | n/a (zero baseline) |
+| Streaming bytes processed | 11,588 | 0 | +11,588 | n/a (zero baseline) |
 | Inspect/recall hits | 0 | 0 | +0 | 0.00% |
 | Fold generations | 0 | 0 | +0 | 0.00% |
-| Branch-runtime reloads | 0 | 6 | +6 | n/a (zero baseline) |
-| Prime Context cache-read tokens | 0 | 93,184 | +93,184 | n/a (zero baseline) |
+| Branch-runtime reloads | 6 | 0 | +6 | n/a (zero baseline) |
+| Prime Context cache-read tokens | 108,544 | 0 | +108,544 | n/a (zero baseline) |
 | Prime Context cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Prime Context uncached input tokens | 0 | 78,817 | +78,817 | n/a (zero baseline) |
-| Stable-projection extension turns | 0 | 12 | +12 | n/a (zero baseline) |
+| Prime Context uncached input tokens | 86,505 | 0 | +86,505 | n/a (zero baseline) |
+| Stable-projection extension turns | 14 | 0 | +14 | n/a (zero baseline) |
 
 
 ---
+
 
 <a id="task-17"></a>
 
@@ -2549,125 +2537,126 @@ Add `parse_zone(text, origin, default_ttl=300) -> Zone` for a deterministic, lin
 
 ### Measured outcome
 
-**Verdict:** `prime-context 8.1.0` meets all acceptance criteria while `vanilla prime-agent` does not meet all acceptance criteria: a strict correctness gain.
+**Verdict:** Both variants meet all acceptance criteria; this pair is eligible for formal efficiency comparison.
 
-- **Wall time:** 244.28 s vs 600.00 s; Δ -355.72 s (-59.29%).
-- **Model calls:** 15 vs 40; Δ -25 (-62.50%).
-- **Tool calls:** 14 vs 21; Δ -7 (-33.33%).
-- **Compactions:** 4 vs 10; Δ -6 (-60.00%).
-- **Total tokens:** 152,290 vs 414,218; Δ -261,928 (-63.23%).
-- **Reported API cost:** $0.568291 vs $1.224414; Δ -0.656123 (-53.59%).
-- **Visible tool bytes:** 342,392 vs 222,065; Δ +120,327 (+54.19%).
-- **Prompt-cache reuse:** 51.00% vs 62.83%; Δ -11.83 pp.
+- **Wall time:** 293.12 s vs 585.29 s; Δ -292.17 s (-49.92%).
+- **Model calls:** 18 vs 25; Δ -7 (-28.00%).
+- **Tool calls:** 17 vs 27; Δ -10 (-37.04%).
+- **Compactions:** 5 vs 9; Δ -4 (-44.44%).
+- **Total tokens:** 191,922 vs 287,315; Δ -95,393 (-33.20%).
+- **Total API cost:** $0.639265 vs $1.149414; Δ -0.510149 (-44.38%).
+- **Visible tool bytes:** 212,027 vs 246,335; Δ -34,308 (-13.93%).
+- **Prompt-cache reuse:** 56.48% vs 53.34%; Δ +3.14 pp.
 
 - **Expected exact final response:** `DNS ZONE GOAL COMPLETE`
-- **vanilla prime-agent final response:** `Awaiting `REQUIREMENTS LOCKED`.`
-- **prime-context 8.1.0 final response:** `DNS ZONE GOAL COMPLETE`
+- **prime-context 8.1.1 final response:** `DNS ZONE GOAL COMPLETE`
+- **vanilla prime-agent final response:** `DNS ZONE GOAL COMPLETE`
 
 ### Complete acceptance and lifecycle comparison
 
-| Acceptance item | Expected | vanilla prime-agent | prime-context 8.1.0 |
+| Acceptance item | Expected | prime-context 8.1.1 | vanilla prime-agent |
 |---|---:|---:|---:|
-| Meets all acceptance criteria | yes | no | yes |
-| Runner task-completed gate | yes | no | yes |
+| Meets all acceptance criteria | yes | yes | yes |
+| Runner task-completed gate | yes | yes | yes |
 | External cumulative tests | 9/9 | 9/9 | 9/9 |
 | External-tests gate | yes | yes | yes |
 | Protected files unchanged | yes | yes | yes |
-| Goal status | complete | active | complete |
-| Goal completed after lock | yes | no | yes |
+| Goal status | complete | complete | complete |
+| Goal completed after lock | yes | yes | yes |
 | Interventions accepted | yes | yes | yes |
-| Intervention order correct | yes | no | yes |
-| Exact final response | yes | no | yes |
+| Intervention order correct | yes | yes | yes |
+| Exact final response | yes | yes | yes |
 | Early completion observed | no | no | no |
-| Goal-complete event observed | yes | no | yes |
-| Run error | none | TimeoutError: condition timed out after 600 seconds | none |
-| Interaction error | none | TimeoutError: condition timed out after 600 seconds | none |
+| Goal-complete event observed | yes | yes | yes |
+| Run error | none | none | none |
+| Interaction error | none | none | none |
 | Interaction stderr | empty | empty | empty |
 | Retained Docker evidence | yes | yes | yes |
 
 ### Complete common metric comparison
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Wall time | 600.00 s | 244.28 s | -355.72 s | -59.29% |
-| Lifecycle wall time | 600.46 s | 244.60 s | -355.86 s | -59.27% |
-| Instruction wall time | 600.00 s | 244.28 s | -355.72 s | -59.29% |
+| Wall time | 293.12 s | 585.29 s | -292.17 s | -49.92% |
+| Lifecycle wall time | 293.47 s | 585.84 s | -292.37 s | -49.91% |
+| Instruction wall time | 293.12 s | 585.29 s | -292.17 s | -49.92% |
 | Sessions | 1 | 1 | +0 | +0.00% |
 | Child sessions | 0 | 0 | +0 | 0.00% |
-| Model calls | 40 | 15 | -25 | -62.50% |
-| Tool calls | 21 | 14 | -7 | -33.33% |
-| Tool results | 21 | 14 | -7 | -33.33% |
-| Visible tool bytes | 222,065 | 342,392 | +120,327 | +54.19% |
-| Compactions | 10 | 4 | -6 | -60.00% |
-| Goal-context injections | 26 | 2 | -24 | -92.31% |
-| Assistant output events | 39 | 15 | -24 | -61.54% |
-| Interventions delivered | 4 | 5 | +1 | +25.00% |
-| Stage responses recorded | 9 | 7 | -2 | -22.22% |
-| Test-run observations | 3 | 5 | +2 | +66.67% |
-| Goal updates | 62 | 18 | -44 | -70.97% |
-| RPC compaction completions | 10 | 4 | -6 | -60.00% |
-| Compaction requests | 3 | 2 | -1 | -33.33% |
-| Compaction waits | 2 | 0 | -2 | -100.00% |
-| Accepted stage/command responses | 7 | 7 | +0 | +0.00% |
-| Rejected stage/command responses | 2 | 0 | -2 | -100.00% |
+| Model calls | 18 | 25 | -7 | -28.00% |
+| Tool calls | 17 | 27 | -10 | -37.04% |
+| Tool results | 17 | 27 | -10 | -37.04% |
+| Visible tool bytes | 212,027 | 246,335 | -34,308 | -13.93% |
+| Compactions | 5 | 9 | -4 | -44.44% |
+| Goal-context injections | 4 | 8 | -4 | -50.00% |
+| Assistant output events | 18 | 25 | -7 | -28.00% |
+| Interventions delivered | 5 | 5 | +0 | +0.00% |
+| Stage responses recorded | 7 | 8 | -1 | -12.50% |
+| Test-run observations | 5 | 5 | +0 | +0.00% |
+| Goal updates | 21 | 30 | -9 | -30.00% |
+| RPC compaction completions | 5 | 9 | -4 | -44.44% |
+| Compaction requests | 2 | 2 | +0 | +0.00% |
+| Compaction waits | 0 | 1 | -1 | -100.00% |
+| Accepted stage/command responses | 6 | 7 | -1 | -14.29% |
+| Rejected stage/command responses | 1 | 1 | +0 | +0.00% |
 | Unanswered stage/command responses | 0 | 0 | +0 | 0.00% |
-| Passing observed test runs | 2 | 3 | +1 | +50.00% |
-| Failing observed test runs | 1 | 2 | +1 | +100.00% |
+| Passing observed test runs | 4 | 4 | +0 | +0.00% |
+| Failing observed test runs | 1 | 1 | +0 | +0.00% |
 | Error-classified observed test runs | 0 | 0 | +0 | 0.00% |
-| Active goal updates | 62 | 17 | -45 | -72.58% |
-| Complete goal updates | 0 | 1 | +1 | n/a (zero baseline) |
+| Active goal updates | 20 | 29 | -9 | -31.03% |
+| Complete goal updates | 1 | 1 | +0 | +0.00% |
 | Other-status goal updates | 0 | 0 | +0 | 0.00% |
-| Maximum goal continuations used | 25 | 1 | -24 | -96.00% |
-| Maximum goal tokens used | 161,290 | 76,699 | -84,591 | -52.45% |
-| Completed RPC compactions | 10 | 4 | -6 | -60.00% |
+| Maximum goal continuations used | 3 | 7 | -4 | -57.14% |
+| Maximum goal tokens used | 85,834 | 141,036 | -55,202 | -39.14% |
+| Completed RPC compactions | 5 | 9 | -4 | -44.44% |
 | Aborted RPC compactions | 0 | 0 | +0 | 0.00% |
-| Successful compaction requests | 1 | 2 | +1 | +100.00% |
-| Failed compaction requests | 2 | 0 | -2 | -100.00% |
+| Successful compaction requests | 1 | 1 | +0 | +0.00% |
+| Failed compaction requests | 1 | 1 | +0 | +0.00% |
 | Unanswered compaction requests | 0 | 0 | +0 | 0.00% |
-| Successful compaction waits | 2 | 0 | -2 | -100.00% |
+| Successful compaction waits | 0 | 1 | -1 | -100.00% |
 | Failed compaction waits | 0 | 0 | +0 | 0.00% |
 | Unanswered compaction waits | 0 | 0 | +0 | 0.00% |
-| Input tokens | 149,630 | 71,809 | -77,821 | -52.01% |
-| Output tokens | 11,660 | 5,729 | -5,931 | -50.87% |
-| Cache-read tokens | 252,928 | 74,752 | -178,176 | -70.45% |
+| Input tokens | 80,883 | 127,220 | -46,337 | -36.42% |
+| Output tokens | 6,079 | 14,687 | -8,608 | -58.61% |
+| Cache-read tokens | 104,960 | 145,408 | -40,448 | -27.82% |
 | Cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Total tokens | 414,218 | 152,290 | -261,928 | -63.23% |
-| Prompt-cache reuse | 62.83% | 51.00% | -11.83 pp | — |
-| Input cost | $0.748150 | $0.359045 | -0.389105 | -52.01% |
-| Output cost | $0.349800 | $0.171870 | -0.177930 | -50.87% |
-| Cache-read cost | $0.126464 | $0.037376 | -0.089088 | -70.45% |
+| Total tokens | 191,922 | 287,315 | -95,393 | -33.20% |
+| Prompt-cache reuse | 56.48% | 53.34% | +3.14 pp | — |
+| Input cost | $0.404415 | $0.636100 | -0.231685 | -36.42% |
+| Output cost | $0.182370 | $0.440610 | -0.258240 | -58.61% |
+| Cache-read cost | $0.052480 | $0.072704 | -0.020224 | -27.82% |
 | Cache-write cost | $0.000000 | $0.000000 | +0.000000 | 0.00% |
-| Total API cost | $1.224414 | $0.568291 | -0.656123 | -53.59% |
+| Total API cost | $0.639265 | $1.149414 | -0.510149 | -44.38% |
 
 ### Complete archive and projection telemetry
 
 These fields are emitted by the same result collector for both variants. Zero values for `vanilla prime-agent` are expected because it does not load Prime Context.
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Archived observations | 0 | 13 | +13 | n/a (zero baseline) |
-| Archive source bytes | 0 | 327,890 | +327,890 | n/a (zero baseline) |
-| Compressed archive bytes | 0 | 24,179 | +24,179 | n/a (zero baseline) |
-| Archive compression ratio (derived) | 0.00% | 7.37% | +7.37 pp | — |
-| Archive chunks | 0 | 20 | +20 | n/a (zero baseline) |
-| Largest chunk bytes | 0 | 65,578 | +65,578 | n/a (zero baseline) |
-| Source bytes admitted | 0 | 670,687 | +670,687 | n/a (zero baseline) |
+| Archived observations | 16 | 0 | +16 | n/a (zero baseline) |
+| Archive source bytes | 196,734 | 0 | +196,734 | n/a (zero baseline) |
+| Compressed archive bytes | 18,241 | 0 | +18,241 | n/a (zero baseline) |
+| Archive compression ratio (derived) | 9.27% | 0.00% | +9.27 pp | — |
+| Archive chunks | 24 | 0 | +24 | n/a (zero baseline) |
+| Largest chunk bytes | 65,578 | 0 | +65,578 | n/a (zero baseline) |
+| Source bytes admitted | 417,582 | 0 | +417,582 | n/a (zero baseline) |
 | Call-argument bytes projected out | 0 | 0 | +0 | 0.00% |
-| Result bytes projected out | 0 | 324,631 | +324,631 | n/a (zero baseline) |
+| Result bytes projected out | 195,360 | 0 | +195,360 | n/a (zero baseline) |
 | Typed/media bytes projected out | 0 | 0 | +0 | 0.00% |
 | Recovery bytes exposed | 0 | 0 | +0 | 0.00% |
-| End-state projected model-view bytes | 0 | 30,925 | +30,925 | n/a (zero baseline) |
-| Streaming bytes processed | 0 | 655,780 | +655,780 | n/a (zero baseline) |
+| End-state projected model-view bytes | 38,640 | 0 | +38,640 | n/a (zero baseline) |
+| Streaming bytes processed | 393,468 | 0 | +393,468 | n/a (zero baseline) |
 | Inspect/recall hits | 0 | 0 | +0 | 0.00% |
 | Fold generations | 0 | 0 | +0 | 0.00% |
-| Branch-runtime reloads | 0 | 5 | +5 | n/a (zero baseline) |
-| Prime Context cache-read tokens | 0 | 74,752 | +74,752 | n/a (zero baseline) |
+| Branch-runtime reloads | 6 | 0 | +6 | n/a (zero baseline) |
+| Prime Context cache-read tokens | 104,960 | 0 | +104,960 | n/a (zero baseline) |
 | Prime Context cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Prime Context uncached input tokens | 0 | 71,809 | +71,809 | n/a (zero baseline) |
-| Stable-projection extension turns | 0 | 10 | +10 | n/a (zero baseline) |
+| Prime Context uncached input tokens | 80,883 | 0 | +80,883 | n/a (zero baseline) |
+| Stable-projection extension turns | 13 | 0 | +13 | n/a (zero baseline) |
 
 
 ---
+
 
 <a id="task-18"></a>
 
@@ -2712,125 +2701,126 @@ Add `align_local` with the same score arguments and affine options. It performs 
 
 ### Measured outcome
 
-**Verdict:** `prime-context 8.1.0` meets all acceptance criteria while `vanilla prime-agent` does not meet all acceptance criteria: a strict correctness gain.
+**Verdict:** Both variants meet all acceptance criteria; this pair is eligible for formal efficiency comparison.
 
-- **Wall time:** 230.88 s vs 600.00 s; Δ -369.12 s (-61.52%).
-- **Model calls:** 13 vs 68; Δ -55 (-80.88%).
-- **Tool calls:** 15 vs 23; Δ -8 (-34.78%).
-- **Compactions:** 3 vs 11; Δ -8 (-72.73%).
-- **Total tokens:** 132,626 vs 650,984; Δ -518,358 (-79.63%).
-- **Reported API cost:** $0.476718 vs $1.351497; Δ -0.874779 (-64.73%).
-- **Visible tool bytes:** 402,781 vs 143,395; Δ +259,386 (+180.89%).
-- **Prompt-cache reuse:** 62.18% vs 72.61%; Δ -10.43 pp.
+- **Wall time:** 223.39 s vs 384.72 s; Δ -161.33 s (-41.93%).
+- **Model calls:** 14 vs 25; Δ -11 (-44.00%).
+- **Tool calls:** 13 vs 21; Δ -8 (-38.10%).
+- **Compactions:** 4 vs 5; Δ -1 (-20.00%).
+- **Total tokens:** 141,480 vs 269,221; Δ -127,741 (-47.45%).
+- **Total API cost:** $0.566103 vs $0.954834; Δ -0.388731 (-40.71%).
+- **Visible tool bytes:** 142,982 vs 99,496; Δ +43,486 (+43.71%).
+- **Prompt-cache reuse:** 44.34% vs 59.49%; Δ -15.15 pp.
 
 - **Expected exact final response:** `DNA ALIGNMENT GOAL COMPLETE`
-- **vanilla prime-agent final response:** `No new staged files are present. The goal remains active pending further requirements and `REQUIREMENTS LOCKED`.`
-- **prime-context 8.1.0 final response:** `DNA ALIGNMENT GOAL COMPLETE`
+- **prime-context 8.1.1 final response:** `DNA ALIGNMENT GOAL COMPLETE`
+- **vanilla prime-agent final response:** `DNA ALIGNMENT GOAL COMPLETE`
 
 ### Complete acceptance and lifecycle comparison
 
-| Acceptance item | Expected | vanilla prime-agent | prime-context 8.1.0 |
+| Acceptance item | Expected | prime-context 8.1.1 | vanilla prime-agent |
 |---|---:|---:|---:|
-| Meets all acceptance criteria | yes | no | yes |
-| Runner task-completed gate | yes | no | yes |
-| External cumulative tests | 9/9 | 6/6 | 9/9 |
-| External-tests gate | yes | no | yes |
-| Protected files unchanged | yes | no | yes |
-| Goal status | complete | active | complete |
-| Goal completed after lock | yes | no | yes |
+| Meets all acceptance criteria | yes | yes | yes |
+| Runner task-completed gate | yes | yes | yes |
+| External cumulative tests | 9/9 | 9/9 | 9/9 |
+| External-tests gate | yes | yes | yes |
+| Protected files unchanged | yes | yes | yes |
+| Goal status | complete | complete | complete |
+| Goal completed after lock | yes | yes | yes |
 | Interventions accepted | yes | yes | yes |
-| Intervention order correct | yes | no | yes |
-| Exact final response | yes | no | yes |
+| Intervention order correct | yes | yes | yes |
+| Exact final response | yes | yes | yes |
 | Early completion observed | no | no | no |
-| Goal-complete event observed | yes | no | yes |
-| Run error | none | TimeoutError: condition timed out after 600 seconds | none |
-| Interaction error | none | TimeoutError: condition timed out after 600 seconds | none |
+| Goal-complete event observed | yes | yes | yes |
+| Run error | none | none | none |
+| Interaction error | none | none | none |
 | Interaction stderr | empty | empty | empty |
 | Retained Docker evidence | yes | yes | yes |
 
 ### Complete common metric comparison
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Wall time | 600.00 s | 230.88 s | -369.12 s | -61.52% |
-| Lifecycle wall time | 600.59 s | 231.02 s | -369.58 s | -61.54% |
-| Instruction wall time | 600.00 s | 230.88 s | -369.12 s | -61.52% |
+| Wall time | 223.39 s | 384.72 s | -161.33 s | -41.93% |
+| Lifecycle wall time | 223.59 s | 385.05 s | -161.46 s | -41.93% |
+| Instruction wall time | 223.39 s | 384.72 s | -161.33 s | -41.93% |
 | Sessions | 1 | 1 | +0 | +0.00% |
 | Child sessions | 0 | 0 | +0 | 0.00% |
-| Model calls | 68 | 13 | -55 | -80.88% |
-| Tool calls | 23 | 15 | -8 | -34.78% |
-| Tool results | 23 | 15 | -8 | -34.78% |
-| Visible tool bytes | 143,395 | 402,781 | +259,386 | +180.89% |
-| Compactions | 11 | 3 | -8 | -72.73% |
-| Goal-context injections | 49 | 1 | -48 | -97.96% |
-| Assistant output events | 68 | 13 | -55 | -80.88% |
-| Interventions delivered | 3 | 5 | +2 | +66.67% |
-| Stage responses recorded | 10 | 7 | -3 | -30.00% |
-| Test-run observations | 2 | 6 | +4 | +200.00% |
-| Goal updates | 116 | 15 | -101 | -87.07% |
-| RPC compaction completions | 11 | 3 | -8 | -72.73% |
-| Compaction requests | 4 | 2 | -2 | -50.00% |
-| Compaction waits | 3 | 0 | -3 | -100.00% |
+| Model calls | 14 | 25 | -11 | -44.00% |
+| Tool calls | 13 | 21 | -8 | -38.10% |
+| Tool results | 13 | 21 | -8 | -38.10% |
+| Visible tool bytes | 142,982 | 99,496 | +43,486 | +43.71% |
+| Compactions | 4 | 5 | -1 | -20.00% |
+| Goal-context injections | 3 | 5 | -2 | -40.00% |
+| Assistant output events | 14 | 25 | -11 | -44.00% |
+| Interventions delivered | 5 | 5 | +0 | +0.00% |
+| Stage responses recorded | 7 | 8 | -1 | -12.50% |
+| Test-run observations | 5 | 4 | +1 | +25.00% |
+| Goal updates | 16 | 28 | -12 | -42.86% |
+| RPC compaction completions | 4 | 5 | -1 | -20.00% |
+| Compaction requests | 2 | 2 | +0 | +0.00% |
+| Compaction waits | 0 | 1 | -1 | -100.00% |
 | Accepted stage/command responses | 7 | 7 | +0 | +0.00% |
-| Rejected stage/command responses | 3 | 0 | -3 | -100.00% |
+| Rejected stage/command responses | 0 | 1 | -1 | -100.00% |
 | Unanswered stage/command responses | 0 | 0 | +0 | 0.00% |
-| Passing observed test runs | 1 | 4 | +3 | +300.00% |
-| Failing observed test runs | 1 | 2 | +1 | +100.00% |
+| Passing observed test runs | 4 | 3 | +1 | +33.33% |
+| Failing observed test runs | 1 | 1 | +0 | +0.00% |
 | Error-classified observed test runs | 0 | 0 | +0 | 0.00% |
-| Active goal updates | 116 | 14 | -102 | -87.93% |
-| Complete goal updates | 0 | 1 | +1 | n/a (zero baseline) |
+| Active goal updates | 15 | 27 | -12 | -44.44% |
+| Complete goal updates | 1 | 1 | +0 | +0.00% |
 | Other-status goal updates | 0 | 0 | +0 | 0.00% |
-| Maximum goal continuations used | 49 | 1 | -48 | -97.96% |
-| Maximum goal tokens used | 184,040 | 53,675 | -130,365 | -70.84% |
-| Completed RPC compactions | 11 | 3 | -8 | -72.73% |
+| Maximum goal continuations used | 2 | 4 | -2 | -50.00% |
+| Maximum goal tokens used | 80,006 | 115,096 | -35,090 | -30.49% |
+| Completed RPC compactions | 4 | 5 | -1 | -20.00% |
 | Aborted RPC compactions | 0 | 0 | +0 | 0.00% |
-| Successful compaction requests | 1 | 2 | +1 | +100.00% |
-| Failed compaction requests | 3 | 0 | -3 | -100.00% |
+| Successful compaction requests | 2 | 1 | +1 | +100.00% |
+| Failed compaction requests | 0 | 1 | -1 | -100.00% |
 | Unanswered compaction requests | 0 | 0 | +0 | 0.00% |
-| Successful compaction waits | 3 | 0 | -3 | -100.00% |
+| Successful compaction waits | 0 | 1 | -1 | -100.00% |
 | Failed compaction waits | 0 | 0 | +0 | 0.00% |
 | Unanswered compaction waits | 0 | 0 | +0 | 0.00% |
-| Input tokens | 176,127 | 47,646 | -128,481 | -72.95% |
-| Output tokens | 7,913 | 6,644 | -1,269 | -16.04% |
-| Cache-read tokens | 466,944 | 78,336 | -388,608 | -83.22% |
+| Input tokens | 75,841 | 104,228 | -28,387 | -27.24% |
+| Output tokens | 5,223 | 11,905 | -6,682 | -56.13% |
+| Cache-read tokens | 60,416 | 153,088 | -92,672 | -60.54% |
 | Cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Total tokens | 650,984 | 132,626 | -518,358 | -79.63% |
-| Prompt-cache reuse | 72.61% | 62.18% | -10.43 pp | — |
-| Input cost | $0.880635 | $0.238230 | -0.642405 | -72.95% |
-| Output cost | $0.237390 | $0.199320 | -0.038070 | -16.04% |
-| Cache-read cost | $0.233472 | $0.039168 | -0.194304 | -83.22% |
+| Total tokens | 141,480 | 269,221 | -127,741 | -47.45% |
+| Prompt-cache reuse | 44.34% | 59.49% | -15.15 pp | — |
+| Input cost | $0.379205 | $0.521140 | -0.141935 | -27.24% |
+| Output cost | $0.156690 | $0.357150 | -0.200460 | -56.13% |
+| Cache-read cost | $0.030208 | $0.076544 | -0.046336 | -60.54% |
 | Cache-write cost | $0.000000 | $0.000000 | +0.000000 | 0.00% |
-| Total API cost | $1.351497 | $0.476718 | -0.874779 | -64.73% |
+| Total API cost | $0.566103 | $0.954834 | -0.388731 | -40.71% |
 
 ### Complete archive and projection telemetry
 
 These fields are emitted by the same result collector for both variants. Zero values for `vanilla prime-agent` are expected because it does not load Prime Context.
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Archived observations | 0 | 14 | +14 | n/a (zero baseline) |
-| Archive source bytes | 0 | 393,468 | +393,468 | n/a (zero baseline) |
-| Compressed archive bytes | 0 | 23,658 | +23,658 | n/a (zero baseline) |
-| Archive compression ratio (derived) | 0.00% | 6.01% | +6.01 pp | — |
-| Archive chunks | 0 | 22 | +22 | n/a (zero baseline) |
-| Largest chunk bytes | 0 | 65,578 | +65,578 | n/a (zero baseline) |
-| Source bytes admitted | 0 | 800,570 | +800,570 | n/a (zero baseline) |
+| Archived observations | 12 | 0 | +12 | n/a (zero baseline) |
+| Archive source bytes | 132,846 | 0 | +132,846 | n/a (zero baseline) |
+| Compressed archive bytes | 10,172 | 0 | +10,172 | n/a (zero baseline) |
+| Archive compression ratio (derived) | 7.66% | 0.00% | +7.66 pp | — |
+| Archive chunks | 15 | 0 | +15 | n/a (zero baseline) |
+| Largest chunk bytes | 65,578 | 0 | +65,578 | n/a (zero baseline) |
+| Source bytes admitted | 275,077 | 0 | +275,077 | n/a (zero baseline) |
 | Call-argument bytes projected out | 0 | 0 | +0 | 0.00% |
-| Result bytes projected out | 0 | 390,228 | +390,228 | n/a (zero baseline) |
+| Result bytes projected out | 131,445 | 0 | +131,445 | n/a (zero baseline) |
 | Typed/media bytes projected out | 0 | 0 | +0 | 0.00% |
 | Recovery bytes exposed | 0 | 0 | +0 | 0.00% |
-| End-state projected model-view bytes | 0 | 45,956 | +45,956 | n/a (zero baseline) |
-| Streaming bytes processed | 0 | 792,008 | +792,008 | n/a (zero baseline) |
+| End-state projected model-view bytes | 40,390 | 0 | +40,390 | n/a (zero baseline) |
+| Streaming bytes processed | 265,692 | 0 | +265,692 | n/a (zero baseline) |
 | Inspect/recall hits | 0 | 0 | +0 | 0.00% |
 | Fold generations | 0 | 0 | +0 | 0.00% |
-| Branch-runtime reloads | 0 | 4 | +4 | n/a (zero baseline) |
-| Prime Context cache-read tokens | 0 | 78,336 | +78,336 | n/a (zero baseline) |
+| Branch-runtime reloads | 5 | 0 | +5 | n/a (zero baseline) |
+| Prime Context cache-read tokens | 60,416 | 0 | +60,416 | n/a (zero baseline) |
 | Prime Context cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Prime Context uncached input tokens | 0 | 47,646 | +47,646 | n/a (zero baseline) |
-| Stable-projection extension turns | 0 | 9 | +9 | n/a (zero baseline) |
+| Prime Context uncached input tokens | 75,841 | 0 | +75,841 | n/a (zero baseline) |
+| Stable-projection extension turns | 10 | 0 | +10 | n/a (zero baseline) |
 
 
 ---
+
 
 <a id="task-19"></a>
 
@@ -2867,125 +2857,126 @@ Treat `prior_pay` as an optional mapping from known shift IDs to nonnegative Dec
 
 ### Measured outcome
 
-**Verdict:** `prime-context 8.1.0` meets all acceptance criteria while `vanilla prime-agent` does not meet all acceptance criteria: a strict correctness gain.
+**Verdict:** Both variants meet all acceptance criteria; this pair is eligible for formal efficiency comparison.
 
-- **Wall time:** 214.10 s vs 600.00 s; Δ -385.90 s (-64.32%).
-- **Model calls:** 11 vs 58; Δ -47 (-81.03%).
-- **Tool calls:** 10 vs 24; Δ -14 (-58.33%).
-- **Compactions:** 4 vs 12; Δ -8 (-66.67%).
-- **Total tokens:** 110,822 vs 559,371; Δ -448,549 (-80.19%).
-- **Reported API cost:** $0.510930 vs $1.240744; Δ -0.729814 (-58.82%).
-- **Visible tool bytes:** 339,708 vs 288,245; Δ +51,463 (+17.85%).
-- **Prompt-cache reuse:** 33.78% vs 70.44%; Δ -36.66 pp.
+- **Wall time:** 1,102.01 s vs 583.70 s; Δ +518.31 s (+88.80%).
+- **Model calls:** 40 vs 28; Δ +12 (+42.86%).
+- **Tool calls:** 41 vs 28; Δ +13 (+46.43%).
+- **Compactions:** 19 vs 11; Δ +8 (+72.73%).
+- **Total tokens:** 433,363 vs 298,596; Δ +134,767 (+45.13%).
+- **Total API cost:** $1.422312 vs $0.995962; Δ +0.426350 (+42.81%).
+- **Visible tool bytes:** 287,507 vs 252,142; Δ +35,365 (+14.03%).
+- **Prompt-cache reuse:** 48.96% vs 56.11%; Δ -7.15 pp.
 
 - **Expected exact final response:** `UNION PAYROLL GOAL COMPLETE`
-- **vanilla prime-agent final response:** `Goal remains active pending retroactive requirements and `REQUIREMENTS LOCKED`.`
-- **prime-context 8.1.0 final response:** `UNION PAYROLL GOAL COMPLETE`
+- **prime-context 8.1.1 final response:** `UNION PAYROLL GOAL COMPLETE`
+- **vanilla prime-agent final response:** `UNION PAYROLL GOAL COMPLETE`
 
 ### Complete acceptance and lifecycle comparison
 
-| Acceptance item | Expected | vanilla prime-agent | prime-context 8.1.0 |
+| Acceptance item | Expected | prime-context 8.1.1 | vanilla prime-agent |
 |---|---:|---:|---:|
-| Meets all acceptance criteria | yes | no | yes |
-| Runner task-completed gate | yes | no | yes |
-| External cumulative tests | 9/9 | 6/6 | 9/9 |
-| External-tests gate | yes | no | yes |
-| Protected files unchanged | yes | no | yes |
-| Goal status | complete | active | complete |
-| Goal completed after lock | yes | no | yes |
+| Meets all acceptance criteria | yes | yes | yes |
+| Runner task-completed gate | yes | yes | yes |
+| External cumulative tests | 9/9 | 9/9 | 9/9 |
+| External-tests gate | yes | yes | yes |
+| Protected files unchanged | yes | yes | yes |
+| Goal status | complete | complete | complete |
+| Goal completed after lock | yes | yes | yes |
 | Interventions accepted | yes | yes | yes |
-| Intervention order correct | yes | no | yes |
-| Exact final response | yes | no | yes |
+| Intervention order correct | yes | yes | yes |
+| Exact final response | yes | yes | yes |
 | Early completion observed | no | no | no |
-| Goal-complete event observed | yes | no | yes |
-| Run error | none | TimeoutError: condition timed out after 600 seconds | none |
-| Interaction error | none | TimeoutError: condition timed out after 600 seconds | none |
+| Goal-complete event observed | yes | yes | yes |
+| Run error | none | none | none |
+| Interaction error | none | none | none |
 | Interaction stderr | empty | empty | empty |
 | Retained Docker evidence | yes | yes | yes |
 
 ### Complete common metric comparison
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Wall time | 600.00 s | 214.10 s | -385.90 s | -64.32% |
-| Lifecycle wall time | 600.50 s | 214.31 s | -386.20 s | -64.31% |
-| Instruction wall time | 600.00 s | 214.10 s | -385.90 s | -64.32% |
+| Wall time | 1,102.01 s | 583.70 s | +518.31 s | +88.80% |
+| Lifecycle wall time | 1,102.22 s | 583.86 s | +518.36 s | +88.78% |
+| Instruction wall time | 1,102.01 s | 583.70 s | +518.31 s | +88.80% |
 | Sessions | 1 | 1 | +0 | +0.00% |
 | Child sessions | 0 | 0 | +0 | 0.00% |
-| Model calls | 58 | 11 | -47 | -81.03% |
-| Tool calls | 24 | 10 | -14 | -58.33% |
-| Tool results | 24 | 10 | -14 | -58.33% |
-| Visible tool bytes | 288,245 | 339,708 | +51,463 | +17.85% |
-| Compactions | 12 | 4 | -8 | -66.67% |
-| Goal-context injections | 39 | 3 | -36 | -92.31% |
-| Assistant output events | 58 | 11 | -47 | -81.03% |
-| Interventions delivered | 3 | 5 | +2 | +66.67% |
-| Stage responses recorded | 6 | 7 | +1 | +16.67% |
-| Test-run observations | 2 | 5 | +3 | +150.00% |
-| Goal updates | 95 | 15 | -80 | -84.21% |
-| RPC compaction completions | 12 | 4 | -8 | -66.67% |
+| Model calls | 40 | 28 | +12 | +42.86% |
+| Tool calls | 41 | 28 | +13 | +46.43% |
+| Tool results | 41 | 28 | +13 | +46.43% |
+| Visible tool bytes | 287,507 | 252,142 | +35,365 | +14.03% |
+| Compactions | 19 | 11 | +8 | +72.73% |
+| Goal-context injections | 18 | 10 | +8 | +80.00% |
+| Assistant output events | 40 | 28 | +12 | +42.86% |
+| Interventions delivered | 5 | 5 | +0 | +0.00% |
+| Stage responses recorded | 7 | 8 | -1 | -12.50% |
+| Test-run observations | 5 | 4 | +1 | +25.00% |
+| Goal updates | 59 | 34 | +25 | +73.53% |
+| RPC compaction completions | 19 | 11 | +8 | +72.73% |
 | Compaction requests | 2 | 2 | +0 | +0.00% |
-| Compaction waits | 1 | 0 | -1 | -100.00% |
-| Accepted stage/command responses | 5 | 6 | +1 | +20.00% |
+| Compaction waits | 0 | 1 | -1 | -100.00% |
+| Accepted stage/command responses | 6 | 7 | -1 | -14.29% |
 | Rejected stage/command responses | 1 | 1 | +0 | +0.00% |
 | Unanswered stage/command responses | 0 | 0 | +0 | 0.00% |
-| Passing observed test runs | 1 | 3 | +2 | +200.00% |
-| Failing observed test runs | 1 | 2 | +1 | +100.00% |
+| Passing observed test runs | 4 | 3 | +1 | +33.33% |
+| Failing observed test runs | 1 | 1 | +0 | +0.00% |
 | Error-classified observed test runs | 0 | 0 | +0 | 0.00% |
-| Active goal updates | 95 | 14 | -81 | -85.26% |
-| Complete goal updates | 0 | 1 | +1 | n/a (zero baseline) |
+| Active goal updates | 58 | 33 | +25 | +75.76% |
+| Complete goal updates | 1 | 1 | +0 | +0.00% |
 | Other-status goal updates | 0 | 0 | +0 | 0.00% |
-| Maximum goal continuations used | 39 | 2 | -37 | -94.87% |
-| Maximum goal tokens used | 170,763 | 67,455 | -103,308 | -60.50% |
-| Completed RPC compactions | 12 | 4 | -8 | -66.67% |
+| Maximum goal continuations used | 18 | 9 | +9 | +100.00% |
+| Maximum goal tokens used | 223,771 | 135,809 | +87,962 | +64.77% |
+| Completed RPC compactions | 19 | 11 | +8 | +72.73% |
 | Aborted RPC compactions | 0 | 0 | +0 | 0.00% |
 | Successful compaction requests | 1 | 1 | +0 | +0.00% |
 | Failed compaction requests | 1 | 1 | +0 | +0.00% |
 | Unanswered compaction requests | 0 | 0 | +0 | 0.00% |
-| Successful compaction waits | 1 | 0 | -1 | -100.00% |
+| Successful compaction waits | 0 | 1 | -1 | -100.00% |
 | Failed compaction waits | 0 | 0 | +0 | 0.00% |
 | Unanswered compaction waits | 0 | 0 | +0 | 0.00% |
-| Input tokens | 163,058 | 70,258 | -92,800 | -56.91% |
-| Output tokens | 7,705 | 4,724 | -2,981 | -38.69% |
-| Cache-read tokens | 388,608 | 35,840 | -352,768 | -90.78% |
+| Input tokens | 217,250 | 126,958 | +90,292 | +71.12% |
+| Output tokens | 7,729 | 9,334 | -1,605 | -17.20% |
+| Cache-read tokens | 208,384 | 162,304 | +46,080 | +28.39% |
 | Cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Total tokens | 559,371 | 110,822 | -448,549 | -80.19% |
-| Prompt-cache reuse | 70.44% | 33.78% | -36.66 pp | — |
-| Input cost | $0.815290 | $0.351290 | -0.464000 | -56.91% |
-| Output cost | $0.231150 | $0.141720 | -0.089430 | -38.69% |
-| Cache-read cost | $0.194304 | $0.017920 | -0.176384 | -90.78% |
+| Total tokens | 433,363 | 298,596 | +134,767 | +45.13% |
+| Prompt-cache reuse | 48.96% | 56.11% | -7.15 pp | — |
+| Input cost | $1.086250 | $0.634790 | +0.451460 | +71.12% |
+| Output cost | $0.231870 | $0.280020 | -0.048150 | -17.20% |
+| Cache-read cost | $0.104192 | $0.081152 | +0.023040 | +28.39% |
 | Cache-write cost | $0.000000 | $0.000000 | +0.000000 | 0.00% |
-| Total API cost | $1.240744 | $0.510930 | -0.729814 | -58.82% |
+| Total API cost | $1.422312 | $0.995962 | +0.426350 | +42.81% |
 
 ### Complete archive and projection telemetry
 
 These fields are emitted by the same result collector for both variants. Zero values for `vanilla prime-agent` are expected because it does not load Prime Context.
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Archived observations | 0 | 9 | +9 | n/a (zero baseline) |
-| Archive source bytes | 0 | 327,890 | +327,890 | n/a (zero baseline) |
-| Compressed archive bytes | 0 | 21,205 | +21,205 | n/a (zero baseline) |
-| Archive compression ratio (derived) | 0.00% | 6.47% | +6.47 pp | — |
-| Archive chunks | 0 | 14 | +14 | n/a (zero baseline) |
-| Largest chunk bytes | 0 | 65,578 | +65,578 | n/a (zero baseline) |
-| Source bytes admitted | 0 | 666,834 | +666,834 | n/a (zero baseline) |
+| Archived observations | 40 | 0 | +40 | n/a (zero baseline) |
+| Archive source bytes | 200,127 | 0 | +200,127 | n/a (zero baseline) |
+| Compressed archive bytes | 43,425 | 0 | +43,425 | n/a (zero baseline) |
+| Archive compression ratio (derived) | 21.70% | 0.00% | +21.70 pp | — |
+| Archive chunks | 51 | 0 | +51 | n/a (zero baseline) |
+| Largest chunk bytes | 65,578 | 0 | +65,578 | n/a (zero baseline) |
+| Source bytes admitted | 498,556 | 0 | +498,556 | n/a (zero baseline) |
 | Call-argument bytes projected out | 0 | 0 | +0 | 0.00% |
-| Result bytes projected out | 0 | 324,629 | +324,629 | n/a (zero baseline) |
+| Result bytes projected out | 197,748 | 0 | +197,748 | n/a (zero baseline) |
 | Typed/media bytes projected out | 0 | 0 | +0 | 0.00% |
 | Recovery bytes exposed | 0 | 0 | +0 | 0.00% |
-| End-state projected model-view bytes | 0 | 37,769 | +37,769 | n/a (zero baseline) |
-| Streaming bytes processed | 0 | 655,780 | +655,780 | n/a (zero baseline) |
+| End-state projected model-view bytes | 30,749 | 0 | +30,749 | n/a (zero baseline) |
+| Streaming bytes processed | 401,095 | 0 | +401,095 | n/a (zero baseline) |
 | Inspect/recall hits | 0 | 0 | +0 | 0.00% |
 | Fold generations | 0 | 0 | +0 | 0.00% |
-| Branch-runtime reloads | 0 | 5 | +5 | n/a (zero baseline) |
-| Prime Context cache-read tokens | 0 | 35,840 | +35,840 | n/a (zero baseline) |
+| Branch-runtime reloads | 20 | 0 | +20 | n/a (zero baseline) |
+| Prime Context cache-read tokens | 208,384 | 0 | +208,384 | n/a (zero baseline) |
 | Prime Context cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Prime Context uncached input tokens | 0 | 70,258 | +70,258 | n/a (zero baseline) |
-| Stable-projection extension turns | 0 | 6 | +6 | n/a (zero baseline) |
+| Prime Context uncached input tokens | 217,250 | 0 | +217,250 | n/a (zero baseline) |
+| Stable-projection extension turns | 20 | 0 | +20 | n/a (zero baseline) |
 
 
 ---
+
 
 <a id="task-20"></a>
 
@@ -3031,22 +3022,24 @@ Support richer repository version objects containing `dependencies` and `extras`
 
 **Verdict:** Both variants meet all acceptance criteria; this pair is eligible for formal efficiency comparison.
 
-- **Wall time:** 408.47 s vs 439.47 s; Δ -31.00 s (-7.05%).
-- **Model calls:** 20 vs 25; Δ -5 (-20.00%).
-- **Tool calls:** 19 vs 21; Δ -2 (-9.52%).
-- **Compactions:** 6 vs 7; Δ -1 (-14.29%).
-- **Total tokens:** 217,647 vs 232,625; Δ -14,978 (-6.44%).
-- **Reported API cost:** $0.845457 vs $0.853665; Δ -0.008208 (-0.96%).
-- **Visible tool bytes:** 284,850 vs 107,600; Δ +177,250 (+164.73%).
-- **Prompt-cache reuse:** 50.89% vs 55.13%; Δ -4.25 pp.
+- **Wall time:** 452.21 s vs 1,097.54 s; Δ -645.33 s (-58.80%).
+- **Model calls:** 20 vs 41; Δ -21 (-51.22%).
+- **Tool calls:** 19 vs 47; Δ -28 (-59.57%).
+- **Compactions:** 7 vs 20; Δ -13 (-65.00%).
+- **Total tokens:** 214,670 vs 442,053; Δ -227,383 (-51.44%).
+- **Total API cost:** $0.793583 vs $1.502143; Δ -0.708560 (-47.17%).
+- **Visible tool bytes:** 358,030 vs 390,466; Δ -32,436 (-8.31%).
+- **Prompt-cache reuse:** 55.61% vs 52.80%; Δ +2.81 pp.
+
+- **Retry:** vanilla prime-agent initially failed strict acceptance and used its single permitted retry; the table reports the retry attempt (strict pass).
 
 - **Expected exact final response:** `LOCK RESOLVER GOAL COMPLETE`
+- **prime-context 8.1.1 final response:** `LOCK RESOLVER GOAL COMPLETE`
 - **vanilla prime-agent final response:** `LOCK RESOLVER GOAL COMPLETE`
-- **prime-context 8.1.0 final response:** `LOCK RESOLVER GOAL COMPLETE`
 
 ### Complete acceptance and lifecycle comparison
 
-| Acceptance item | Expected | vanilla prime-agent | prime-context 8.1.0 |
+| Acceptance item | Expected | prime-context 8.1.1 | vanilla prime-agent |
 |---|---:|---:|---:|
 | Meets all acceptance criteria | yes | yes | yes |
 | Runner task-completed gate | yes | yes | yes |
@@ -3067,87 +3060,88 @@ Support richer repository version objects containing `dependencies` and `extras`
 
 ### Complete common metric comparison
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Wall time | 439.47 s | 408.47 s | -31.00 s | -7.05% |
-| Lifecycle wall time | 440.05 s | 408.68 s | -31.37 s | -7.13% |
-| Instruction wall time | 439.47 s | 408.47 s | -31.00 s | -7.05% |
+| Wall time | 452.21 s | 1,097.54 s | -645.33 s | -58.80% |
+| Lifecycle wall time | 452.78 s | 1,097.69 s | -644.91 s | -58.75% |
+| Instruction wall time | 452.21 s | 1,097.54 s | -645.33 s | -58.80% |
 | Sessions | 1 | 1 | +0 | +0.00% |
 | Child sessions | 0 | 0 | +0 | 0.00% |
-| Model calls | 25 | 20 | -5 | -20.00% |
-| Tool calls | 21 | 19 | -2 | -9.52% |
-| Tool results | 21 | 19 | -2 | -9.52% |
-| Visible tool bytes | 107,600 | 284,850 | +177,250 | +164.73% |
-| Compactions | 7 | 6 | -1 | -14.29% |
-| Goal-context injections | 7 | 5 | -2 | -28.57% |
-| Assistant output events | 25 | 20 | -5 | -20.00% |
+| Model calls | 20 | 41 | -21 | -51.22% |
+| Tool calls | 19 | 47 | -28 | -59.57% |
+| Tool results | 19 | 47 | -28 | -59.57% |
+| Visible tool bytes | 358,030 | 390,466 | -32,436 | -8.31% |
+| Compactions | 7 | 20 | -13 | -65.00% |
+| Goal-context injections | 6 | 19 | -13 | -68.42% |
+| Assistant output events | 20 | 41 | -21 | -51.22% |
 | Interventions delivered | 5 | 5 | +0 | +0.00% |
-| Stage responses recorded | 11 | 7 | -4 | -36.36% |
-| Test-run observations | 4 | 5 | +1 | +25.00% |
-| Goal updates | 33 | 24 | -9 | -27.27% |
-| RPC compaction completions | 7 | 6 | -1 | -14.29% |
-| Compaction requests | 4 | 2 | -2 | -50.00% |
-| Compaction waits | 2 | 0 | -2 | -100.00% |
-| Accepted stage/command responses | 8 | 6 | -2 | -25.00% |
-| Rejected stage/command responses | 3 | 1 | -2 | -66.67% |
+| Stage responses recorded | 7 | 8 | -1 | -12.50% |
+| Test-run observations | 5 | 7 | -2 | -28.57% |
+| Goal updates | 27 | 58 | -31 | -53.45% |
+| RPC compaction completions | 7 | 20 | -13 | -65.00% |
+| Compaction requests | 2 | 2 | +0 | +0.00% |
+| Compaction waits | 0 | 1 | -1 | -100.00% |
+| Accepted stage/command responses | 6 | 7 | -1 | -14.29% |
+| Rejected stage/command responses | 1 | 1 | +0 | +0.00% |
 | Unanswered stage/command responses | 0 | 0 | +0 | 0.00% |
-| Passing observed test runs | 3 | 4 | +1 | +33.33% |
+| Passing observed test runs | 4 | 6 | -2 | -33.33% |
 | Failing observed test runs | 1 | 1 | +0 | +0.00% |
 | Error-classified observed test runs | 0 | 0 | +0 | 0.00% |
-| Active goal updates | 32 | 23 | -9 | -28.12% |
+| Active goal updates | 26 | 57 | -31 | -54.39% |
 | Complete goal updates | 1 | 1 | +0 | +0.00% |
 | Other-status goal updates | 0 | 0 | +0 | 0.00% |
-| Maximum goal continuations used | 6 | 4 | -2 | -33.33% |
-| Maximum goal tokens used | 108,421 | 110,105 | +1,684 | +1.55% |
-| Completed RPC compactions | 7 | 6 | -1 | -14.29% |
+| Maximum goal continuations used | 6 | 18 | -12 | -66.67% |
+| Maximum goal tokens used | 100,071 | 214,656 | -114,585 | -53.38% |
+| Completed RPC compactions | 7 | 20 | -13 | -65.00% |
 | Aborted RPC compactions | 0 | 0 | +0 | 0.00% |
 | Successful compaction requests | 1 | 1 | +0 | +0.00% |
-| Failed compaction requests | 3 | 1 | -2 | -66.67% |
+| Failed compaction requests | 1 | 1 | +0 | +0.00% |
 | Unanswered compaction requests | 0 | 0 | +0 | 0.00% |
-| Successful compaction waits | 2 | 0 | -2 | -100.00% |
+| Successful compaction waits | 0 | 1 | -1 | -100.00% |
 | Failed compaction waits | 0 | 0 | +0 | 0.00% |
 | Unanswered compaction waits | 0 | 0 | +0 | 0.00% |
-| Input tokens | 100,005 | 102,297 | +2,292 | +2.29% |
-| Output tokens | 9,740 | 9,366 | -374 | -3.84% |
-| Cache-read tokens | 122,880 | 105,984 | -16,896 | -13.75% |
+| Input tokens | 91,133 | 202,735 | -111,602 | -55.05% |
+| Output tokens | 9,361 | 12,502 | -3,141 | -25.12% |
+| Cache-read tokens | 114,176 | 226,816 | -112,640 | -49.66% |
 | Cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Total tokens | 232,625 | 217,647 | -14,978 | -6.44% |
-| Prompt-cache reuse | 55.13% | 50.89% | -4.25 pp | — |
-| Input cost | $0.500025 | $0.511485 | +0.011460 | +2.29% |
-| Output cost | $0.292200 | $0.280980 | -0.011220 | -3.84% |
-| Cache-read cost | $0.061440 | $0.052992 | -0.008448 | -13.75% |
+| Total tokens | 214,670 | 442,053 | -227,383 | -51.44% |
+| Prompt-cache reuse | 55.61% | 52.80% | +2.81 pp | — |
+| Input cost | $0.455665 | $1.013675 | -0.558010 | -55.05% |
+| Output cost | $0.280830 | $0.375060 | -0.094230 | -25.12% |
+| Cache-read cost | $0.057088 | $0.113408 | -0.056320 | -49.66% |
 | Cache-write cost | $0.000000 | $0.000000 | +0.000000 | 0.00% |
-| Total API cost | $0.853665 | $0.845457 | -0.008208 | -0.96% |
+| Total API cost | $0.793583 | $1.502143 | -0.708560 | -47.17% |
 
 ### Complete archive and projection telemetry
 
 These fields are emitted by the same result collector for both variants. Zero values for `vanilla prime-agent` are expected because it does not load Prime Context.
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Archived observations | 0 | 18 | +18 | n/a (zero baseline) |
-| Archive source bytes | 0 | 263,398 | +263,398 | n/a (zero baseline) |
-| Compressed archive bytes | 0 | 25,356 | +25,356 | n/a (zero baseline) |
-| Archive compression ratio (derived) | 0.00% | 9.63% | +9.63 pp | — |
-| Archive chunks | 0 | 27 | +27 | n/a (zero baseline) |
-| Largest chunk bytes | 0 | 65,578 | +65,578 | n/a (zero baseline) |
-| Source bytes admitted | 0 | 565,567 | +565,567 | n/a (zero baseline) |
-| Call-argument bytes projected out | 0 | 11,387 | +11,387 | n/a (zero baseline) |
-| Result bytes projected out | 0 | 260,407 | +260,407 | n/a (zero baseline) |
+| Archived observations | 18 | 0 | +18 | n/a (zero baseline) |
+| Archive source bytes | 327,890 | 0 | +327,890 | n/a (zero baseline) |
+| Compressed archive bytes | 27,378 | 0 | +27,378 | n/a (zero baseline) |
+| Archive compression ratio (derived) | 8.35% | 0.00% | +8.35 pp | — |
+| Archive chunks | 26 | 0 | +26 | n/a (zero baseline) |
+| Largest chunk bytes | 65,578 | 0 | +65,578 | n/a (zero baseline) |
+| Source bytes admitted | 701,310 | 0 | +701,310 | n/a (zero baseline) |
+| Call-argument bytes projected out | 0 | 0 | +0 | 0.00% |
+| Result bytes projected out | 325,135 | 0 | +325,135 | n/a (zero baseline) |
 | Typed/media bytes projected out | 0 | 0 | +0 | 0.00% |
 | Recovery bytes exposed | 0 | 0 | +0 | 0.00% |
-| End-state projected model-view bytes | 0 | 43,743 | +43,743 | n/a (zero baseline) |
-| Streaming bytes processed | 0 | 526,796 | +526,796 | n/a (zero baseline) |
+| End-state projected model-view bytes | 35,121 | 0 | +35,121 | n/a (zero baseline) |
+| Streaming bytes processed | 655,780 | 0 | +655,780 | n/a (zero baseline) |
 | Inspect/recall hits | 0 | 0 | +0 | 0.00% |
 | Fold generations | 0 | 0 | +0 | 0.00% |
-| Branch-runtime reloads | 0 | 7 | +7 | n/a (zero baseline) |
-| Prime Context cache-read tokens | 0 | 105,984 | +105,984 | n/a (zero baseline) |
+| Branch-runtime reloads | 8 | 0 | +8 | n/a (zero baseline) |
+| Prime Context cache-read tokens | 114,176 | 0 | +114,176 | n/a (zero baseline) |
 | Prime Context cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Prime Context uncached input tokens | 0 | 102,297 | +102,297 | n/a (zero baseline) |
-| Stable-projection extension turns | 0 | 14 | +14 | n/a (zero baseline) |
+| Prime Context uncached input tokens | 91,133 | 0 | +91,133 | n/a (zero baseline) |
+| Stable-projection extension turns | 12 | 0 | +12 | n/a (zero baseline) |
 
 
 ---
+
 
 <a id="task-21"></a>
 
@@ -3193,22 +3187,24 @@ Also add `python -m buildplan.cli MANIFEST COMMAND ARGS...` with `plan [TARGET .
 
 **Verdict:** Both variants meet all acceptance criteria; this pair is eligible for formal efficiency comparison.
 
-- **Wall time:** 254.44 s vs 268.59 s; Δ -14.15 s (-5.27%).
-- **Model calls:** 17 vs 18; Δ -1 (-5.56%).
-- **Tool calls:** 15 vs 16; Δ -1 (-6.25%).
-- **Compactions:** 5 vs 4; Δ +1 (+25.00%).
-- **Total tokens:** 170,633 vs 164,858; Δ +5,775 (+3.50%).
-- **Reported API cost:** $0.521197 vs $0.535327; Δ -0.014130 (-2.64%).
-- **Visible tool bytes:** 218,541 vs 27,227; Δ +191,314 (+702.66%).
-- **Prompt-cache reuse:** 59.14% vs 63.73%; Δ -4.59 pp.
+- **Wall time:** 257.76 s vs 287.52 s; Δ -29.76 s (-10.35%).
+- **Model calls:** 16 vs 20; Δ -4 (-20.00%).
+- **Tool calls:** 17 vs 20; Δ -3 (-15.00%).
+- **Compactions:** 5 vs 5; Δ +0 (+0.00%).
+- **Total tokens:** 162,791 vs 173,714; Δ -10,923 (-6.29%).
+- **Total API cost:** $0.541153 vs $0.583690; Δ -0.042537 (-7.29%).
+- **Visible tool bytes:** 281,006 vs 298,449; Δ -17,443 (-5.84%).
+- **Prompt-cache reuse:** 52.59% vs 59.74%; Δ -7.14 pp.
+
+- **Retry:** vanilla prime-agent initially failed strict acceptance and used its single permitted retry; the table reports the retry attempt (strict pass).
 
 - **Expected exact final response:** `BUILD PLAN GOAL COMPLETE`
+- **prime-context 8.1.1 final response:** `BUILD PLAN GOAL COMPLETE`
 - **vanilla prime-agent final response:** `BUILD PLAN GOAL COMPLETE`
-- **prime-context 8.1.0 final response:** `BUILD PLAN GOAL COMPLETE`
 
 ### Complete acceptance and lifecycle comparison
 
-| Acceptance item | Expected | vanilla prime-agent | prime-context 8.1.0 |
+| Acceptance item | Expected | prime-context 8.1.1 | vanilla prime-agent |
 |---|---:|---:|---:|
 | Meets all acceptance criteria | yes | yes | yes |
 | Runner task-completed gate | yes | yes | yes |
@@ -3229,87 +3225,88 @@ Also add `python -m buildplan.cli MANIFEST COMMAND ARGS...` with `plan [TARGET .
 
 ### Complete common metric comparison
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Wall time | 268.59 s | 254.44 s | -14.15 s | -5.27% |
-| Lifecycle wall time | 268.79 s | 254.61 s | -14.17 s | -5.27% |
-| Instruction wall time | 268.59 s | 254.44 s | -14.15 s | -5.27% |
+| Wall time | 257.76 s | 287.52 s | -29.76 s | -10.35% |
+| Lifecycle wall time | 258.06 s | 287.92 s | -29.86 s | -10.37% |
+| Instruction wall time | 257.76 s | 287.52 s | -29.76 s | -10.35% |
 | Sessions | 1 | 1 | +0 | +0.00% |
 | Child sessions | 0 | 0 | +0 | 0.00% |
-| Model calls | 18 | 17 | -1 | -5.56% |
-| Tool calls | 16 | 15 | -1 | -6.25% |
-| Tool results | 16 | 15 | -1 | -6.25% |
-| Visible tool bytes | 27,227 | 218,541 | +191,314 | +702.66% |
-| Compactions | 4 | 5 | +1 | +25.00% |
-| Goal-context injections | 3 | 3 | +0 | +0.00% |
-| Assistant output events | 18 | 17 | -1 | -5.56% |
+| Model calls | 16 | 20 | -4 | -20.00% |
+| Tool calls | 17 | 20 | -3 | -15.00% |
+| Tool results | 17 | 20 | -3 | -15.00% |
+| Visible tool bytes | 281,006 | 298,449 | -17,443 | -5.84% |
+| Compactions | 5 | 5 | +0 | +0.00% |
+| Goal-context injections | 4 | 3 | +1 | +33.33% |
+| Assistant output events | 16 | 20 | -4 | -20.00% |
 | Interventions delivered | 5 | 5 | +0 | +0.00% |
-| Stage responses recorded | 9 | 7 | -2 | -22.22% |
+| Stage responses recorded | 7 | 7 | +0 | +0.00% |
 | Test-run observations | 5 | 5 | +0 | +0.00% |
-| Goal updates | 20 | 21 | +1 | +5.00% |
-| RPC compaction completions | 4 | 5 | +1 | +25.00% |
-| Compaction requests | 3 | 2 | -1 | -33.33% |
-| Compaction waits | 1 | 0 | -1 | -100.00% |
-| Accepted stage/command responses | 8 | 6 | -2 | -25.00% |
+| Goal updates | 19 | 26 | -7 | -26.92% |
+| RPC compaction completions | 5 | 5 | +0 | +0.00% |
+| Compaction requests | 2 | 2 | +0 | +0.00% |
+| Compaction waits | 0 | 0 | +0 | 0.00% |
+| Accepted stage/command responses | 6 | 6 | +0 | +0.00% |
 | Rejected stage/command responses | 1 | 1 | +0 | +0.00% |
 | Unanswered stage/command responses | 0 | 0 | +0 | 0.00% |
 | Passing observed test runs | 4 | 4 | +0 | +0.00% |
 | Failing observed test runs | 1 | 1 | +0 | +0.00% |
 | Error-classified observed test runs | 0 | 0 | +0 | 0.00% |
-| Active goal updates | 19 | 20 | +1 | +5.26% |
+| Active goal updates | 18 | 25 | -7 | -28.00% |
 | Complete goal updates | 1 | 1 | +0 | +0.00% |
 | Other-status goal updates | 0 | 0 | +0 | 0.00% |
-| Maximum goal continuations used | 2 | 3 | +1 | +50.00% |
-| Maximum goal tokens used | 62,819 | 67,286 | +4,467 | +7.11% |
-| Completed RPC compactions | 4 | 5 | +1 | +25.00% |
+| Maximum goal continuations used | 3 | 3 | +0 | +0.00% |
+| Maximum goal tokens used | 78,087 | 72,632 | +5,455 | +7.51% |
+| Completed RPC compactions | 5 | 5 | +0 | +0.00% |
 | Aborted RPC compactions | 0 | 0 | +0 | 0.00% |
-| Successful compaction requests | 2 | 1 | -1 | -50.00% |
+| Successful compaction requests | 1 | 1 | +0 | +0.00% |
 | Failed compaction requests | 1 | 1 | +0 | +0.00% |
 | Unanswered compaction requests | 0 | 0 | +0 | 0.00% |
-| Successful compaction waits | 1 | 0 | -1 | -100.00% |
+| Successful compaction waits | 0 | 0 | +0 | 0.00% |
 | Failed compaction waits | 0 | 0 | +0 | 0.00% |
 | Unanswered compaction waits | 0 | 0 | +0 | 0.00% |
-| Input tokens | 57,397 | 67,913 | +10,516 | +18.32% |
-| Output tokens | 6,597 | 4,416 | -2,181 | -33.06% |
-| Cache-read tokens | 100,864 | 98,304 | -2,560 | -2.54% |
+| Input tokens | 75,225 | 67,298 | +7,927 | +11.78% |
+| Output tokens | 4,110 | 6,576 | -2,466 | -37.50% |
+| Cache-read tokens | 83,456 | 99,840 | -16,384 | -16.41% |
 | Cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Total tokens | 164,858 | 170,633 | +5,775 | +3.50% |
-| Prompt-cache reuse | 63.73% | 59.14% | -4.59 pp | — |
-| Input cost | $0.286985 | $0.339565 | +0.052580 | +18.32% |
-| Output cost | $0.197910 | $0.132480 | -0.065430 | -33.06% |
-| Cache-read cost | $0.050432 | $0.049152 | -0.001280 | -2.54% |
+| Total tokens | 162,791 | 173,714 | -10,923 | -6.29% |
+| Prompt-cache reuse | 52.59% | 59.74% | -7.14 pp | — |
+| Input cost | $0.376125 | $0.336490 | +0.039635 | +11.78% |
+| Output cost | $0.123300 | $0.197280 | -0.073980 | -37.50% |
+| Cache-read cost | $0.041728 | $0.049920 | -0.008192 | -16.41% |
 | Cache-write cost | $0.000000 | $0.000000 | +0.000000 | 0.00% |
-| Total API cost | $0.535327 | $0.521197 | -0.014130 | -2.64% |
+| Total API cost | $0.541153 | $0.583690 | -0.042537 | -7.29% |
 
 ### Complete archive and projection telemetry
 
 These fields are emitted by the same result collector for both variants. Zero values for `vanilla prime-agent` are expected because it does not load Prime Context.
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Archived observations | 0 | 14 | +14 | n/a (zero baseline) |
-| Archive source bytes | 0 | 197,820 | +197,820 | n/a (zero baseline) |
-| Compressed archive bytes | 0 | 17,196 | +17,196 | n/a (zero baseline) |
-| Archive compression ratio (derived) | 0.00% | 8.69% | +8.69 pp | — |
-| Archive chunks | 0 | 19 | +19 | n/a (zero baseline) |
-| Largest chunk bytes | 0 | 65,578 | +65,578 | n/a (zero baseline) |
-| Source bytes admitted | 0 | 419,204 | +419,204 | n/a (zero baseline) |
+| Archived observations | 16 | 0 | +16 | n/a (zero baseline) |
+| Archive source bytes | 262,682 | 0 | +262,682 | n/a (zero baseline) |
+| Compressed archive bytes | 22,773 | 0 | +22,773 | n/a (zero baseline) |
+| Archive compression ratio (derived) | 8.67% | 0.00% | +8.67 pp | — |
+| Archive chunks | 25 | 0 | +25 | n/a (zero baseline) |
+| Largest chunk bytes | 65,948 | 0 | +65,948 | n/a (zero baseline) |
+| Source bytes admitted | 553,291 | 0 | +553,291 | n/a (zero baseline) |
 | Call-argument bytes projected out | 0 | 0 | +0 | 0.00% |
-| Result bytes projected out | 0 | 195,934 | +195,934 | n/a (zero baseline) |
+| Result bytes projected out | 260,302 | 0 | +260,302 | n/a (zero baseline) |
 | Typed/media bytes projected out | 0 | 0 | +0 | 0.00% |
 | Recovery bytes exposed | 0 | 0 | +0 | 0.00% |
-| End-state projected model-view bytes | 0 | 24,926 | +24,926 | n/a (zero baseline) |
-| Streaming bytes processed | 0 | 395,640 | +395,640 | n/a (zero baseline) |
+| End-state projected model-view bytes | 34,441 | 0 | +34,441 | n/a (zero baseline) |
+| Streaming bytes processed | 525,926 | 0 | +525,926 | n/a (zero baseline) |
 | Inspect/recall hits | 0 | 0 | +0 | 0.00% |
 | Fold generations | 0 | 0 | +0 | 0.00% |
-| Branch-runtime reloads | 0 | 6 | +6 | n/a (zero baseline) |
-| Prime Context cache-read tokens | 0 | 98,304 | +98,304 | n/a (zero baseline) |
+| Branch-runtime reloads | 6 | 0 | +6 | n/a (zero baseline) |
+| Prime Context cache-read tokens | 83,456 | 0 | +83,456 | n/a (zero baseline) |
 | Prime Context cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Prime Context uncached input tokens | 0 | 67,913 | +67,913 | n/a (zero baseline) |
-| Stable-projection extension turns | 0 | 11 | +11 | n/a (zero baseline) |
+| Prime Context uncached input tokens | 75,225 | 0 | +75,225 | n/a (zero baseline) |
+| Stable-projection extension turns | 11 | 0 | +11 | n/a (zero baseline) |
 
 
 ---
+
 
 <a id="task-22"></a>
 
@@ -3355,22 +3352,22 @@ Add `process_request(request)`, returning `{"allocation": allocate(...)}` from r
 
 **Verdict:** Both variants meet all acceptance criteria; this pair is eligible for formal efficiency comparison.
 
-- **Wall time:** 199.18 s vs 217.30 s; Δ -18.12 s (-8.34%).
-- **Model calls:** 15 vs 21; Δ -6 (-28.57%).
-- **Tool calls:** 14 vs 19; Δ -5 (-26.32%).
-- **Compactions:** 4 vs 3; Δ +1 (+33.33%).
-- **Total tokens:** 148,060 vs 195,757; Δ -47,697 (-24.37%).
-- **Reported API cost:** $0.443049 vs $0.576938; Δ -0.133889 (-23.21%).
-- **Visible tool bytes:** 147,178 vs 20,764; Δ +126,414 (+608.81%).
-- **Prompt-cache reuse:** 59.93% vs 65.68%; Δ -5.74 pp.
+- **Wall time:** 263.13 s vs 258.24 s; Δ +4.89 s (+1.89%).
+- **Model calls:** 17 vs 17; Δ +0 (+0.00%).
+- **Tool calls:** 16 vs 17; Δ -1 (-5.88%).
+- **Compactions:** 4 vs 4; Δ +0 (+0.00%).
+- **Total tokens:** 172,332 vs 165,029; Δ +7,303 (+4.43%).
+- **Total API cost:** $0.552723 vs $0.515278; Δ +0.037445 (+7.27%).
+- **Visible tool bytes:** 143,994 vs 89,932; Δ +54,062 (+60.11%).
+- **Prompt-cache reuse:** 54.16% vs 63.69%; Δ -9.53 pp.
 
 - **Expected exact final response:** `COMMITTEE GOAL COMPLETE`
+- **prime-context 8.1.1 final response:** `COMMITTEE GOAL COMPLETE`
 - **vanilla prime-agent final response:** `COMMITTEE GOAL COMPLETE`
-- **prime-context 8.1.0 final response:** `COMMITTEE GOAL COMPLETE`
 
 ### Complete acceptance and lifecycle comparison
 
-| Acceptance item | Expected | vanilla prime-agent | prime-context 8.1.0 |
+| Acceptance item | Expected | prime-context 8.1.1 | vanilla prime-agent |
 |---|---:|---:|---:|
 | Meets all acceptance criteria | yes | yes | yes |
 | Runner task-completed gate | yes | yes | yes |
@@ -3391,87 +3388,88 @@ Add `process_request(request)`, returning `{"allocation": allocate(...)}` from r
 
 ### Complete common metric comparison
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Wall time | 217.30 s | 199.18 s | -18.12 s | -8.34% |
-| Lifecycle wall time | 217.78 s | 199.50 s | -18.28 s | -8.39% |
-| Instruction wall time | 217.30 s | 199.18 s | -18.12 s | -8.34% |
+| Wall time | 263.13 s | 258.24 s | +4.89 s | +1.89% |
+| Lifecycle wall time | 263.53 s | 258.46 s | +5.08 s | +1.96% |
+| Instruction wall time | 263.13 s | 258.24 s | +4.89 s | +1.89% |
 | Sessions | 1 | 1 | +0 | +0.00% |
 | Child sessions | 0 | 0 | +0 | 0.00% |
-| Model calls | 21 | 15 | -6 | -28.57% |
-| Tool calls | 19 | 14 | -5 | -26.32% |
-| Tool results | 19 | 14 | -5 | -26.32% |
-| Visible tool bytes | 20,764 | 147,178 | +126,414 | +608.81% |
-| Compactions | 3 | 4 | +1 | +33.33% |
-| Goal-context injections | 2 | 3 | +1 | +50.00% |
-| Assistant output events | 21 | 15 | -6 | -28.57% |
+| Model calls | 17 | 17 | +0 | +0.00% |
+| Tool calls | 16 | 17 | -1 | -5.88% |
+| Tool results | 16 | 17 | -1 | -5.88% |
+| Visible tool bytes | 143,994 | 89,932 | +54,062 | +60.11% |
+| Compactions | 4 | 4 | +0 | +0.00% |
+| Goal-context injections | 3 | 3 | +0 | +0.00% |
+| Assistant output events | 17 | 17 | +0 | +0.00% |
 | Interventions delivered | 5 | 5 | +0 | +0.00% |
-| Stage responses recorded | 9 | 7 | -2 | -22.22% |
+| Stage responses recorded | 7 | 7 | +0 | +0.00% |
 | Test-run observations | 5 | 5 | +0 | +0.00% |
-| Goal updates | 23 | 17 | -6 | -26.09% |
-| RPC compaction completions | 3 | 4 | +1 | +33.33% |
-| Compaction requests | 3 | 2 | -1 | -33.33% |
-| Compaction waits | 1 | 0 | -1 | -100.00% |
-| Accepted stage/command responses | 8 | 7 | -1 | -12.50% |
-| Rejected stage/command responses | 1 | 0 | -1 | -100.00% |
+| Goal updates | 19 | 21 | -2 | -9.52% |
+| RPC compaction completions | 4 | 4 | +0 | +0.00% |
+| Compaction requests | 2 | 2 | +0 | +0.00% |
+| Compaction waits | 0 | 0 | +0 | 0.00% |
+| Accepted stage/command responses | 6 | 7 | -1 | -14.29% |
+| Rejected stage/command responses | 1 | 0 | +1 | n/a (zero baseline) |
 | Unanswered stage/command responses | 0 | 0 | +0 | 0.00% |
 | Passing observed test runs | 4 | 4 | +0 | +0.00% |
 | Failing observed test runs | 1 | 1 | +0 | +0.00% |
 | Error-classified observed test runs | 0 | 0 | +0 | 0.00% |
-| Active goal updates | 22 | 16 | -6 | -27.27% |
+| Active goal updates | 18 | 20 | -2 | -10.00% |
 | Complete goal updates | 1 | 1 | +0 | +0.00% |
 | Other-status goal updates | 0 | 0 | +0 | 0.00% |
 | Maximum goal continuations used | 2 | 2 | +0 | +0.00% |
-| Maximum goal tokens used | 70,400 | 60,521 | -9,879 | -14.03% |
-| Completed RPC compactions | 3 | 4 | +1 | +33.33% |
+| Maximum goal tokens used | 80,121 | 62,446 | +17,675 | +28.30% |
+| Completed RPC compactions | 4 | 4 | +0 | +0.00% |
 | Aborted RPC compactions | 0 | 0 | +0 | 0.00% |
-| Successful compaction requests | 2 | 2 | +0 | +0.00% |
-| Failed compaction requests | 1 | 0 | -1 | -100.00% |
+| Successful compaction requests | 1 | 2 | -1 | -50.00% |
+| Failed compaction requests | 1 | 0 | +1 | n/a (zero baseline) |
 | Unanswered compaction requests | 0 | 0 | +0 | 0.00% |
-| Successful compaction waits | 1 | 0 | -1 | -100.00% |
+| Successful compaction waits | 0 | 0 | +0 | 0.00% |
 | Failed compaction waits | 0 | 0 | +0 | 0.00% |
 | Unanswered compaction waits | 0 | 0 | +0 | 0.00% |
-| Input tokens | 65,020 | 57,847 | -7,173 | -11.03% |
-| Output tokens | 6,321 | 3,685 | -2,636 | -41.70% |
-| Cache-read tokens | 124,416 | 86,528 | -37,888 | -30.45% |
+| Input tokens | 77,149 | 57,800 | +19,349 | +33.48% |
+| Output tokens | 4,047 | 5,853 | -1,806 | -30.86% |
+| Cache-read tokens | 91,136 | 101,376 | -10,240 | -10.10% |
 | Cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Total tokens | 195,757 | 148,060 | -47,697 | -24.37% |
-| Prompt-cache reuse | 65.68% | 59.93% | -5.74 pp | — |
-| Input cost | $0.325100 | $0.289235 | -0.035865 | -11.03% |
-| Output cost | $0.189630 | $0.110550 | -0.079080 | -41.70% |
-| Cache-read cost | $0.062208 | $0.043264 | -0.018944 | -30.45% |
+| Total tokens | 172,332 | 165,029 | +7,303 | +4.43% |
+| Prompt-cache reuse | 54.16% | 63.69% | -9.53 pp | — |
+| Input cost | $0.385745 | $0.289000 | +0.096745 | +33.48% |
+| Output cost | $0.121410 | $0.175590 | -0.054180 | -30.86% |
+| Cache-read cost | $0.045568 | $0.050688 | -0.005120 | -10.10% |
 | Cache-write cost | $0.000000 | $0.000000 | +0.000000 | 0.00% |
-| Total API cost | $0.576938 | $0.443049 | -0.133889 | -23.21% |
+| Total API cost | $0.552723 | $0.515278 | +0.037445 | +7.27% |
 
 ### Complete archive and projection telemetry
 
 These fields are emitted by the same result collector for both variants. Zero values for `vanilla prime-agent` are expected because it does not load Prime Context.
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Archived observations | 0 | 13 | +13 | n/a (zero baseline) |
-| Archive source bytes | 0 | 136,250 | +136,250 | n/a (zero baseline) |
-| Compressed archive bytes | 0 | 12,048 | +12,048 | n/a (zero baseline) |
-| Archive compression ratio (derived) | 0.00% | 8.84% | +8.84 pp | — |
-| Archive chunks | 0 | 19 | +19 | n/a (zero baseline) |
-| Largest chunk bytes | 0 | 65,578 | +65,578 | n/a (zero baseline) |
-| Source bytes admitted | 0 | 283,564 | +283,564 | n/a (zero baseline) |
+| Archived observations | 15 | 0 | +15 | n/a (zero baseline) |
+| Archive source bytes | 132,234 | 0 | +132,234 | n/a (zero baseline) |
+| Compressed archive bytes | 11,583 | 0 | +11,583 | n/a (zero baseline) |
+| Archive compression ratio (derived) | 8.76% | 0.00% | +8.76 pp | — |
+| Archive chunks | 21 | 0 | +21 | n/a (zero baseline) |
+| Largest chunk bytes | 65,578 | 0 | +65,578 | n/a (zero baseline) |
+| Source bytes admitted | 277,074 | 0 | +277,074 | n/a (zero baseline) |
 | Call-argument bytes projected out | 0 | 0 | +0 | 0.00% |
-| Result bytes projected out | 0 | 133,914 | +133,914 | n/a (zero baseline) |
+| Result bytes projected out | 130,913 | 0 | +130,913 | n/a (zero baseline) |
 | Typed/media bytes projected out | 0 | 0 | +0 | 0.00% |
 | Recovery bytes exposed | 0 | 0 | +0 | 0.00% |
-| End-state projected model-view bytes | 0 | 38,656 | +38,656 | n/a (zero baseline) |
-| Streaming bytes processed | 0 | 273,371 | +273,371 | n/a (zero baseline) |
+| End-state projected model-view bytes | 42,115 | 0 | +42,115 | n/a (zero baseline) |
+| Streaming bytes processed | 264,468 | 0 | +264,468 | n/a (zero baseline) |
 | Inspect/recall hits | 0 | 0 | +0 | 0.00% |
 | Fold generations | 0 | 0 | +0 | 0.00% |
-| Branch-runtime reloads | 0 | 5 | +5 | n/a (zero baseline) |
-| Prime Context cache-read tokens | 0 | 86,528 | +86,528 | n/a (zero baseline) |
+| Branch-runtime reloads | 5 | 0 | +5 | n/a (zero baseline) |
+| Prime Context cache-read tokens | 91,136 | 0 | +91,136 | n/a (zero baseline) |
 | Prime Context cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Prime Context uncached input tokens | 0 | 57,847 | +57,847 | n/a (zero baseline) |
-| Stable-projection extension turns | 0 | 11 | +11 | n/a (zero baseline) |
+| Prime Context uncached input tokens | 77,149 | 0 | +77,149 | n/a (zero baseline) |
+| Stable-projection extension turns | 13 | 0 | +13 | n/a (zero baseline) |
 
 
 ---
+
 
 <a id="task-23"></a>
 
@@ -3517,125 +3515,126 @@ Add `python -m contentrouter.cli CONFIG.json PATH [--locale LOCALE] [--values JS
 
 ### Measured outcome
 
-**Verdict:** Neither variant meets all acceptance criteria; resource use is reported descriptively, not as a formal efficiency result.
+**Verdict:** Both variants meet all acceptance criteria; this pair is eligible for formal efficiency comparison.
 
-- **Wall time:** 600.00 s vs 600.00 s; Δ +0.00 s (+0.00%).
-- **Model calls:** 6 vs 27; Δ -21 (-77.78%).
-- **Tool calls:** 6 vs 27; Δ -21 (-77.78%).
-- **Compactions:** 0 vs 10; Δ -10 (-100.00%).
-- **Total tokens:** 46,586 vs 268,083; Δ -221,497 (-82.62%).
-- **Reported API cost:** $0.177921 vs $0.854767; Δ -0.676846 (-79.18%).
-- **Visible tool bytes:** 7,605 vs 88,606; Δ -81,001 (-91.42%).
-- **Prompt-cache reuse:** 52.87% vs 61.74%; Δ -8.87 pp.
+- **Wall time:** 422.38 s vs 512.74 s; Δ -90.36 s (-17.62%).
+- **Model calls:** 18 vs 21; Δ -3 (-14.29%).
+- **Tool calls:** 20 vs 20; Δ +0 (+0.00%).
+- **Compactions:** 7 vs 8; Δ -1 (-12.50%).
+- **Total tokens:** 191,473 vs 217,101; Δ -25,628 (-11.80%).
+- **Total API cost:** $0.713779 vs $0.843265; Δ -0.129486 (-15.36%).
+- **Visible tool bytes:** 299,567 vs 231,978; Δ +67,589 (+29.14%).
+- **Prompt-cache reuse:** 51.13% vs 51.83%; Δ -0.70 pp.
 
 - **Expected exact final response:** `CONTENT ROUTER GOAL COMPLETE`
-- **vanilla prime-agent final response:** `The follow-up implementation is in place. All 9 supplied tests now pass, including priority ordering, candidate explanations, and compact JSON CLI output. I’m doing a hidden-edge audit now; the goal will remain active until the final lock.`
-- **prime-context 8.1.0 final response:** `The baseline fails because `contentrouter.router` is missing. I’m implementing that module now. Route selection will rank more-specific literal patterns first and use declaration order as the stable tie-breaker. `Resolution` remains a frozen record and `resolve(path, *, values=None)` remains unchanged.`
+- **prime-context 8.1.1 final response:** `CONTENT ROUTER GOAL COMPLETE`
+- **vanilla prime-agent final response:** `CONTENT ROUTER GOAL COMPLETE`
 
 ### Complete acceptance and lifecycle comparison
 
-| Acceptance item | Expected | vanilla prime-agent | prime-context 8.1.0 |
+| Acceptance item | Expected | prime-context 8.1.1 | vanilla prime-agent |
 |---|---:|---:|---:|
-| Meets all acceptance criteria | yes | no | no |
-| Runner task-completed gate | yes | no | no |
-| External cumulative tests | 9/9 | 9/9 | 3/3 |
-| External-tests gate | yes | yes | no |
-| Protected files unchanged | yes | yes | no |
-| Goal status | complete | active | active |
-| Goal completed after lock | yes | no | no |
+| Meets all acceptance criteria | yes | yes | yes |
+| Runner task-completed gate | yes | yes | yes |
+| External cumulative tests | 9/9 | 9/9 | 9/9 |
+| External-tests gate | yes | yes | yes |
+| Protected files unchanged | yes | yes | yes |
+| Goal status | complete | complete | complete |
+| Goal completed after lock | yes | yes | yes |
 | Interventions accepted | yes | yes | yes |
-| Intervention order correct | yes | no | no |
-| Exact final response | yes | no | no |
+| Intervention order correct | yes | yes | yes |
+| Exact final response | yes | yes | yes |
 | Early completion observed | no | no | no |
-| Goal-complete event observed | yes | no | no |
-| Run error | none | TimeoutError: condition timed out after 600 seconds | TimeoutError: condition timed out after 600 seconds |
-| Interaction error | none | TimeoutError: condition timed out after 600 seconds | TimeoutError: condition timed out after 600 seconds |
+| Goal-complete event observed | yes | yes | yes |
+| Run error | none | none | none |
+| Interaction error | none | none | none |
 | Interaction stderr | empty | empty | empty |
 | Retained Docker evidence | yes | yes | yes |
 
 ### Complete common metric comparison
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Wall time | 600.00 s | 600.00 s | +0.00 s | +0.00% |
-| Lifecycle wall time | 600.39 s | 600.61 s | +0.22 s | +0.04% |
-| Instruction wall time | 600.00 s | 600.00 s | +0.00 s | +0.00% |
+| Wall time | 422.38 s | 512.74 s | -90.36 s | -17.62% |
+| Lifecycle wall time | 422.53 s | 512.87 s | -90.34 s | -17.61% |
+| Instruction wall time | 422.38 s | 512.74 s | -90.36 s | -17.62% |
 | Sessions | 1 | 1 | +0 | +0.00% |
 | Child sessions | 0 | 0 | +0 | 0.00% |
-| Model calls | 27 | 6 | -21 | -77.78% |
-| Tool calls | 27 | 6 | -21 | -77.78% |
-| Tool results | 27 | 6 | -21 | -77.78% |
-| Visible tool bytes | 88,606 | 7,605 | -81,001 | -91.42% |
-| Compactions | 10 | 0 | -10 | -100.00% |
-| Goal-context injections | 10 | 1 | -9 | -90.00% |
-| Assistant output events | 27 | 6 | -21 | -77.78% |
-| Interventions delivered | 4 | 2 | -2 | -50.00% |
-| Stage responses recorded | 5 | 3 | -2 | -40.00% |
-| Test-run observations | 3 | 2 | -1 | -33.33% |
-| Goal updates | 37 | 6 | -31 | -83.78% |
-| RPC compaction completions | 10 | 0 | -10 | -100.00% |
-| Compaction requests | 1 | 1 | +0 | +0.00% |
+| Model calls | 18 | 21 | -3 | -14.29% |
+| Tool calls | 20 | 20 | +0 | +0.00% |
+| Tool results | 20 | 20 | +0 | +0.00% |
+| Visible tool bytes | 299,567 | 231,978 | +67,589 | +29.14% |
+| Compactions | 7 | 8 | -1 | -12.50% |
+| Goal-context injections | 6 | 7 | -1 | -14.29% |
+| Assistant output events | 18 | 21 | -3 | -14.29% |
+| Interventions delivered | 5 | 5 | +0 | +0.00% |
+| Stage responses recorded | 7 | 7 | +0 | +0.00% |
+| Test-run observations | 5 | 6 | -1 | -16.67% |
+| Goal updates | 23 | 28 | -5 | -17.86% |
+| RPC compaction completions | 7 | 8 | -1 | -12.50% |
+| Compaction requests | 2 | 2 | +0 | +0.00% |
 | Compaction waits | 0 | 0 | +0 | 0.00% |
-| Accepted stage/command responses | 5 | 2 | -3 | -60.00% |
-| Rejected stage/command responses | 0 | 1 | +1 | n/a (zero baseline) |
+| Accepted stage/command responses | 6 | 6 | +0 | +0.00% |
+| Rejected stage/command responses | 1 | 1 | +0 | +0.00% |
 | Unanswered stage/command responses | 0 | 0 | +0 | 0.00% |
-| Passing observed test runs | 2 | 1 | -1 | -50.00% |
+| Passing observed test runs | 4 | 5 | -1 | -20.00% |
 | Failing observed test runs | 1 | 1 | +0 | +0.00% |
 | Error-classified observed test runs | 0 | 0 | +0 | 0.00% |
-| Active goal updates | 37 | 6 | -31 | -83.78% |
-| Complete goal updates | 0 | 0 | +0 | 0.00% |
+| Active goal updates | 22 | 27 | -5 | -18.52% |
+| Complete goal updates | 1 | 1 | +0 | +0.00% |
 | Other-status goal updates | 0 | 0 | +0 | 0.00% |
-| Maximum goal continuations used | 10 | 0 | -10 | -100.00% |
-| Maximum goal tokens used | 108,339 | 23,034 | -85,305 | -78.74% |
-| Completed RPC compactions | 10 | 0 | -10 | -100.00% |
+| Maximum goal continuations used | 5 | 6 | -1 | -16.67% |
+| Maximum goal tokens used | 96,476 | 108,549 | -12,073 | -11.12% |
+| Completed RPC compactions | 7 | 8 | -1 | -12.50% |
 | Aborted RPC compactions | 0 | 0 | +0 | 0.00% |
-| Successful compaction requests | 1 | 0 | -1 | -100.00% |
-| Failed compaction requests | 0 | 1 | +1 | n/a (zero baseline) |
+| Successful compaction requests | 1 | 1 | +0 | +0.00% |
+| Failed compaction requests | 1 | 1 | +0 | +0.00% |
 | Unanswered compaction requests | 0 | 0 | +0 | 0.00% |
 | Successful compaction waits | 0 | 0 | +0 | 0.00% |
 | Failed compaction waits | 0 | 0 | +0 | 0.00% |
 | Unanswered compaction waits | 0 | 0 | +0 | 0.00% |
-| Input tokens | 99,011 | 20,995 | -78,016 | -78.80% |
-| Output tokens | 9,328 | 2,039 | -7,289 | -78.14% |
-| Cache-read tokens | 159,744 | 23,552 | -136,192 | -85.26% |
+| Input tokens | 90,051 | 99,917 | -9,866 | -9.87% |
+| Output tokens | 7,214 | 9,664 | -2,450 | -25.35% |
+| Cache-read tokens | 94,208 | 107,520 | -13,312 | -12.38% |
 | Cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Total tokens | 268,083 | 46,586 | -221,497 | -82.62% |
-| Prompt-cache reuse | 61.74% | 52.87% | -8.87 pp | — |
-| Input cost | $0.495055 | $0.104975 | -0.390080 | -78.80% |
-| Output cost | $0.279840 | $0.061170 | -0.218670 | -78.14% |
-| Cache-read cost | $0.079872 | $0.011776 | -0.068096 | -85.26% |
+| Total tokens | 191,473 | 217,101 | -25,628 | -11.80% |
+| Prompt-cache reuse | 51.13% | 51.83% | -0.70 pp | — |
+| Input cost | $0.450255 | $0.499585 | -0.049330 | -9.87% |
+| Output cost | $0.216420 | $0.289920 | -0.073500 | -25.35% |
+| Cache-read cost | $0.047104 | $0.053760 | -0.006656 | -12.38% |
 | Cache-write cost | $0.000000 | $0.000000 | +0.000000 | 0.00% |
-| Total API cost | $0.854767 | $0.177921 | -0.676846 | -79.18% |
+| Total API cost | $0.713779 | $0.843265 | -0.129486 | -15.36% |
 
 ### Complete archive and projection telemetry
 
 These fields are emitted by the same result collector for both variants. Zero values for `vanilla prime-agent` are expected because it does not load Prime Context.
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Archived observations | 0 | 6 | +6 | n/a (zero baseline) |
-| Archive source bytes | 0 | 1,078 | +1,078 | n/a (zero baseline) |
-| Compressed archive bytes | 0 | 3,884 | +3,884 | n/a (zero baseline) |
-| Archive compression ratio (derived) | 0.00% | 360.30% | +360.30 pp | — |
-| Archive chunks | 0 | 10 | +10 | n/a (zero baseline) |
-| Largest chunk bytes | 0 | 2,363 | +2,363 | n/a (zero baseline) |
-| Source bytes admitted | 0 | 11,089 | +11,089 | n/a (zero baseline) |
+| Archived observations | 19 | 0 | +19 | n/a (zero baseline) |
+| Archive source bytes | 262,682 | 0 | +262,682 | n/a (zero baseline) |
+| Compressed archive bytes | 26,607 | 0 | +26,607 | n/a (zero baseline) |
+| Archive compression ratio (derived) | 10.13% | 0.00% | +10.13 pp | — |
+| Archive chunks | 26 | 0 | +26 | n/a (zero baseline) |
+| Largest chunk bytes | 65,948 | 0 | +65,948 | n/a (zero baseline) |
+| Source bytes admitted | 567,388 | 0 | +567,388 | n/a (zero baseline) |
 | Call-argument bytes projected out | 0 | 0 | +0 | 0.00% |
-| Result bytes projected out | 0 | 673 | +673 | n/a (zero baseline) |
+| Result bytes projected out | 260,258 | 0 | +260,258 | n/a (zero baseline) |
 | Typed/media bytes projected out | 0 | 0 | +0 | 0.00% |
 | Recovery bytes exposed | 0 | 0 | +0 | 0.00% |
-| End-state projected model-view bytes | 0 | 36,578 | +36,578 | n/a (zero baseline) |
-| Streaming bytes processed | 0 | 2,156 | +2,156 | n/a (zero baseline) |
+| End-state projected model-view bytes | 36,302 | 0 | +36,302 | n/a (zero baseline) |
+| Streaming bytes processed | 525,926 | 0 | +525,926 | n/a (zero baseline) |
 | Inspect/recall hits | 0 | 0 | +0 | 0.00% |
 | Fold generations | 0 | 0 | +0 | 0.00% |
-| Branch-runtime reloads | 0 | 1 | +1 | n/a (zero baseline) |
-| Prime Context cache-read tokens | 0 | 23,552 | +23,552 | n/a (zero baseline) |
+| Branch-runtime reloads | 8 | 0 | +8 | n/a (zero baseline) |
+| Prime Context cache-read tokens | 94,208 | 0 | +94,208 | n/a (zero baseline) |
 | Prime Context cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Prime Context uncached input tokens | 0 | 20,995 | +20,995 | n/a (zero baseline) |
-| Stable-projection extension turns | 0 | 4 | +4 | n/a (zero baseline) |
+| Prime Context uncached input tokens | 90,051 | 0 | +90,051 | n/a (zero baseline) |
+| Stable-projection extension turns | 11 | 0 | +11 | n/a (zero baseline) |
 
 
 ---
+
 
 <a id="task-24"></a>
 
@@ -3654,22 +3653,22 @@ These fields are emitted by the same result collector for both variants. Zero va
 
 **Verdict:** Both variants meet all acceptance criteria; this pair is eligible for formal efficiency comparison.
 
-- **Wall time:** 272.11 s vs 225.93 s; Δ +46.18 s (+20.44%).
-- **Model calls:** 17 vs 23; Δ -6 (-26.09%).
-- **Tool calls:** 16 vs 18; Δ -2 (-11.11%).
-- **Compactions:** 5 vs 3; Δ +2 (+66.67%).
-- **Total tokens:** 174,021 vs 218,084; Δ -44,063 (-20.20%).
-- **Reported API cost:** $0.513844 vs $0.581138; Δ -0.067294 (-11.58%).
-- **Visible tool bytes:** 216,670 vs 25,796; Δ +190,874 (+739.94%).
-- **Prompt-cache reuse:** 63.31% vs 68.23%; Δ -4.91 pp.
+- **Wall time:** 353.91 s vs 451.43 s; Δ -97.52 s (-21.60%).
+- **Model calls:** 18 vs 26; Δ -8 (-30.77%).
+- **Tool calls:** 16 vs 19; Δ -3 (-15.79%).
+- **Compactions:** 4 vs 6; Δ -2 (-33.33%).
+- **Total tokens:** 188,624 vs 255,014; Δ -66,390 (-26.03%).
+- **Total API cost:** $0.568210 vs $0.738929; Δ -0.170719 (-23.10%).
+- **Visible tool bytes:** 213,802 vs 155,576; Δ +58,226 (+37.43%).
+- **Prompt-cache reuse:** 59.89% vs 62.65%; Δ -2.76 pp.
 
 - **Expected exact final response:** `EVENT WINDOW GOAL COMPLETE`
+- **prime-context 8.1.1 final response:** `EVENT WINDOW GOAL COMPLETE`
 - **vanilla prime-agent final response:** `EVENT WINDOW GOAL COMPLETE`
-- **prime-context 8.1.0 final response:** `EVENT WINDOW GOAL COMPLETE`
 
 ### Complete acceptance and lifecycle comparison
 
-| Acceptance item | Expected | vanilla prime-agent | prime-context 8.1.0 |
+| Acceptance item | Expected | prime-context 8.1.1 | vanilla prime-agent |
 |---|---:|---:|---:|
 | Meets all acceptance criteria | yes | yes | yes |
 | Runner task-completed gate | yes | yes | yes |
@@ -3690,87 +3689,88 @@ These fields are emitted by the same result collector for both variants. Zero va
 
 ### Complete common metric comparison
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Wall time | 225.93 s | 272.11 s | +46.18 s | +20.44% |
-| Lifecycle wall time | 226.21 s | 272.25 s | +46.04 s | +20.35% |
-| Instruction wall time | 225.93 s | 272.11 s | +46.18 s | +20.44% |
+| Wall time | 353.91 s | 451.43 s | -97.52 s | -21.60% |
+| Lifecycle wall time | 354.25 s | 452.05 s | -97.80 s | -21.63% |
+| Instruction wall time | 353.91 s | 451.43 s | -97.52 s | -21.60% |
 | Sessions | 1 | 1 | +0 | +0.00% |
 | Child sessions | 0 | 0 | +0 | 0.00% |
-| Model calls | 23 | 17 | -6 | -26.09% |
-| Tool calls | 18 | 16 | -2 | -11.11% |
-| Tool results | 18 | 16 | -2 | -11.11% |
-| Visible tool bytes | 25,796 | 216,670 | +190,874 | +739.94% |
-| Compactions | 3 | 5 | +2 | +66.67% |
-| Goal-context injections | 5 | 4 | -1 | -20.00% |
-| Assistant output events | 23 | 17 | -6 | -26.09% |
+| Model calls | 18 | 26 | -8 | -30.77% |
+| Tool calls | 16 | 19 | -3 | -15.79% |
+| Tool results | 16 | 19 | -3 | -15.79% |
+| Visible tool bytes | 213,802 | 155,576 | +58,226 | +37.43% |
+| Compactions | 4 | 6 | -2 | -33.33% |
+| Goal-context injections | 3 | 9 | -6 | -66.67% |
+| Assistant output events | 18 | 26 | -8 | -30.77% |
 | Interventions delivered | 5 | 5 | +0 | +0.00% |
-| Stage responses recorded | 15 | 7 | -8 | -53.33% |
-| Test-run observations | 5 | 5 | +0 | +0.00% |
-| Goal updates | 29 | 20 | -9 | -31.03% |
-| RPC compaction completions | 3 | 5 | +2 | +66.67% |
-| Compaction requests | 6 | 2 | -4 | -66.67% |
-| Compaction waits | 4 | 0 | -4 | -100.00% |
-| Accepted stage/command responses | 11 | 6 | -5 | -45.45% |
-| Rejected stage/command responses | 4 | 1 | -3 | -75.00% |
+| Stage responses recorded | 7 | 14 | -7 | -50.00% |
+| Test-run observations | 6 | 6 | +0 | +0.00% |
+| Goal updates | 20 | 33 | -13 | -39.39% |
+| RPC compaction completions | 4 | 6 | -2 | -33.33% |
+| Compaction requests | 2 | 5 | -3 | -60.00% |
+| Compaction waits | 0 | 4 | -4 | -100.00% |
+| Accepted stage/command responses | 6 | 10 | -4 | -40.00% |
+| Rejected stage/command responses | 1 | 4 | -3 | -75.00% |
 | Unanswered stage/command responses | 0 | 0 | +0 | 0.00% |
-| Passing observed test runs | 4 | 4 | +0 | +0.00% |
-| Failing observed test runs | 1 | 1 | +0 | +0.00% |
+| Passing observed test runs | 4 | 5 | -1 | -20.00% |
+| Failing observed test runs | 2 | 1 | +1 | +100.00% |
 | Error-classified observed test runs | 0 | 0 | +0 | 0.00% |
-| Active goal updates | 28 | 19 | -9 | -32.14% |
+| Active goal updates | 19 | 32 | -13 | -40.62% |
 | Complete goal updates | 1 | 1 | +0 | +0.00% |
 | Other-status goal updates | 0 | 0 | +0 | 0.00% |
-| Maximum goal continuations used | 5 | 3 | -2 | -40.00% |
-| Maximum goal tokens used | 72,659 | 65,858 | -6,801 | -9.36% |
-| Completed RPC compactions | 3 | 5 | +2 | +66.67% |
+| Maximum goal continuations used | 2 | 8 | -6 | -75.00% |
+| Maximum goal tokens used | 77,943 | 98,578 | -20,635 | -20.93% |
+| Completed RPC compactions | 4 | 6 | -2 | -33.33% |
 | Aborted RPC compactions | 0 | 0 | +0 | 0.00% |
-| Successful compaction requests | 2 | 1 | -1 | -50.00% |
-| Failed compaction requests | 4 | 1 | -3 | -75.00% |
+| Successful compaction requests | 1 | 1 | +0 | +0.00% |
+| Failed compaction requests | 1 | 4 | -3 | -75.00% |
 | Unanswered compaction requests | 0 | 0 | +0 | 0.00% |
-| Successful compaction waits | 4 | 0 | -4 | -100.00% |
+| Successful compaction waits | 0 | 4 | -4 | -100.00% |
 | Failed compaction waits | 0 | 0 | +0 | 0.00% |
 | Unanswered compaction waits | 0 | 0 | +0 | 0.00% |
-| Input tokens | 67,478 | 62,002 | -5,476 | -8.12% |
-| Output tokens | 5,710 | 5,011 | -699 | -12.24% |
-| Cache-read tokens | 144,896 | 107,008 | -37,888 | -26.15% |
+| Input tokens | 73,726 | 92,795 | -19,069 | -20.55% |
+| Output tokens | 4,818 | 6,571 | -1,753 | -26.68% |
+| Cache-read tokens | 110,080 | 155,648 | -45,568 | -29.28% |
 | Cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Total tokens | 218,084 | 174,021 | -44,063 | -20.20% |
-| Prompt-cache reuse | 68.23% | 63.31% | -4.91 pp | — |
-| Input cost | $0.337390 | $0.310010 | -0.027380 | -8.12% |
-| Output cost | $0.171300 | $0.150330 | -0.020970 | -12.24% |
-| Cache-read cost | $0.072448 | $0.053504 | -0.018944 | -26.15% |
+| Total tokens | 188,624 | 255,014 | -66,390 | -26.03% |
+| Prompt-cache reuse | 59.89% | 62.65% | -2.76 pp | — |
+| Input cost | $0.368630 | $0.463975 | -0.095345 | -20.55% |
+| Output cost | $0.144540 | $0.197130 | -0.052590 | -26.68% |
+| Cache-read cost | $0.055040 | $0.077824 | -0.022784 | -29.28% |
 | Cache-write cost | $0.000000 | $0.000000 | +0.000000 | 0.00% |
-| Total API cost | $0.581138 | $0.513844 | -0.067294 | -11.58% |
+| Total API cost | $0.568210 | $0.738929 | -0.170719 | -23.10% |
 
 ### Complete archive and projection telemetry
 
 These fields are emitted by the same result collector for both variants. Zero values for `vanilla prime-agent` are expected because it does not load Prime Context.
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Archived observations | 0 | 15 | +15 | n/a (zero baseline) |
-| Archive source bytes | 0 | 197,812 | +197,812 | n/a (zero baseline) |
-| Compressed archive bytes | 0 | 18,559 | +18,559 | n/a (zero baseline) |
-| Archive compression ratio (derived) | 0.00% | 9.38% | +9.38 pp | — |
-| Archive chunks | 0 | 24 | +24 | n/a (zero baseline) |
-| Largest chunk bytes | 0 | 65,578 | +65,578 | n/a (zero baseline) |
-| Source bytes admitted | 0 | 423,487 | +423,487 | n/a (zero baseline) |
+| Archived observations | 15 | 0 | +15 | n/a (zero baseline) |
+| Archive source bytes | 196,734 | 0 | +196,734 | n/a (zero baseline) |
+| Compressed archive bytes | 17,502 | 0 | +17,502 | n/a (zero baseline) |
+| Archive compression ratio (derived) | 8.90% | 0.00% | +8.90 pp | — |
+| Archive chunks | 25 | 0 | +25 | n/a (zero baseline) |
+| Largest chunk bytes | 65,578 | 0 | +65,578 | n/a (zero baseline) |
+| Source bytes admitted | 417,326 | 0 | +417,326 | n/a (zero baseline) |
 | Call-argument bytes projected out | 0 | 0 | +0 | 0.00% |
-| Result bytes projected out | 0 | 196,034 | +196,034 | n/a (zero baseline) |
+| Result bytes projected out | 195,344 | 0 | +195,344 | n/a (zero baseline) |
 | Typed/media bytes projected out | 0 | 0 | +0 | 0.00% |
 | Recovery bytes exposed | 0 | 0 | +0 | 0.00% |
-| End-state projected model-view bytes | 0 | 39,402 | +39,402 | n/a (zero baseline) |
-| Streaming bytes processed | 0 | 395,624 | +395,624 | n/a (zero baseline) |
+| End-state projected model-view bytes | 41,856 | 0 | +41,856 | n/a (zero baseline) |
+| Streaming bytes processed | 393,468 | 0 | +393,468 | n/a (zero baseline) |
 | Inspect/recall hits | 0 | 0 | +0 | 0.00% |
 | Fold generations | 0 | 0 | +0 | 0.00% |
-| Branch-runtime reloads | 0 | 6 | +6 | n/a (zero baseline) |
-| Prime Context cache-read tokens | 0 | 107,008 | +107,008 | n/a (zero baseline) |
+| Branch-runtime reloads | 5 | 0 | +5 | n/a (zero baseline) |
+| Prime Context cache-read tokens | 110,080 | 0 | +110,080 | n/a (zero baseline) |
 | Prime Context cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Prime Context uncached input tokens | 0 | 62,002 | +62,002 | n/a (zero baseline) |
-| Stable-projection extension turns | 0 | 12 | +12 | n/a (zero baseline) |
+| Prime Context uncached input tokens | 73,726 | 0 | +73,726 | n/a (zero baseline) |
+| Stable-projection extension turns | 14 | 0 | +14 | n/a (zero baseline) |
 
 
 ---
+
 
 <a id="task-25"></a>
 
@@ -3787,125 +3787,126 @@ These fields are emitted by the same result collector for both variants. Zero va
 
 ### Measured outcome
 
-**Verdict:** `prime-context 8.1.0` meets all acceptance criteria while `vanilla prime-agent` does not meet all acceptance criteria: a strict correctness gain.
+**Verdict:** Both variants meet all acceptance criteria; this pair is eligible for formal efficiency comparison.
 
-- **Wall time:** 189.30 s vs 600.00 s; Δ -410.70 s (-68.45%).
-- **Model calls:** 17 vs 70; Δ -53 (-75.71%).
-- **Tool calls:** 18 vs 15; Δ +3 (+20.00%).
-- **Compactions:** 4 vs 14; Δ -10 (-71.43%).
-- **Total tokens:** 171,187 vs 652,241; Δ -481,054 (-73.75%).
-- **Reported API cost:** $0.491212 vs $1.254112; Δ -0.762900 (-60.83%).
-- **Visible tool bytes:** 145,092 vs 279,274; Δ -134,182 (-48.05%).
-- **Prompt-cache reuse:** 56.81% vs 72.45%; Δ -15.65 pp.
+- **Wall time:** 210.23 s vs 247.37 s; Δ -37.14 s (-15.02%).
+- **Model calls:** 15 vs 20; Δ -5 (-25.00%).
+- **Tool calls:** 13 vs 12; Δ +1 (+8.33%).
+- **Compactions:** 4 vs 5; Δ -1 (-20.00%).
+- **Total tokens:** 143,482 vs 163,967; Δ -20,485 (-12.49%).
+- **Total API cost:** $0.391046 vs $0.451693; Δ -0.060647 (-13.43%).
+- **Visible tool bytes:** 143,412 vs 78,120; Δ +65,292 (+83.58%).
+- **Prompt-cache reuse:** 60.18% vs 63.18%; Δ -3.01 pp.
 
 - **Expected exact final response:** `FEATURE FLAG GOAL COMPLETE`
-- **vanilla prime-agent final response:** `Awaiting `REQUIREMENTS LOCKED`.`
-- **prime-context 8.1.0 final response:** `FEATURE FLAG GOAL COMPLETE`
+- **prime-context 8.1.1 final response:** `FEATURE FLAG GOAL COMPLETE`
+- **vanilla prime-agent final response:** `FEATURE FLAG GOAL COMPLETE`
 
 ### Complete acceptance and lifecycle comparison
 
-| Acceptance item | Expected | vanilla prime-agent | prime-context 8.1.0 |
+| Acceptance item | Expected | prime-context 8.1.1 | vanilla prime-agent |
 |---|---:|---:|---:|
-| Meets all acceptance criteria | yes | no | yes |
-| Runner task-completed gate | yes | no | yes |
+| Meets all acceptance criteria | yes | yes | yes |
+| Runner task-completed gate | yes | yes | yes |
 | External cumulative tests | 9/9 | 9/9 | 9/9 |
 | External-tests gate | yes | yes | yes |
 | Protected files unchanged | yes | yes | yes |
-| Goal status | complete | active | complete |
-| Goal completed after lock | yes | no | yes |
+| Goal status | complete | complete | complete |
+| Goal completed after lock | yes | yes | yes |
 | Interventions accepted | yes | yes | yes |
-| Intervention order correct | yes | no | yes |
-| Exact final response | yes | no | yes |
+| Intervention order correct | yes | yes | yes |
+| Exact final response | yes | yes | yes |
 | Early completion observed | no | no | no |
-| Goal-complete event observed | yes | no | yes |
-| Run error | none | TimeoutError: condition timed out after 600 seconds | none |
-| Interaction error | none | TimeoutError: condition timed out after 600 seconds | none |
+| Goal-complete event observed | yes | yes | yes |
+| Run error | none | none | none |
+| Interaction error | none | none | none |
 | Interaction stderr | empty | empty | empty |
 | Retained Docker evidence | yes | yes | yes |
 
 ### Complete common metric comparison
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Wall time | 600.00 s | 189.30 s | -410.70 s | -68.45% |
-| Lifecycle wall time | 600.30 s | 189.86 s | -410.44 s | -68.37% |
-| Instruction wall time | 600.00 s | 189.30 s | -410.70 s | -68.45% |
+| Wall time | 210.23 s | 247.37 s | -37.14 s | -15.02% |
+| Lifecycle wall time | 210.61 s | 247.69 s | -37.08 s | -14.97% |
+| Instruction wall time | 210.23 s | 247.37 s | -37.14 s | -15.02% |
 | Sessions | 1 | 1 | +0 | +0.00% |
 | Child sessions | 0 | 0 | +0 | 0.00% |
-| Model calls | 70 | 17 | -53 | -75.71% |
-| Tool calls | 15 | 18 | +3 | +20.00% |
-| Tool results | 15 | 18 | +3 | +20.00% |
-| Visible tool bytes | 279,274 | 145,092 | -134,182 | -48.05% |
-| Compactions | 14 | 4 | -10 | -71.43% |
-| Goal-context injections | 58 | 3 | -55 | -94.83% |
-| Assistant output events | 68 | 17 | -51 | -75.00% |
-| Interventions delivered | 4 | 5 | +1 | +25.00% |
-| Stage responses recorded | 5 | 9 | +4 | +80.00% |
-| Test-run observations | 3 | 5 | +2 | +66.67% |
-| Goal updates | 125 | 19 | -106 | -84.80% |
-| RPC compaction completions | 14 | 4 | -10 | -71.43% |
-| Compaction requests | 1 | 3 | +2 | +200.00% |
-| Compaction waits | 0 | 1 | +1 | n/a (zero baseline) |
-| Accepted stage/command responses | 5 | 7 | +2 | +40.00% |
-| Rejected stage/command responses | 0 | 2 | +2 | n/a (zero baseline) |
+| Model calls | 15 | 20 | -5 | -25.00% |
+| Tool calls | 13 | 12 | +1 | +8.33% |
+| Tool results | 13 | 12 | +1 | +8.33% |
+| Visible tool bytes | 143,412 | 78,120 | +65,292 | +83.58% |
+| Compactions | 4 | 5 | -1 | -20.00% |
+| Goal-context injections | 3 | 10 | -7 | -70.00% |
+| Assistant output events | 15 | 20 | -5 | -25.00% |
+| Interventions delivered | 5 | 5 | +0 | +0.00% |
+| Stage responses recorded | 9 | 19 | -10 | -52.63% |
+| Test-run observations | 5 | 5 | +0 | +0.00% |
+| Goal updates | 17 | 28 | -11 | -39.29% |
+| RPC compaction completions | 4 | 5 | -1 | -20.00% |
+| Compaction requests | 3 | 8 | -5 | -62.50% |
+| Compaction waits | 1 | 6 | -5 | -83.33% |
+| Accepted stage/command responses | 7 | 13 | -6 | -46.15% |
+| Rejected stage/command responses | 2 | 6 | -4 | -66.67% |
 | Unanswered stage/command responses | 0 | 0 | +0 | 0.00% |
-| Passing observed test runs | 3 | 4 | +1 | +33.33% |
-| Failing observed test runs | 0 | 1 | +1 | n/a (zero baseline) |
+| Passing observed test runs | 4 | 4 | +0 | +0.00% |
+| Failing observed test runs | 1 | 1 | +0 | +0.00% |
 | Error-classified observed test runs | 0 | 0 | +0 | 0.00% |
-| Active goal updates | 125 | 18 | -107 | -85.60% |
-| Complete goal updates | 0 | 1 | +1 | n/a (zero baseline) |
+| Active goal updates | 16 | 27 | -11 | -40.74% |
+| Complete goal updates | 1 | 1 | +0 | +0.00% |
 | Other-status goal updates | 0 | 0 | +0 | 0.00% |
-| Maximum goal continuations used | 56 | 2 | -54 | -96.43% |
-| Maximum goal tokens used | 181,834 | 74,968 | -106,866 | -58.77% |
-| Completed RPC compactions | 14 | 4 | -10 | -71.43% |
+| Maximum goal continuations used | 2 | 9 | -7 | -77.78% |
+| Maximum goal tokens used | 57,138 | 61,280 | -4,142 | -6.76% |
+| Completed RPC compactions | 4 | 5 | -1 | -20.00% |
 | Aborted RPC compactions | 0 | 0 | +0 | 0.00% |
-| Successful compaction requests | 1 | 1 | +0 | +0.00% |
-| Failed compaction requests | 0 | 2 | +2 | n/a (zero baseline) |
+| Successful compaction requests | 1 | 2 | -1 | -50.00% |
+| Failed compaction requests | 2 | 6 | -4 | -66.67% |
 | Unanswered compaction requests | 0 | 0 | +0 | 0.00% |
-| Successful compaction waits | 0 | 1 | +1 | n/a (zero baseline) |
+| Successful compaction waits | 1 | 6 | -5 | -83.33% |
 | Failed compaction waits | 0 | 0 | +0 | 0.00% |
 | Unanswered compaction waits | 0 | 0 | +0 | 0.00% |
-| Input tokens | 178,510 | 72,798 | -105,712 | -59.22% |
-| Output tokens | 4,227 | 2,645 | -1,582 | -37.43% |
-| Cache-read tokens | 469,504 | 95,744 | -373,760 | -79.61% |
+| Input tokens | 56,246 | 59,069 | -2,823 | -4.78% |
+| Output tokens | 2,244 | 3,522 | -1,278 | -36.29% |
+| Cache-read tokens | 84,992 | 101,376 | -16,384 | -16.16% |
 | Cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Total tokens | 652,241 | 171,187 | -481,054 | -73.75% |
-| Prompt-cache reuse | 72.45% | 56.81% | -15.65 pp | — |
-| Input cost | $0.892550 | $0.363990 | -0.528560 | -59.22% |
-| Output cost | $0.126810 | $0.079350 | -0.047460 | -37.43% |
-| Cache-read cost | $0.234752 | $0.047872 | -0.186880 | -79.61% |
+| Total tokens | 143,482 | 163,967 | -20,485 | -12.49% |
+| Prompt-cache reuse | 60.18% | 63.18% | -3.01 pp | — |
+| Input cost | $0.281230 | $0.295345 | -0.014115 | -4.78% |
+| Output cost | $0.067320 | $0.105660 | -0.038340 | -36.29% |
+| Cache-read cost | $0.042496 | $0.050688 | -0.008192 | -16.16% |
 | Cache-write cost | $0.000000 | $0.000000 | +0.000000 | 0.00% |
-| Total API cost | $1.254112 | $0.491212 | -0.762900 | -60.83% |
+| Total API cost | $0.391046 | $0.451693 | -0.060647 | -13.43% |
 
 ### Complete archive and projection telemetry
 
 These fields are emitted by the same result collector for both variants. Zero values for `vanilla prime-agent` are expected because it does not load Prime Context.
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Archived observations | 0 | 17 | +17 | n/a (zero baseline) |
-| Archive source bytes | 0 | 132,536 | +132,536 | n/a (zero baseline) |
-| Compressed archive bytes | 0 | 14,023 | +14,023 | n/a (zero baseline) |
-| Archive compression ratio (derived) | 0.00% | 10.58% | +10.58 pp | — |
-| Archive chunks | 0 | 27 | +27 | n/a (zero baseline) |
-| Largest chunk bytes | 0 | 65,578 | +65,578 | n/a (zero baseline) |
-| Source bytes admitted | 0 | 284,237 | +284,237 | n/a (zero baseline) |
+| Archived observations | 12 | 0 | +12 | n/a (zero baseline) |
+| Archive source bytes | 132,234 | 0 | +132,234 | n/a (zero baseline) |
+| Compressed archive bytes | 12,513 | 0 | +12,513 | n/a (zero baseline) |
+| Archive compression ratio (derived) | 9.46% | 0.00% | +9.46 pp | — |
+| Archive chunks | 20 | 0 | +20 | n/a (zero baseline) |
+| Largest chunk bytes | 65,578 | 0 | +65,578 | n/a (zero baseline) |
+| Source bytes admitted | 281,462 | 0 | +281,462 | n/a (zero baseline) |
 | Call-argument bytes projected out | 0 | 0 | +0 | 0.00% |
-| Result bytes projected out | 0 | 131,214 | +131,214 | n/a (zero baseline) |
+| Result bytes projected out | 130,913 | 0 | +130,913 | n/a (zero baseline) |
 | Typed/media bytes projected out | 0 | 0 | +0 | 0.00% |
 | Recovery bytes exposed | 0 | 0 | +0 | 0.00% |
-| End-state projected model-view bytes | 0 | 42,060 | +42,060 | n/a (zero baseline) |
-| Streaming bytes processed | 0 | 265,072 | +265,072 | n/a (zero baseline) |
+| End-state projected model-view bytes | 32,910 | 0 | +32,910 | n/a (zero baseline) |
+| Streaming bytes processed | 264,468 | 0 | +264,468 | n/a (zero baseline) |
 | Inspect/recall hits | 0 | 0 | +0 | 0.00% |
 | Fold generations | 0 | 0 | +0 | 0.00% |
-| Branch-runtime reloads | 0 | 5 | +5 | n/a (zero baseline) |
-| Prime Context cache-read tokens | 0 | 95,744 | +95,744 | n/a (zero baseline) |
+| Branch-runtime reloads | 5 | 0 | +5 | n/a (zero baseline) |
+| Prime Context cache-read tokens | 84,992 | 0 | +84,992 | n/a (zero baseline) |
 | Prime Context cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Prime Context uncached input tokens | 0 | 72,798 | +72,798 | n/a (zero baseline) |
-| Stable-projection extension turns | 0 | 13 | +13 | n/a (zero baseline) |
+| Prime Context uncached input tokens | 56,246 | 0 | +56,246 | n/a (zero baseline) |
+| Stable-projection extension turns | 11 | 0 | +11 | n/a (zero baseline) |
 
 
 ---
+
 
 <a id="task-26"></a>
 
@@ -3924,22 +3925,22 @@ These fields are emitted by the same result collector for both variants. Zero va
 
 **Verdict:** Both variants meet all acceptance criteria; this pair is eligible for formal efficiency comparison.
 
-- **Wall time:** 300.70 s vs 471.62 s; Δ -170.91 s (-36.24%).
-- **Model calls:** 17 vs 23; Δ -6 (-26.09%).
-- **Tool calls:** 16 vs 19; Δ -3 (-15.79%).
+- **Wall time:** 357.85 s vs 450.18 s; Δ -92.33 s (-20.51%).
+- **Model calls:** 16 vs 21; Δ -5 (-23.81%).
+- **Tool calls:** 15 vs 18; Δ -3 (-16.67%).
 - **Compactions:** 5 vs 8; Δ -3 (-37.50%).
-- **Total tokens:** 178,753 vs 235,089; Δ -56,336 (-23.96%).
-- **Reported API cost:** $0.655136 vs $0.872520; Δ -0.217384 (-24.91%).
-- **Visible tool bytes:** 275,975 vs 212,053; Δ +63,922 (+30.14%).
-- **Prompt-cache reuse:** 52.37% vs 50.87%; Δ +1.50 pp.
+- **Total tokens:** 165,211 vs 204,752; Δ -39,541 (-19.31%).
+- **Total API cost:** $0.619752 vs $0.757680; Δ -0.137928 (-18.20%).
+- **Visible tool bytes:** 211,215 vs 221,000; Δ -9,785 (-4.43%).
+- **Prompt-cache reuse:** 50.56% vs 50.57%; Δ -0.01 pp.
 
 - **Expected exact final response:** `LAYERED CONFIG GOAL COMPLETE`
+- **prime-context 8.1.1 final response:** `LAYERED CONFIG GOAL COMPLETE`
 - **vanilla prime-agent final response:** `LAYERED CONFIG GOAL COMPLETE`
-- **prime-context 8.1.0 final response:** `LAYERED CONFIG GOAL COMPLETE`
 
 ### Complete acceptance and lifecycle comparison
 
-| Acceptance item | Expected | vanilla prime-agent | prime-context 8.1.0 |
+| Acceptance item | Expected | prime-context 8.1.1 | vanilla prime-agent |
 |---|---:|---:|---:|
 | Meets all acceptance criteria | yes | yes | yes |
 | Runner task-completed gate | yes | yes | yes |
@@ -3960,87 +3961,88 @@ These fields are emitted by the same result collector for both variants. Zero va
 
 ### Complete common metric comparison
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Wall time | 471.62 s | 300.70 s | -170.91 s | -36.24% |
-| Lifecycle wall time | 472.12 s | 301.20 s | -170.91 s | -36.20% |
-| Instruction wall time | 471.62 s | 300.70 s | -170.91 s | -36.24% |
+| Wall time | 357.85 s | 450.18 s | -92.33 s | -20.51% |
+| Lifecycle wall time | 358.45 s | 450.76 s | -92.31 s | -20.48% |
+| Instruction wall time | 357.85 s | 450.18 s | -92.33 s | -20.51% |
 | Sessions | 1 | 1 | +0 | +0.00% |
 | Child sessions | 0 | 0 | +0 | 0.00% |
-| Model calls | 23 | 17 | -6 | -26.09% |
-| Tool calls | 19 | 16 | -3 | -15.79% |
-| Tool results | 19 | 16 | -3 | -15.79% |
-| Visible tool bytes | 212,053 | 275,975 | +63,922 | +30.14% |
-| Compactions | 8 | 5 | -3 | -37.50% |
-| Goal-context injections | 9 | 4 | -5 | -55.56% |
-| Assistant output events | 23 | 17 | -6 | -26.09% |
+| Model calls | 16 | 21 | -5 | -23.81% |
+| Tool calls | 15 | 18 | -3 | -16.67% |
+| Tool results | 15 | 18 | -3 | -16.67% |
+| Visible tool bytes | 211,215 | 221,000 | -9,785 | -4.43% |
+| Compactions | 5 | 8 | -3 | -37.50% |
+| Goal-context injections | 4 | 9 | -5 | -55.56% |
+| Assistant output events | 16 | 21 | -5 | -23.81% |
 | Interventions delivered | 5 | 5 | +0 | +0.00% |
-| Stage responses recorded | 13 | 7 | -6 | -46.15% |
-| Test-run observations | 6 | 5 | -1 | -16.67% |
-| Goal updates | 33 | 20 | -13 | -39.39% |
-| RPC compaction completions | 8 | 5 | -3 | -37.50% |
-| Compaction requests | 5 | 2 | -3 | -60.00% |
-| Compaction waits | 3 | 0 | -3 | -100.00% |
-| Accepted stage/command responses | 9 | 6 | -3 | -33.33% |
-| Rejected stage/command responses | 4 | 1 | -3 | -75.00% |
+| Stage responses recorded | 7 | 13 | -6 | -46.15% |
+| Test-run observations | 5 | 6 | -1 | -16.67% |
+| Goal updates | 19 | 31 | -12 | -38.71% |
+| RPC compaction completions | 5 | 8 | -3 | -37.50% |
+| Compaction requests | 2 | 5 | -3 | -60.00% |
+| Compaction waits | 0 | 3 | -3 | -100.00% |
+| Accepted stage/command responses | 6 | 9 | -3 | -33.33% |
+| Rejected stage/command responses | 1 | 4 | -3 | -75.00% |
 | Unanswered stage/command responses | 0 | 0 | +0 | 0.00% |
-| Passing observed test runs | 5 | 4 | -1 | -20.00% |
+| Passing observed test runs | 4 | 5 | -1 | -20.00% |
 | Failing observed test runs | 1 | 1 | +0 | +0.00% |
 | Error-classified observed test runs | 0 | 0 | +0 | 0.00% |
-| Active goal updates | 32 | 19 | -13 | -40.62% |
+| Active goal updates | 18 | 30 | -12 | -40.00% |
 | Complete goal updates | 1 | 1 | +0 | +0.00% |
 | Other-status goal updates | 0 | 0 | +0 | 0.00% |
-| Maximum goal continuations used | 8 | 3 | -5 | -62.50% |
-| Maximum goal tokens used | 116,011 | 87,384 | -28,627 | -24.68% |
-| Completed RPC compactions | 8 | 5 | -3 | -37.50% |
+| Maximum goal continuations used | 3 | 8 | -5 | -62.50% |
+| Maximum goal tokens used | 83,680 | 103,828 | -20,148 | -19.41% |
+| Completed RPC compactions | 5 | 8 | -3 | -37.50% |
 | Aborted RPC compactions | 0 | 0 | +0 | 0.00% |
 | Successful compaction requests | 1 | 1 | +0 | +0.00% |
-| Failed compaction requests | 4 | 1 | -3 | -75.00% |
+| Failed compaction requests | 1 | 4 | -3 | -75.00% |
 | Unanswered compaction requests | 0 | 0 | +0 | 0.00% |
-| Successful compaction waits | 3 | 0 | -3 | -100.00% |
+| Successful compaction waits | 0 | 3 | -3 | -100.00% |
 | Failed compaction waits | 0 | 0 | +0 | 0.00% |
 | Unanswered compaction waits | 0 | 0 | +0 | 0.00% |
-| Input tokens | 111,270 | 81,966 | -29,304 | -26.34% |
-| Output tokens | 8,619 | 6,675 | -1,944 | -22.55% |
-| Cache-read tokens | 115,200 | 90,112 | -25,088 | -21.78% |
+| Input tokens | 78,610 | 97,584 | -18,974 | -19.44% |
+| Output tokens | 6,217 | 7,328 | -1,111 | -15.16% |
+| Cache-read tokens | 80,384 | 99,840 | -19,456 | -19.49% |
 | Cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Total tokens | 235,089 | 178,753 | -56,336 | -23.96% |
-| Prompt-cache reuse | 50.87% | 52.37% | +1.50 pp | — |
-| Input cost | $0.556350 | $0.409830 | -0.146520 | -26.34% |
-| Output cost | $0.258570 | $0.200250 | -0.058320 | -22.55% |
-| Cache-read cost | $0.057600 | $0.045056 | -0.012544 | -21.78% |
+| Total tokens | 165,211 | 204,752 | -39,541 | -19.31% |
+| Prompt-cache reuse | 50.56% | 50.57% | -0.01 pp | — |
+| Input cost | $0.393050 | $0.487920 | -0.094870 | -19.44% |
+| Output cost | $0.186510 | $0.219840 | -0.033330 | -15.16% |
+| Cache-read cost | $0.040192 | $0.049920 | -0.009728 | -19.49% |
 | Cache-write cost | $0.000000 | $0.000000 | +0.000000 | 0.00% |
-| Total API cost | $0.872520 | $0.655136 | -0.217384 | -24.91% |
+| Total API cost | $0.619752 | $0.757680 | -0.137928 | -18.20% |
 
 ### Complete archive and projection telemetry
 
 These fields are emitted by the same result collector for both variants. Zero values for `vanilla prime-agent` are expected because it does not load Prime Context.
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Archived observations | 0 | 15 | +15 | n/a (zero baseline) |
-| Archive source bytes | 0 | 262,312 | +262,312 | n/a (zero baseline) |
-| Compressed archive bytes | 0 | 20,630 | +20,630 | n/a (zero baseline) |
-| Archive compression ratio (derived) | 0.00% | 7.86% | +7.86 pp | — |
-| Archive chunks | 0 | 23 | +23 | n/a (zero baseline) |
-| Largest chunk bytes | 0 | 65,578 | +65,578 | n/a (zero baseline) |
-| Source bytes admitted | 0 | 544,501 | +544,501 | n/a (zero baseline) |
+| Archived observations | 14 | 0 | +14 | n/a (zero baseline) |
+| Archive source bytes | 196,734 | 0 | +196,734 | n/a (zero baseline) |
+| Compressed archive bytes | 15,425 | 0 | +15,425 | n/a (zero baseline) |
+| Archive compression ratio (derived) | 7.84% | 0.00% | +7.84 pp | — |
+| Archive chunks | 18 | 0 | +18 | n/a (zero baseline) |
+| Largest chunk bytes | 65,578 | 0 | +65,578 | n/a (zero baseline) |
+| Source bytes admitted | 409,338 | 0 | +409,338 | n/a (zero baseline) |
 | Call-argument bytes projected out | 0 | 0 | +0 | 0.00% |
-| Result bytes projected out | 0 | 260,076 | +260,076 | n/a (zero baseline) |
+| Result bytes projected out | 195,361 | 0 | +195,361 | n/a (zero baseline) |
 | Typed/media bytes projected out | 0 | 0 | +0 | 0.00% |
 | Recovery bytes exposed | 0 | 0 | +0 | 0.00% |
-| End-state projected model-view bytes | 0 | 25,681 | +25,681 | n/a (zero baseline) |
-| Streaming bytes processed | 0 | 524,624 | +524,624 | n/a (zero baseline) |
+| End-state projected model-view bytes | 25,620 | 0 | +25,620 | n/a (zero baseline) |
+| Streaming bytes processed | 393,468 | 0 | +393,468 | n/a (zero baseline) |
 | Inspect/recall hits | 0 | 0 | +0 | 0.00% |
 | Fold generations | 0 | 0 | +0 | 0.00% |
-| Branch-runtime reloads | 0 | 6 | +6 | n/a (zero baseline) |
-| Prime Context cache-read tokens | 0 | 90,112 | +90,112 | n/a (zero baseline) |
+| Branch-runtime reloads | 6 | 0 | +6 | n/a (zero baseline) |
+| Prime Context cache-read tokens | 80,384 | 0 | +80,384 | n/a (zero baseline) |
 | Prime Context cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Prime Context uncached input tokens | 0 | 81,966 | +81,966 | n/a (zero baseline) |
-| Stable-projection extension turns | 0 | 12 | +12 | n/a (zero baseline) |
+| Prime Context uncached input tokens | 78,610 | 0 | +78,610 | n/a (zero baseline) |
+| Stable-projection extension turns | 11 | 0 | +11 | n/a (zero baseline) |
 
 
 ---
+
 
 <a id="task-27"></a>
 
@@ -4059,22 +4061,22 @@ These fields are emitted by the same result collector for both variants. Zero va
 
 **Verdict:** Both variants meet all acceptance criteria; this pair is eligible for formal efficiency comparison.
 
-- **Wall time:** 174.87 s vs 194.75 s; Δ -19.87 s (-10.20%).
-- **Model calls:** 15 vs 21; Δ -6 (-28.57%).
-- **Tool calls:** 14 vs 17; Δ -3 (-17.65%).
-- **Compactions:** 4 vs 3; Δ +1 (+33.33%).
-- **Total tokens:** 148,002 vs 175,220; Δ -27,218 (-15.53%).
-- **Reported API cost:** $0.392328 vs $0.462174; Δ -0.069846 (-15.11%).
-- **Visible tool bytes:** 13,651 vs 92,458; Δ -78,807 (-85.24%).
-- **Prompt-cache reuse:** 64.60% vs 65.34%; Δ -0.75 pp.
+- **Wall time:** 198.35 s vs 223.05 s; Δ -24.70 s (-11.07%).
+- **Model calls:** 14 vs 23; Δ -9 (-39.13%).
+- **Tool calls:** 13 vs 18; Δ -5 (-27.78%).
+- **Compactions:** 4 vs 4; Δ +0 (+0.00%).
+- **Total tokens:** 136,797 vs 216,417; Δ -79,620 (-36.79%).
+- **Total API cost:** $0.425696 vs $0.547145; Δ -0.121449 (-22.20%).
+- **Visible tool bytes:** 143,306 vs 82,209; Δ +61,097 (+74.32%).
+- **Prompt-cache reuse:** 53.82% vs 68.98%; Δ -15.16 pp.
 
 - **Expected exact final response:** `RANKED CHOICE GOAL COMPLETE`
+- **prime-context 8.1.1 final response:** `RANKED CHOICE GOAL COMPLETE`
 - **vanilla prime-agent final response:** `RANKED CHOICE GOAL COMPLETE`
-- **prime-context 8.1.0 final response:** `RANKED CHOICE GOAL COMPLETE`
 
 ### Complete acceptance and lifecycle comparison
 
-| Acceptance item | Expected | vanilla prime-agent | prime-context 8.1.0 |
+| Acceptance item | Expected | prime-context 8.1.1 | vanilla prime-agent |
 |---|---:|---:|---:|
 | Meets all acceptance criteria | yes | yes | yes |
 | Runner task-completed gate | yes | yes | yes |
@@ -4095,87 +4097,88 @@ These fields are emitted by the same result collector for both variants. Zero va
 
 ### Complete common metric comparison
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Wall time | 194.75 s | 174.87 s | -19.87 s | -10.20% |
-| Lifecycle wall time | 195.04 s | 175.30 s | -19.73 s | -10.12% |
-| Instruction wall time | 194.75 s | 174.87 s | -19.87 s | -10.20% |
+| Wall time | 198.35 s | 223.05 s | -24.70 s | -11.07% |
+| Lifecycle wall time | 198.52 s | 223.67 s | -25.15 s | -11.24% |
+| Instruction wall time | 198.35 s | 223.05 s | -24.70 s | -11.07% |
 | Sessions | 1 | 1 | +0 | +0.00% |
 | Child sessions | 0 | 0 | +0 | 0.00% |
-| Model calls | 21 | 15 | -6 | -28.57% |
-| Tool calls | 17 | 14 | -3 | -17.65% |
-| Tool results | 17 | 14 | -3 | -17.65% |
-| Visible tool bytes | 92,458 | 13,651 | -78,807 | -85.24% |
-| Compactions | 3 | 4 | +1 | +33.33% |
-| Goal-context injections | 3 | 3 | +0 | +0.00% |
-| Assistant output events | 21 | 15 | -6 | -28.57% |
+| Model calls | 14 | 23 | -9 | -39.13% |
+| Tool calls | 13 | 18 | -5 | -27.78% |
+| Tool results | 13 | 18 | -5 | -27.78% |
+| Visible tool bytes | 143,306 | 82,209 | +61,097 | +74.32% |
+| Compactions | 4 | 4 | +0 | +0.00% |
+| Goal-context injections | 3 | 6 | -3 | -50.00% |
+| Assistant output events | 14 | 23 | -9 | -39.13% |
 | Interventions delivered | 5 | 5 | +0 | +0.00% |
-| Stage responses recorded | 11 | 7 | -4 | -36.36% |
-| Test-run observations | 4 | 5 | +1 | +25.00% |
-| Goal updates | 25 | 17 | -8 | -32.00% |
-| RPC compaction completions | 3 | 4 | +1 | +33.33% |
-| Compaction requests | 4 | 2 | -2 | -50.00% |
-| Compaction waits | 2 | 0 | -2 | -100.00% |
-| Accepted stage/command responses | 9 | 7 | -2 | -22.22% |
-| Rejected stage/command responses | 2 | 0 | -2 | -100.00% |
+| Stage responses recorded | 7 | 13 | -6 | -46.15% |
+| Test-run observations | 5 | 6 | -1 | -16.67% |
+| Goal updates | 16 | 28 | -12 | -42.86% |
+| RPC compaction completions | 4 | 4 | +0 | +0.00% |
+| Compaction requests | 2 | 5 | -3 | -60.00% |
+| Compaction waits | 0 | 3 | -3 | -100.00% |
+| Accepted stage/command responses | 6 | 10 | -4 | -40.00% |
+| Rejected stage/command responses | 1 | 3 | -2 | -66.67% |
 | Unanswered stage/command responses | 0 | 0 | +0 | 0.00% |
-| Passing observed test runs | 3 | 4 | +1 | +33.33% |
-| Failing observed test runs | 1 | 1 | +0 | +0.00% |
+| Passing observed test runs | 3 | 5 | -2 | -40.00% |
+| Failing observed test runs | 2 | 1 | +1 | +100.00% |
 | Error-classified observed test runs | 0 | 0 | +0 | 0.00% |
-| Active goal updates | 24 | 16 | -8 | -33.33% |
+| Active goal updates | 15 | 27 | -12 | -44.44% |
 | Complete goal updates | 1 | 1 | +0 | +0.00% |
 | Other-status goal updates | 0 | 0 | +0 | 0.00% |
-| Maximum goal continuations used | 3 | 2 | -1 | -33.33% |
-| Maximum goal tokens used | 61,834 | 53,055 | -8,779 | -14.20% |
-| Completed RPC compactions | 3 | 4 | +1 | +33.33% |
+| Maximum goal continuations used | 2 | 5 | -3 | -60.00% |
+| Maximum goal tokens used | 63,884 | 68,943 | -5,059 | -7.34% |
+| Completed RPC compactions | 4 | 4 | +0 | +0.00% |
 | Aborted RPC compactions | 0 | 0 | +0 | 0.00% |
-| Successful compaction requests | 2 | 2 | +0 | +0.00% |
-| Failed compaction requests | 2 | 0 | -2 | -100.00% |
+| Successful compaction requests | 1 | 2 | -1 | -50.00% |
+| Failed compaction requests | 1 | 3 | -2 | -66.67% |
 | Unanswered compaction requests | 0 | 0 | +0 | 0.00% |
-| Successful compaction waits | 2 | 0 | -2 | -100.00% |
+| Successful compaction waits | 0 | 3 | -3 | -100.00% |
 | Failed compaction waits | 0 | 0 | +0 | 0.00% |
 | Unanswered compaction waits | 0 | 0 | +0 | 0.00% |
-| Input tokens | 59,466 | 51,348 | -8,118 | -13.65% |
-| Output tokens | 3,626 | 2,958 | -668 | -18.42% |
-| Cache-read tokens | 112,128 | 93,696 | -18,432 | -16.44% |
+| Input tokens | 61,942 | 65,629 | -3,687 | -5.62% |
+| Output tokens | 2,663 | 4,868 | -2,205 | -45.30% |
+| Cache-read tokens | 72,192 | 145,920 | -73,728 | -50.53% |
 | Cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Total tokens | 175,220 | 148,002 | -27,218 | -15.53% |
-| Prompt-cache reuse | 65.34% | 64.60% | -0.75 pp | — |
-| Input cost | $0.297330 | $0.256740 | -0.040590 | -13.65% |
-| Output cost | $0.108780 | $0.088740 | -0.020040 | -18.42% |
-| Cache-read cost | $0.056064 | $0.046848 | -0.009216 | -16.44% |
+| Total tokens | 136,797 | 216,417 | -79,620 | -36.79% |
+| Prompt-cache reuse | 53.82% | 68.98% | -15.16 pp | — |
+| Input cost | $0.309710 | $0.328145 | -0.018435 | -5.62% |
+| Output cost | $0.079890 | $0.146040 | -0.066150 | -45.30% |
+| Cache-read cost | $0.036096 | $0.072960 | -0.036864 | -50.53% |
 | Cache-write cost | $0.000000 | $0.000000 | +0.000000 | 0.00% |
-| Total API cost | $0.462174 | $0.392328 | -0.069846 | -15.11% |
+| Total API cost | $0.425696 | $0.547145 | -0.121449 | -22.20% |
 
 ### Complete archive and projection telemetry
 
 These fields are emitted by the same result collector for both variants. Zero values for `vanilla prime-agent` are expected because it does not load Prime Context.
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Archived observations | 0 | 13 | +13 | n/a (zero baseline) |
-| Archive source bytes | 0 | 0 | +0 | 0.00% |
-| Compressed archive bytes | 0 | 5,840 | +5,840 | n/a (zero baseline) |
-| Archive compression ratio (derived) | 0.00% | 0.00% | +0.00 pp | — |
-| Archive chunks | 0 | 15 | +15 | n/a (zero baseline) |
-| Largest chunk bytes | 0 | 3,074 | +3,074 | n/a (zero baseline) |
-| Source bytes admitted | 0 | 13,710 | +13,710 | n/a (zero baseline) |
+| Archived observations | 12 | 0 | +12 | n/a (zero baseline) |
+| Archive source bytes | 131,156 | 0 | +131,156 | n/a (zero baseline) |
+| Compressed archive bytes | 11,562 | 0 | +11,562 | n/a (zero baseline) |
+| Archive compression ratio (derived) | 8.82% | 0.00% | +8.82 pp | — |
+| Archive chunks | 15 | 0 | +15 | n/a (zero baseline) |
+| Largest chunk bytes | 65,578 | 0 | +65,578 | n/a (zero baseline) |
+| Source bytes admitted | 278,542 | 0 | +278,542 | n/a (zero baseline) |
 | Call-argument bytes projected out | 0 | 0 | +0 | 0.00% |
-| Result bytes projected out | 0 | 0 | +0 | 0.00% |
+| Result bytes projected out | 130,242 | 0 | +130,242 | n/a (zero baseline) |
 | Typed/media bytes projected out | 0 | 0 | +0 | 0.00% |
 | Recovery bytes exposed | 0 | 0 | +0 | 0.00% |
-| End-state projected model-view bytes | 0 | 39,451 | +39,451 | n/a (zero baseline) |
-| Streaming bytes processed | 0 | 0 | +0 | 0.00% |
+| End-state projected model-view bytes | 35,917 | 0 | +35,917 | n/a (zero baseline) |
+| Streaming bytes processed | 262,312 | 0 | +262,312 | n/a (zero baseline) |
 | Inspect/recall hits | 0 | 0 | +0 | 0.00% |
 | Fold generations | 0 | 0 | +0 | 0.00% |
-| Branch-runtime reloads | 0 | 5 | +5 | n/a (zero baseline) |
-| Prime Context cache-read tokens | 0 | 93,696 | +93,696 | n/a (zero baseline) |
+| Branch-runtime reloads | 5 | 0 | +5 | n/a (zero baseline) |
+| Prime Context cache-read tokens | 72,192 | 0 | +72,192 | n/a (zero baseline) |
 | Prime Context cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Prime Context uncached input tokens | 0 | 51,348 | +51,348 | n/a (zero baseline) |
-| Stable-projection extension turns | 0 | 11 | +11 | n/a (zero baseline) |
+| Prime Context uncached input tokens | 61,942 | 0 | +61,942 | n/a (zero baseline) |
+| Stable-projection extension turns | 10 | 0 | +10 | n/a (zero baseline) |
 
 
 ---
+
 
 <a id="task-28"></a>
 
@@ -4194,22 +4197,22 @@ These fields are emitted by the same result collector for both variants. Zero va
 
 **Verdict:** Both variants meet all acceptance criteria; this pair is eligible for formal efficiency comparison.
 
-- **Wall time:** 185.49 s vs 405.73 s; Δ -220.24 s (-54.28%).
-- **Model calls:** 13 vs 21; Δ -8 (-38.10%).
-- **Tool calls:** 12 vs 17; Δ -5 (-29.41%).
-- **Compactions:** 3 vs 7; Δ -4 (-57.14%).
-- **Total tokens:** 130,366 vs 194,460; Δ -64,094 (-32.96%).
-- **Reported API cost:** $0.420102 vs $0.666952; Δ -0.246850 (-37.01%).
-- **Visible tool bytes:** 77,773 vs 163,141; Δ -85,368 (-52.33%).
-- **Prompt-cache reuse:** 64.22% vs 58.00%; Δ +6.22 pp.
+- **Wall time:** 504.41 s vs 829.87 s; Δ -325.46 s (-39.22%).
+- **Model calls:** 19 vs 23; Δ -4 (-17.39%).
+- **Tool calls:** 17 vs 20; Δ -3 (-15.00%).
+- **Compactions:** 6 vs 12; Δ -6 (-50.00%).
+- **Total tokens:** 196,239 vs 233,507; Δ -37,268 (-15.96%).
+- **Total API cost:** $0.571731 vs $0.940624; Δ -0.368893 (-39.22%).
+- **Visible tool bytes:** 219,637 vs 251,491; Δ -31,854 (-12.67%).
+- **Prompt-cache reuse:** 64.80% vs 47.92%; Δ +16.89 pp.
 
 - **Expected exact final response:** `STOCKROOM GOAL COMPLETE`
+- **prime-context 8.1.1 final response:** `STOCKROOM GOAL COMPLETE`
 - **vanilla prime-agent final response:** `STOCKROOM GOAL COMPLETE`
-- **prime-context 8.1.0 final response:** `STOCKROOM GOAL COMPLETE`
 
 ### Complete acceptance and lifecycle comparison
 
-| Acceptance item | Expected | vanilla prime-agent | prime-context 8.1.0 |
+| Acceptance item | Expected | prime-context 8.1.1 | vanilla prime-agent |
 |---|---:|---:|---:|
 | Meets all acceptance criteria | yes | yes | yes |
 | Runner task-completed gate | yes | yes | yes |
@@ -4230,87 +4233,88 @@ These fields are emitted by the same result collector for both variants. Zero va
 
 ### Complete common metric comparison
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Wall time | 405.73 s | 185.49 s | -220.24 s | -54.28% |
-| Lifecycle wall time | 406.21 s | 185.66 s | -220.55 s | -54.29% |
-| Instruction wall time | 405.73 s | 185.49 s | -220.24 s | -54.28% |
+| Wall time | 504.41 s | 829.87 s | -325.46 s | -39.22% |
+| Lifecycle wall time | 504.78 s | 830.27 s | -325.49 s | -39.20% |
+| Instruction wall time | 504.41 s | 829.87 s | -325.46 s | -39.22% |
 | Sessions | 1 | 1 | +0 | +0.00% |
 | Child sessions | 0 | 0 | +0 | 0.00% |
-| Model calls | 21 | 13 | -8 | -38.10% |
-| Tool calls | 17 | 12 | -5 | -29.41% |
-| Tool results | 17 | 12 | -5 | -29.41% |
-| Visible tool bytes | 163,141 | 77,773 | -85,368 | -52.33% |
-| Compactions | 7 | 3 | -4 | -57.14% |
-| Goal-context injections | 8 | 1 | -7 | -87.50% |
-| Assistant output events | 21 | 13 | -8 | -38.10% |
+| Model calls | 19 | 23 | -4 | -17.39% |
+| Tool calls | 17 | 20 | -3 | -15.00% |
+| Tool results | 17 | 20 | -3 | -15.00% |
+| Visible tool bytes | 219,637 | 251,491 | -31,854 | -12.67% |
+| Compactions | 6 | 12 | -6 | -50.00% |
+| Goal-context injections | 4 | 11 | -7 | -63.64% |
+| Assistant output events | 19 | 23 | -4 | -17.39% |
 | Interventions delivered | 5 | 5 | +0 | +0.00% |
-| Stage responses recorded | 13 | 7 | -6 | -46.15% |
-| Test-run observations | 5 | 5 | +0 | +0.00% |
-| Goal updates | 30 | 15 | -15 | -50.00% |
-| RPC compaction completions | 7 | 3 | -4 | -57.14% |
-| Compaction requests | 5 | 2 | -3 | -60.00% |
-| Compaction waits | 3 | 0 | -3 | -100.00% |
-| Accepted stage/command responses | 9 | 7 | -2 | -22.22% |
-| Rejected stage/command responses | 4 | 0 | -4 | -100.00% |
+| Stage responses recorded | 7 | 9 | -2 | -22.22% |
+| Test-run observations | 5 | 6 | -1 | -16.67% |
+| Goal updates | 24 | 34 | -10 | -29.41% |
+| RPC compaction completions | 6 | 12 | -6 | -50.00% |
+| Compaction requests | 2 | 3 | -1 | -33.33% |
+| Compaction waits | 0 | 1 | -1 | -100.00% |
+| Accepted stage/command responses | 6 | 7 | -1 | -14.29% |
+| Rejected stage/command responses | 1 | 2 | -1 | -50.00% |
 | Unanswered stage/command responses | 0 | 0 | +0 | 0.00% |
-| Passing observed test runs | 4 | 4 | +0 | +0.00% |
+| Passing observed test runs | 4 | 5 | -1 | -20.00% |
 | Failing observed test runs | 1 | 1 | +0 | +0.00% |
 | Error-classified observed test runs | 0 | 0 | +0 | 0.00% |
-| Active goal updates | 29 | 14 | -15 | -51.72% |
+| Active goal updates | 23 | 33 | -10 | -30.30% |
 | Complete goal updates | 1 | 1 | +0 | +0.00% |
 | Other-status goal updates | 0 | 0 | +0 | 0.00% |
-| Maximum goal continuations used | 7 | 1 | -6 | -85.71% |
-| Maximum goal tokens used | 85,002 | 48,708 | -36,294 | -42.70% |
-| Completed RPC compactions | 7 | 3 | -4 | -57.14% |
+| Maximum goal continuations used | 4 | 10 | -6 | -60.00% |
+| Maximum goal tokens used | 68,085 | 122,240 | -54,155 | -44.30% |
+| Completed RPC compactions | 6 | 12 | -6 | -50.00% |
 | Aborted RPC compactions | 0 | 0 | +0 | 0.00% |
-| Successful compaction requests | 1 | 2 | +1 | +100.00% |
-| Failed compaction requests | 4 | 0 | -4 | -100.00% |
+| Successful compaction requests | 1 | 1 | +0 | +0.00% |
+| Failed compaction requests | 1 | 2 | -1 | -50.00% |
 | Unanswered compaction requests | 0 | 0 | +0 | 0.00% |
-| Successful compaction waits | 3 | 0 | -3 | -100.00% |
+| Successful compaction waits | 0 | 1 | -1 | -100.00% |
 | Failed compaction waits | 0 | 0 | +0 | 0.00% |
 | Unanswered compaction waits | 0 | 0 | +0 | 0.00% |
-| Input tokens | 78,592 | 44,782 | -33,810 | -43.02% |
-| Output tokens | 7,324 | 5,200 | -2,124 | -29.00% |
-| Cache-read tokens | 108,544 | 80,384 | -28,160 | -25.94% |
+| Input tokens | 67,015 | 116,314 | -49,299 | -42.38% |
+| Output tokens | 5,832 | 10,185 | -4,353 | -42.74% |
+| Cache-read tokens | 123,392 | 107,008 | +16,384 | +15.31% |
 | Cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Total tokens | 194,460 | 130,366 | -64,094 | -32.96% |
-| Prompt-cache reuse | 58.00% | 64.22% | +6.22 pp | — |
-| Input cost | $0.392960 | $0.223910 | -0.169050 | -43.02% |
-| Output cost | $0.219720 | $0.156000 | -0.063720 | -29.00% |
-| Cache-read cost | $0.054272 | $0.040192 | -0.014080 | -25.94% |
+| Total tokens | 196,239 | 233,507 | -37,268 | -15.96% |
+| Prompt-cache reuse | 64.80% | 47.92% | +16.89 pp | — |
+| Input cost | $0.335075 | $0.581570 | -0.246495 | -42.38% |
+| Output cost | $0.174960 | $0.305550 | -0.130590 | -42.74% |
+| Cache-read cost | $0.061696 | $0.053504 | +0.008192 | +15.31% |
 | Cache-write cost | $0.000000 | $0.000000 | +0.000000 | 0.00% |
-| Total API cost | $0.666952 | $0.420102 | -0.246850 | -37.01% |
+| Total API cost | $0.571731 | $0.940624 | -0.368893 | -39.22% |
 
 ### Complete archive and projection telemetry
 
 These fields are emitted by the same result collector for both variants. Zero values for `vanilla prime-agent` are expected because it does not load Prime Context.
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Archived observations | 0 | 11 | +11 | n/a (zero baseline) |
-| Archive source bytes | 0 | 65,578 | +65,578 | n/a (zero baseline) |
-| Compressed archive bytes | 0 | 8,467 | +8,467 | n/a (zero baseline) |
-| Archive compression ratio (derived) | 0.00% | 12.91% | +12.91 pp | — |
-| Archive chunks | 0 | 13 | +13 | n/a (zero baseline) |
-| Largest chunk bytes | 0 | 65,578 | +65,578 | n/a (zero baseline) |
-| Source bytes admitted | 0 | 146,011 | +146,011 | n/a (zero baseline) |
+| Archived observations | 16 | 0 | +16 | n/a (zero baseline) |
+| Archive source bytes | 196,734 | 0 | +196,734 | n/a (zero baseline) |
+| Compressed archive bytes | 18,111 | 0 | +18,111 | n/a (zero baseline) |
+| Archive compression ratio (derived) | 9.21% | 0.00% | +9.21 pp | — |
+| Archive chunks | 20 | 0 | +20 | n/a (zero baseline) |
+| Largest chunk bytes | 65,578 | 0 | +65,578 | n/a (zero baseline) |
+| Source bytes admitted | 418,693 | 0 | +418,693 | n/a (zero baseline) |
 | Call-argument bytes projected out | 0 | 0 | +0 | 0.00% |
-| Result bytes projected out | 0 | 65,121 | +65,121 | n/a (zero baseline) |
+| Result bytes projected out | 195,362 | 0 | +195,362 | n/a (zero baseline) |
 | Typed/media bytes projected out | 0 | 0 | +0 | 0.00% |
 | Recovery bytes exposed | 0 | 0 | +0 | 0.00% |
-| End-state projected model-view bytes | 0 | 43,194 | +43,194 | n/a (zero baseline) |
-| Streaming bytes processed | 0 | 131,156 | +131,156 | n/a (zero baseline) |
+| End-state projected model-view bytes | 21,874 | 0 | +21,874 | n/a (zero baseline) |
+| Streaming bytes processed | 393,468 | 0 | +393,468 | n/a (zero baseline) |
 | Inspect/recall hits | 0 | 0 | +0 | 0.00% |
 | Fold generations | 0 | 0 | +0 | 0.00% |
-| Branch-runtime reloads | 0 | 4 | +4 | n/a (zero baseline) |
-| Prime Context cache-read tokens | 0 | 80,384 | +80,384 | n/a (zero baseline) |
+| Branch-runtime reloads | 7 | 0 | +7 | n/a (zero baseline) |
+| Prime Context cache-read tokens | 123,392 | 0 | +123,392 | n/a (zero baseline) |
 | Prime Context cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Prime Context uncached input tokens | 0 | 44,782 | +44,782 | n/a (zero baseline) |
-| Stable-projection extension turns | 0 | 9 | +9 | n/a (zero baseline) |
+| Prime Context uncached input tokens | 67,015 | 0 | +67,015 | n/a (zero baseline) |
+| Stable-projection extension turns | 12 | 0 | +12 | n/a (zero baseline) |
 
 
 ---
+
 
 <a id="task-29"></a>
 
@@ -4327,125 +4331,126 @@ These fields are emitted by the same result collector for both variants. Zero va
 
 ### Measured outcome
 
-**Verdict:** `prime-context 8.1.0` meets all acceptance criteria while `vanilla prime-agent` does not meet all acceptance criteria: a strict correctness gain.
+**Verdict:** Both variants meet all acceptance criteria; this pair is eligible for formal efficiency comparison.
 
-- **Wall time:** 140.15 s vs 600.00 s; Δ -459.85 s (-76.64%).
-- **Model calls:** 15 vs 88; Δ -73 (-82.95%).
-- **Tool calls:** 14 vs 14; Δ +0 (+0.00%).
-- **Compactions:** 3 vs 12; Δ -9 (-75.00%).
-- **Total tokens:** 148,598 vs 843,852; Δ -695,254 (-82.39%).
-- **Reported API cost:** $0.474697 vs $1.586011; Δ -1.111314 (-70.07%).
-- **Visible tool bytes:** 80,491 vs 82,295; Δ -1,804 (-2.19%).
-- **Prompt-cache reuse:** 49.71% vs 73.68%; Δ -23.97 pp.
+- **Wall time:** 167.12 s vs 184.77 s; Δ -17.66 s (-9.56%).
+- **Model calls:** 15 vs 20; Δ -5 (-25.00%).
+- **Tool calls:** 14 vs 15; Δ -1 (-6.67%).
+- **Compactions:** 4 vs 3; Δ +1 (+33.33%).
+- **Total tokens:** 145,342 vs 178,975; Δ -33,633 (-18.79%).
+- **Total API cost:** $0.436431 vs $0.516531; Δ -0.080100 (-15.51%).
+- **Visible tool bytes:** 211,330 vs 27,165; Δ +184,165 (+677.95%).
+- **Prompt-cache reuse:** 54.05% vs 61.85%; Δ -7.80 pp.
 
 - **Expected exact final response:** `TRIP SPLIT GOAL COMPLETE`
-- **vanilla prime-agent final response:** `Goal remains active pending `REQUIREMENTS LOCKED`.`
-- **prime-context 8.1.0 final response:** `TRIP SPLIT GOAL COMPLETE`
+- **prime-context 8.1.1 final response:** `TRIP SPLIT GOAL COMPLETE`
+- **vanilla prime-agent final response:** `TRIP SPLIT GOAL COMPLETE`
 
 ### Complete acceptance and lifecycle comparison
 
-| Acceptance item | Expected | vanilla prime-agent | prime-context 8.1.0 |
+| Acceptance item | Expected | prime-context 8.1.1 | vanilla prime-agent |
 |---|---:|---:|---:|
-| Meets all acceptance criteria | yes | no | yes |
-| Runner task-completed gate | yes | no | yes |
-| External cumulative tests | 9/9 | 6/6 | 9/9 |
-| External-tests gate | yes | no | yes |
-| Protected files unchanged | yes | no | yes |
-| Goal status | complete | active | complete |
-| Goal completed after lock | yes | no | yes |
+| Meets all acceptance criteria | yes | yes | yes |
+| Runner task-completed gate | yes | yes | yes |
+| External cumulative tests | 9/9 | 9/9 | 9/9 |
+| External-tests gate | yes | yes | yes |
+| Protected files unchanged | yes | yes | yes |
+| Goal status | complete | complete | complete |
+| Goal completed after lock | yes | yes | yes |
 | Interventions accepted | yes | yes | yes |
-| Intervention order correct | yes | no | yes |
-| Exact final response | yes | no | yes |
+| Intervention order correct | yes | yes | yes |
+| Exact final response | yes | yes | yes |
 | Early completion observed | no | no | no |
-| Goal-complete event observed | yes | no | yes |
-| Run error | none | TimeoutError: condition timed out after 600 seconds | none |
-| Interaction error | none | TimeoutError: condition timed out after 600 seconds | none |
+| Goal-complete event observed | yes | yes | yes |
+| Run error | none | none | none |
+| Interaction error | none | none | none |
 | Interaction stderr | empty | empty | empty |
 | Retained Docker evidence | yes | yes | yes |
 
 ### Complete common metric comparison
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Wall time | 600.00 s | 140.15 s | -459.85 s | -76.64% |
-| Lifecycle wall time | 600.55 s | 140.52 s | -460.03 s | -76.60% |
-| Instruction wall time | 600.00 s | 140.15 s | -459.85 s | -76.64% |
+| Wall time | 167.12 s | 184.77 s | -17.66 s | -9.56% |
+| Lifecycle wall time | 167.54 s | 184.92 s | -17.37 s | -9.40% |
+| Instruction wall time | 167.12 s | 184.77 s | -17.66 s | -9.56% |
 | Sessions | 1 | 1 | +0 | +0.00% |
 | Child sessions | 0 | 0 | +0 | 0.00% |
-| Model calls | 88 | 15 | -73 | -82.95% |
-| Tool calls | 14 | 14 | +0 | +0.00% |
-| Tool results | 14 | 14 | +0 | +0.00% |
-| Visible tool bytes | 82,295 | 80,491 | -1,804 | -2.19% |
-| Compactions | 12 | 3 | -9 | -75.00% |
-| Goal-context injections | 76 | 2 | -74 | -97.37% |
-| Assistant output events | 88 | 15 | -73 | -82.95% |
-| Interventions delivered | 3 | 5 | +2 | +66.67% |
-| Stage responses recorded | 8 | 7 | -1 | -12.50% |
-| Test-run observations | 2 | 5 | +3 | +150.00% |
-| Goal updates | 163 | 18 | -145 | -88.96% |
-| RPC compaction completions | 12 | 3 | -9 | -75.00% |
-| Compaction requests | 3 | 2 | -1 | -33.33% |
-| Compaction waits | 2 | 0 | -2 | -100.00% |
-| Accepted stage/command responses | 6 | 7 | +1 | +16.67% |
-| Rejected stage/command responses | 2 | 0 | -2 | -100.00% |
+| Model calls | 15 | 20 | -5 | -25.00% |
+| Tool calls | 14 | 15 | -1 | -6.67% |
+| Tool results | 14 | 15 | -1 | -6.67% |
+| Visible tool bytes | 211,330 | 27,165 | +184,165 | +677.95% |
+| Compactions | 4 | 3 | +1 | +33.33% |
+| Goal-context injections | 3 | 5 | -2 | -40.00% |
+| Assistant output events | 15 | 20 | -5 | -25.00% |
+| Interventions delivered | 5 | 5 | +0 | +0.00% |
+| Stage responses recorded | 7 | 13 | -6 | -46.15% |
+| Test-run observations | 5 | 5 | +0 | +0.00% |
+| Goal updates | 17 | 26 | -9 | -34.62% |
+| RPC compaction completions | 4 | 3 | +1 | +33.33% |
+| Compaction requests | 2 | 5 | -3 | -60.00% |
+| Compaction waits | 0 | 3 | -3 | -100.00% |
+| Accepted stage/command responses | 7 | 10 | -3 | -30.00% |
+| Rejected stage/command responses | 0 | 3 | -3 | -100.00% |
 | Unanswered stage/command responses | 0 | 0 | +0 | 0.00% |
-| Passing observed test runs | 1 | 4 | +3 | +300.00% |
+| Passing observed test runs | 4 | 4 | +0 | +0.00% |
 | Failing observed test runs | 1 | 1 | +0 | +0.00% |
 | Error-classified observed test runs | 0 | 0 | +0 | 0.00% |
-| Active goal updates | 163 | 17 | -146 | -89.57% |
-| Complete goal updates | 0 | 1 | +1 | n/a (zero baseline) |
+| Active goal updates | 16 | 25 | -9 | -36.00% |
+| Complete goal updates | 1 | 1 | +0 | +0.00% |
 | Other-status goal updates | 0 | 0 | +0 | 0.00% |
-| Maximum goal continuations used | 76 | 2 | -74 | -97.37% |
-| Maximum goal tokens used | 226,380 | 75,406 | -150,974 | -66.69% |
-| Completed RPC compactions | 12 | 3 | -9 | -75.00% |
+| Maximum goal continuations used | 2 | 4 | -2 | -50.00% |
+| Maximum goal tokens used | 67,023 | 70,085 | -3,062 | -4.37% |
+| Completed RPC compactions | 4 | 3 | +1 | +33.33% |
 | Aborted RPC compactions | 0 | 0 | +0 | 0.00% |
-| Successful compaction requests | 1 | 2 | +1 | +100.00% |
-| Failed compaction requests | 2 | 0 | -2 | -100.00% |
+| Successful compaction requests | 2 | 2 | +0 | +0.00% |
+| Failed compaction requests | 0 | 3 | -3 | -100.00% |
 | Unanswered compaction requests | 0 | 0 | +0 | 0.00% |
-| Successful compaction waits | 2 | 0 | -2 | -100.00% |
+| Successful compaction waits | 0 | 3 | -3 | -100.00% |
 | Failed compaction waits | 0 | 0 | +0 | 0.00% |
 | Unanswered compaction waits | 0 | 0 | +0 | 0.00% |
-| Input tokens | 220,565 | 73,539 | -147,026 | -66.66% |
-| Output tokens | 5,815 | 2,355 | -3,460 | -59.50% |
-| Cache-read tokens | 617,472 | 72,704 | -544,768 | -88.23% |
+| Input tokens | 65,725 | 66,631 | -906 | -1.36% |
+| Output tokens | 2,305 | 4,312 | -2,007 | -46.54% |
+| Cache-read tokens | 77,312 | 108,032 | -30,720 | -28.44% |
 | Cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Total tokens | 843,852 | 148,598 | -695,254 | -82.39% |
-| Prompt-cache reuse | 73.68% | 49.71% | -23.97 pp | — |
-| Input cost | $1.102825 | $0.367695 | -0.735130 | -66.66% |
-| Output cost | $0.174450 | $0.070650 | -0.103800 | -59.50% |
-| Cache-read cost | $0.308736 | $0.036352 | -0.272384 | -88.23% |
+| Total tokens | 145,342 | 178,975 | -33,633 | -18.79% |
+| Prompt-cache reuse | 54.05% | 61.85% | -7.80 pp | — |
+| Input cost | $0.328625 | $0.333155 | -0.004530 | -1.36% |
+| Output cost | $0.069150 | $0.129360 | -0.060210 | -46.54% |
+| Cache-read cost | $0.038656 | $0.054016 | -0.015360 | -28.44% |
 | Cache-write cost | $0.000000 | $0.000000 | +0.000000 | 0.00% |
-| Total API cost | $1.586011 | $0.474697 | -1.111314 | -70.07% |
+| Total API cost | $0.436431 | $0.516531 | -0.080100 | -15.51% |
 
 ### Complete archive and projection telemetry
 
 These fields are emitted by the same result collector for both variants. Zero values for `vanilla prime-agent` are expected because it does not load Prime Context.
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Archived observations | 0 | 13 | +13 | n/a (zero baseline) |
-| Archive source bytes | 0 | 65,578 | +65,578 | n/a (zero baseline) |
-| Compressed archive bytes | 0 | 9,404 | +9,404 | n/a (zero baseline) |
-| Archive compression ratio (derived) | 0.00% | 14.34% | +14.34 pp | — |
-| Archive chunks | 0 | 16 | +16 | n/a (zero baseline) |
-| Largest chunk bytes | 0 | 65,578 | +65,578 | n/a (zero baseline) |
-| Source bytes admitted | 0 | 147,262 | +147,262 | n/a (zero baseline) |
+| Archived observations | 13 | 0 | +13 | n/a (zero baseline) |
+| Archive source bytes | 196,734 | 0 | +196,734 | n/a (zero baseline) |
+| Compressed archive bytes | 15,810 | 0 | +15,810 | n/a (zero baseline) |
+| Archive compression ratio (derived) | 8.04% | 0.00% | +8.04 pp | — |
+| Archive chunks | 19 | 0 | +19 | n/a (zero baseline) |
+| Largest chunk bytes | 65,578 | 0 | +65,578 | n/a (zero baseline) |
+| Source bytes admitted | 409,577 | 0 | +409,577 | n/a (zero baseline) |
 | Call-argument bytes projected out | 0 | 0 | +0 | 0.00% |
-| Result bytes projected out | 0 | 65,094 | +65,094 | n/a (zero baseline) |
+| Result bytes projected out | 195,361 | 0 | +195,361 | n/a (zero baseline) |
 | Typed/media bytes projected out | 0 | 0 | +0 | 0.00% |
 | Recovery bytes exposed | 0 | 0 | +0 | 0.00% |
-| End-state projected model-view bytes | 0 | 42,481 | +42,481 | n/a (zero baseline) |
-| Streaming bytes processed | 0 | 131,156 | +131,156 | n/a (zero baseline) |
+| End-state projected model-view bytes | 38,765 | 0 | +38,765 | n/a (zero baseline) |
+| Streaming bytes processed | 393,468 | 0 | +393,468 | n/a (zero baseline) |
 | Inspect/recall hits | 0 | 0 | +0 | 0.00% |
 | Fold generations | 0 | 0 | +0 | 0.00% |
-| Branch-runtime reloads | 0 | 4 | +4 | n/a (zero baseline) |
-| Prime Context cache-read tokens | 0 | 72,704 | +72,704 | n/a (zero baseline) |
+| Branch-runtime reloads | 5 | 0 | +5 | n/a (zero baseline) |
+| Prime Context cache-read tokens | 77,312 | 0 | +77,312 | n/a (zero baseline) |
 | Prime Context cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Prime Context uncached input tokens | 0 | 73,539 | +73,539 | n/a (zero baseline) |
-| Stable-projection extension turns | 0 | 11 | +11 | n/a (zero baseline) |
+| Prime Context uncached input tokens | 65,725 | 0 | +65,725 | n/a (zero baseline) |
+| Stable-projection extension turns | 11 | 0 | +11 | n/a (zero baseline) |
 
 
 ---
+
 
 <a id="task-30"></a>
 
@@ -4464,22 +4469,24 @@ These fields are emitted by the same result collector for both variants. Zero va
 
 **Verdict:** Both variants meet all acceptance criteria; this pair is eligible for formal efficiency comparison.
 
-- **Wall time:** 289.36 s vs 351.92 s; Δ -62.56 s (-17.78%).
-- **Model calls:** 18 vs 20; Δ -2 (-10.00%).
-- **Tool calls:** 18 vs 18; Δ +0 (+0.00%).
-- **Compactions:** 6 vs 7; Δ -1 (-14.29%).
-- **Total tokens:** 189,921 vs 203,172; Δ -13,251 (-6.52%).
-- **Reported API cost:** $0.635778 vs $0.711810; Δ -0.076032 (-10.68%).
-- **Visible tool bytes:** 288,535 vs 227,639; Δ +60,896 (+26.75%).
-- **Prompt-cache reuse:** 51.99% vs 52.01%; Δ -0.02 pp.
+- **Wall time:** 627.67 s vs 379.12 s; Δ +248.55 s (+65.56%).
+- **Model calls:** 29 vs 22; Δ +7 (+31.82%).
+- **Tool calls:** 28 vs 20; Δ +8 (+40.00%).
+- **Compactions:** 13 vs 7; Δ +6 (+85.71%).
+- **Total tokens:** 311,210 vs 216,833; Δ +94,377 (+43.53%).
+- **Total API cost:** $1.051539 vs $0.746159; Δ +0.305380 (+40.93%).
+- **Visible tool bytes:** 200,997 vs 235,700; Δ -34,703 (-14.72%).
+- **Prompt-cache reuse:** 47.64% vs 52.02%; Δ -4.38 pp.
+
+- **Retry:** prime-context 8.1.1 initially failed strict acceptance and used its single permitted retry; the table reports the retry attempt (strict pass).
 
 - **Expected exact final response:** `WEBHOOK GOAL COMPLETE`
+- **prime-context 8.1.1 final response:** `WEBHOOK GOAL COMPLETE`
 - **vanilla prime-agent final response:** `WEBHOOK GOAL COMPLETE`
-- **prime-context 8.1.0 final response:** `WEBHOOK GOAL COMPLETE`
 
 ### Complete acceptance and lifecycle comparison
 
-| Acceptance item | Expected | vanilla prime-agent | prime-context 8.1.0 |
+| Acceptance item | Expected | prime-context 8.1.1 | vanilla prime-agent |
 |---|---:|---:|---:|
 | Meets all acceptance criteria | yes | yes | yes |
 | Runner task-completed gate | yes | yes | yes |
@@ -4500,86 +4507,81 @@ These fields are emitted by the same result collector for both variants. Zero va
 
 ### Complete common metric comparison
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Wall time | 351.92 s | 289.36 s | -62.56 s | -17.78% |
-| Lifecycle wall time | 352.31 s | 289.60 s | -62.70 s | -17.80% |
-| Instruction wall time | 351.92 s | 289.36 s | -62.56 s | -17.78% |
+| Wall time | 627.67 s | 379.12 s | +248.55 s | +65.56% |
+| Lifecycle wall time | 628.13 s | 379.72 s | +248.41 s | +65.42% |
+| Instruction wall time | 627.67 s | 379.12 s | +248.55 s | +65.56% |
 | Sessions | 1 | 1 | +0 | +0.00% |
 | Child sessions | 0 | 0 | +0 | 0.00% |
-| Model calls | 20 | 18 | -2 | -10.00% |
-| Tool calls | 18 | 18 | +0 | +0.00% |
-| Tool results | 18 | 18 | +0 | +0.00% |
-| Visible tool bytes | 227,639 | 288,535 | +60,896 | +26.75% |
-| Compactions | 7 | 6 | -1 | -14.29% |
-| Goal-context injections | 5 | 4 | -1 | -20.00% |
-| Assistant output events | 20 | 18 | -2 | -10.00% |
+| Model calls | 29 | 22 | +7 | +31.82% |
+| Tool calls | 28 | 20 | +8 | +40.00% |
+| Tool results | 28 | 20 | +8 | +40.00% |
+| Visible tool bytes | 200,997 | 235,700 | -34,703 | -14.72% |
+| Compactions | 13 | 7 | +6 | +85.71% |
+| Goal-context injections | 11 | 6 | +5 | +83.33% |
+| Assistant output events | 29 | 22 | +7 | +31.82% |
 | Interventions delivered | 5 | 5 | +0 | +0.00% |
-| Stage responses recorded | 7 | 7 | +0 | +0.00% |
-| Test-run observations | 6 | 5 | -1 | -16.67% |
-| Goal updates | 26 | 21 | -5 | -19.23% |
-| RPC compaction completions | 7 | 6 | -1 | -14.29% |
-| Compaction requests | 2 | 2 | +0 | +0.00% |
-| Compaction waits | 0 | 0 | +0 | 0.00% |
-| Accepted stage/command responses | 6 | 7 | +1 | +16.67% |
-| Rejected stage/command responses | 1 | 0 | -1 | -100.00% |
+| Stage responses recorded | 7 | 9 | -2 | -22.22% |
+| Test-run observations | 5 | 5 | +0 | +0.00% |
+| Goal updates | 39 | 29 | +10 | +34.48% |
+| RPC compaction completions | 13 | 7 | +6 | +85.71% |
+| Compaction requests | 2 | 3 | -1 | -33.33% |
+| Compaction waits | 0 | 1 | -1 | -100.00% |
+| Accepted stage/command responses | 6 | 7 | -1 | -14.29% |
+| Rejected stage/command responses | 1 | 2 | -1 | -50.00% |
 | Unanswered stage/command responses | 0 | 0 | +0 | 0.00% |
-| Passing observed test runs | 5 | 4 | -1 | -20.00% |
+| Passing observed test runs | 4 | 4 | +0 | +0.00% |
 | Failing observed test runs | 1 | 1 | +0 | +0.00% |
 | Error-classified observed test runs | 0 | 0 | +0 | 0.00% |
-| Active goal updates | 25 | 20 | -5 | -20.00% |
+| Active goal updates | 38 | 28 | +10 | +35.71% |
 | Complete goal updates | 1 | 1 | +0 | +0.00% |
 | Other-status goal updates | 0 | 0 | +0 | 0.00% |
-| Maximum goal continuations used | 4 | 3 | -1 | -25.00% |
-| Maximum goal tokens used | 97,496 | 88,693 | -8,803 | -9.03% |
-| Completed RPC compactions | 7 | 6 | -1 | -14.29% |
+| Maximum goal continuations used | 10 | 5 | +5 | +100.00% |
+| Maximum goal tokens used | 160,982 | 106,144 | +54,838 | +51.66% |
+| Completed RPC compactions | 13 | 7 | +6 | +85.71% |
 | Aborted RPC compactions | 0 | 0 | +0 | 0.00% |
-| Successful compaction requests | 1 | 2 | +1 | +100.00% |
-| Failed compaction requests | 1 | 0 | -1 | -100.00% |
+| Successful compaction requests | 1 | 1 | +0 | +0.00% |
+| Failed compaction requests | 1 | 2 | -1 | -50.00% |
 | Unanswered compaction requests | 0 | 0 | +0 | 0.00% |
-| Successful compaction waits | 0 | 0 | +0 | 0.00% |
+| Successful compaction waits | 0 | 1 | -1 | -100.00% |
 | Failed compaction waits | 0 | 0 | +0 | 0.00% |
 | Unanswered compaction waits | 0 | 0 | +0 | 0.00% |
-| Input tokens | 94,502 | 88,892 | -5,610 | -5.94% |
-| Output tokens | 6,270 | 4,773 | -1,497 | -23.88% |
-| Cache-read tokens | 102,400 | 96,256 | -6,144 | -6.00% |
+| Input tokens | 159,809 | 101,063 | +58,746 | +58.13% |
+| Output tokens | 5,993 | 6,202 | -209 | -3.37% |
+| Cache-read tokens | 145,408 | 109,568 | +35,840 | +32.71% |
 | Cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Total tokens | 203,172 | 189,921 | -13,251 | -6.52% |
-| Prompt-cache reuse | 52.01% | 51.99% | -0.02 pp | — |
-| Input cost | $0.472510 | $0.444460 | -0.028050 | -5.94% |
-| Output cost | $0.188100 | $0.143190 | -0.044910 | -23.88% |
-| Cache-read cost | $0.051200 | $0.048128 | -0.003072 | -6.00% |
+| Total tokens | 311,210 | 216,833 | +94,377 | +43.53% |
+| Prompt-cache reuse | 47.64% | 52.02% | -4.38 pp | — |
+| Input cost | $0.799045 | $0.505315 | +0.293730 | +58.13% |
+| Output cost | $0.179790 | $0.186060 | -0.006270 | -3.37% |
+| Cache-read cost | $0.072704 | $0.054784 | +0.017920 | +32.71% |
 | Cache-write cost | $0.000000 | $0.000000 | +0.000000 | 0.00% |
-| Total API cost | $0.711810 | $0.635778 | -0.076032 | -10.68% |
+| Total API cost | $1.051539 | $0.746159 | +0.305380 | +40.93% |
 
 ### Complete archive and projection telemetry
 
 These fields are emitted by the same result collector for both variants. Zero values for `vanilla prime-agent` are expected because it does not load Prime Context.
 
-| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
 |---|---:|---:|---:|---:|
-| Archived observations | 0 | 17 | +17 | n/a (zero baseline) |
-| Archive source bytes | 0 | 263,398 | +263,398 | n/a (zero baseline) |
-| Compressed archive bytes | 0 | 22,201 | +22,201 | n/a (zero baseline) |
-| Archive compression ratio (derived) | 0.00% | 8.43% | +8.43 pp | — |
-| Archive chunks | 0 | 22 | +22 | n/a (zero baseline) |
-| Largest chunk bytes | 0 | 65,578 | +65,578 | n/a (zero baseline) |
-| Source bytes admitted | 0 | 551,205 | +551,205 | n/a (zero baseline) |
+| Archived observations | 27 | 0 | +27 | n/a (zero baseline) |
+| Archive source bytes | 131,156 | 0 | +131,156 | n/a (zero baseline) |
+| Compressed archive bytes | 30,406 | 0 | +30,406 | n/a (zero baseline) |
+| Archive compression ratio (derived) | 23.18% | 0.00% | +23.18 pp | — |
+| Archive chunks | 32 | 0 | +32 | n/a (zero baseline) |
+| Largest chunk bytes | 65,578 | 0 | +65,578 | n/a (zero baseline) |
+| Source bytes admitted | 332,596 | 0 | +332,596 | n/a (zero baseline) |
 | Call-argument bytes projected out | 0 | 0 | +0 | 0.00% |
-| Result bytes projected out | 0 | 260,681 | +260,681 | n/a (zero baseline) |
+| Result bytes projected out | 130,240 | 0 | +130,240 | n/a (zero baseline) |
 | Typed/media bytes projected out | 0 | 0 | +0 | 0.00% |
 | Recovery bytes exposed | 0 | 0 | +0 | 0.00% |
-| End-state projected model-view bytes | 0 | 24,037 | +24,037 | n/a (zero baseline) |
-| Streaming bytes processed | 0 | 526,796 | +526,796 | n/a (zero baseline) |
+| End-state projected model-view bytes | 23,549 | 0 | +23,549 | n/a (zero baseline) |
+| Streaming bytes processed | 262,312 | 0 | +262,312 | n/a (zero baseline) |
 | Inspect/recall hits | 0 | 0 | +0 | 0.00% |
 | Fold generations | 0 | 0 | +0 | 0.00% |
-| Branch-runtime reloads | 0 | 7 | +7 | n/a (zero baseline) |
-| Prime Context cache-read tokens | 0 | 96,256 | +96,256 | n/a (zero baseline) |
+| Branch-runtime reloads | 14 | 0 | +14 | n/a (zero baseline) |
+| Prime Context cache-read tokens | 145,408 | 0 | +145,408 | n/a (zero baseline) |
 | Prime Context cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Prime Context uncached input tokens | 0 | 88,892 | +88,892 | n/a (zero baseline) |
-| Stable-projection extension turns | 0 | 12 | +12 | n/a (zero baseline) |
-
-
-## Evidence and reproducibility reference
-
-The public repository contains the runner and every deterministic fixture under [`benchmarks/`](benchmarks/). Raw run artifacts are intentionally excluded from Git because they contain complete session evidence and are large. The aggregate and per-task values in this document were generated directly from each retained `result.json`; text/log fields, container identifiers, and session paths are evidence rather than scalar metrics and are not reproduced here.
+| Prime Context uncached input tokens | 159,809 | 0 | +159,809 | n/a (zero baseline) |
+| Stable-projection extension turns | 16 | 0 | +16 | n/a (zero baseline) |

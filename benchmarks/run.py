@@ -35,6 +35,21 @@ _PROXY_ALLOWED_HOST_SUFFIXES = (
     "pypi.org",
     "pythonhosted.org",
 )
+_MAX_MANUAL_COMPACTION_ATTEMPTS = 2
+
+
+def retryable_compaction_error(error: object) -> bool:
+    text = str(error).lower()
+    return any(marker in text for marker in (
+        "server_error",
+        "temporarily unavailable",
+        "overloaded",
+        "timed out after 30000ms",
+    ))
+
+
+def compaction_end_succeeded(event: dict[str, Any]) -> bool:
+    return not bool(event.get("aborted")) and not bool(event.get("errorMessage"))
 
 
 def parse_task_ids(value: str, available: set[int]) -> list[int]:
@@ -164,11 +179,6 @@ def text_content(content: Any) -> str:
     return ""
 
 
-def rpc_result_text(event: dict[str, Any]) -> str:
-    result = event.get("result") or {}
-    return text_content(result.get("content"))
-
-
 _TEST_RESULT_LINE = re.compile(r"^TEST_RESULT (PASS|FAIL) (\d+)/(\d+)\r?$", re.MULTILINE)
 
 
@@ -181,12 +191,14 @@ def test_result_summary(body: str) -> dict[str, Any] | None:
 
 
 def rpc_tool_results(event: dict[str, Any]) -> list[dict[str, Any]]:
-    if event.get("type") == "tool_execution_end":
+    if event.get("type") in {"tool_execution_end", "tool_execution_update"}:
+        result = event.get("result") if event.get("type") == "tool_execution_end" else event.get("partialResult")
+        result = result if isinstance(result, dict) else {}
         return [{
             "tool_call_id": str(event.get("toolCallId")),
             "tool_name": event.get("toolName"),
             "is_error": bool(event.get("isError")),
-            "body": rpc_result_text(event),
+            "body": text_content(result.get("content")),
         }]
     if event.get("type") != "turn_end":
         return []
@@ -252,6 +264,7 @@ def run_rpc(
     compaction_waits: list[dict[str, Any]] = []
     test_calls: dict[str, str] = {}
     processed_tool_results: set[str] = set()
+    pending_tool_results: dict[str, dict[str, Any]] = {}
     prompts = {item["stage"]: item for item in scenario["prompts"]}
     event_number = 0
     stderr_path = run_root / "rpc-stderr.txt"
@@ -289,6 +302,7 @@ def run_rpc(
         compaction_active = False
         compaction_request_pending = False
         pending_manual_compaction: dict[str, Any] | None = None
+        compaction_attempts: dict[str, int] = {}
 
         def send(kind: str, text: str, label: str) -> None:
             nonlocal command_counter
@@ -307,21 +321,29 @@ def run_rpc(
             )
 
         def request_compaction(label: str) -> None:
-            nonlocal command_counter, compaction_request_pending
+            nonlocal command_counter, compaction_request_pending, pending_manual_compaction
             command_counter += 1
             request_id = f"cmd-{command_counter}-{label}"
+            attempt = compaction_attempts.get(label, 0) + 1
+            compaction_attempts[label] = attempt
             process.stdin.write(json.dumps({"id": request_id, "type": "compact"}) + "\n")
             process.stdin.flush()
             compaction_requests.append({
                 "label": label,
                 "id": request_id,
+                "attempt": attempt,
                 "event_number": event_number,
                 "compactions_before": len(compactions),
+                "lifecycle_resolved": False,
             })
+            pending_manual_compaction = None
             compaction_request_pending = True
 
         def request_compaction_wait(label: str) -> None:
             nonlocal command_counter
+            # A short session did not attempt provider summarization, so it
+            # must not consume the one bounded transient retry.
+            compaction_attempts[label] = max(0, compaction_attempts.get(label, 1) - 1)
             command_counter += 1
             request_id = f"cmd-{command_counter}-wait-after-{label}"
             message = (
@@ -349,6 +371,23 @@ def run_rpc(
                 stage = "lock"
                 send("steer", prompts["lock"]["text"], "steer-final-lock")
                 lock_sent = True
+
+        def active_compaction_request() -> dict[str, Any] | None:
+            return next(
+                (item for item in reversed(compaction_requests) if not item.get("lifecycle_resolved")),
+                None,
+            )
+
+        def retry_failed_compaction(item: dict[str, Any], error: object) -> None:
+            nonlocal compaction_request_pending, pending_manual_compaction
+            item["lifecycle_resolved"] = True
+            compaction_request_pending = False
+            pending_manual_compaction = None
+            if item["attempt"] >= _MAX_MANUAL_COMPACTION_ATTEMPTS:
+                raise RuntimeError(
+                    f"manual compaction failed after {item['attempt']} attempts: {error}"
+                )
+            request_compaction(item["label"])
 
         def record_test_result(result: dict[str, Any]) -> None:
             nonlocal baseline_steer_sent, baseline_ready, followup_sent, followup_ready, stage
@@ -382,6 +421,17 @@ def run_rpc(
             elif run_stage == "followup" and not lock_sent:
                 followup_ready = True
 
+        def remember_partial_test_result(event: dict[str, Any]) -> None:
+            for result in rpc_tool_results(event):
+                if result["tool_name"] == "ipython" and test_result_summary(result["body"]) is not None:
+                    pending_tool_results[result["tool_call_id"]] = result
+
+        def flush_pending_test_results() -> None:
+            results = list(pending_tool_results.values())
+            pending_tool_results.clear()
+            for result in results:
+                record_test_result(result)
+
         instruction_started = time.monotonic()
         send("prompt", prompts["initial"]["text"], "initial")
         deadline = instruction_started + timeout_seconds
@@ -414,14 +464,40 @@ def run_rpc(
                         None,
                     )
                     if compaction_request is not None:
+                        response_error = event.get("error")
                         compaction_request["success"] = success
-                        compaction_request["error"] = event.get("error")
-                        compaction_request_pending = False
-                        if success and pending_manual_compaction is not None:
-                            complete_compaction(pending_manual_compaction)
-                        elif not success and "Session is too short to compact" in str(event.get("error")):
-                            request_compaction_wait(compaction_request["label"])
-                        pending_manual_compaction = None
+                        compaction_request["error"] = response_error
+                        if not compaction_request.get("lifecycle_resolved"):
+                            if pending_manual_compaction is not None:
+                                lifecycle = pending_manual_compaction
+                                lifecycle_error = lifecycle.get("errorMessage")
+                                if compaction_end_succeeded(lifecycle):
+                                    compaction_request["lifecycle_resolved"] = True
+                                    compaction_request_pending = False
+                                    pending_manual_compaction = None
+                                    complete_compaction(lifecycle)
+                                elif lifecycle.get("willRetry"):
+                                    pass
+                                elif "Session is too short to compact" in str(response_error or lifecycle_error):
+                                    compaction_request["lifecycle_resolved"] = True
+                                    compaction_request_pending = False
+                                    pending_manual_compaction = None
+                                    request_compaction_wait(compaction_request["label"])
+                                elif retryable_compaction_error(response_error or lifecycle_error):
+                                    retry_failed_compaction(
+                                        compaction_request,
+                                        response_error or lifecycle_error,
+                                    )
+                                else:
+                                    raise RuntimeError(
+                                        f"manual compaction failed: {response_error or lifecycle_error}"
+                                    )
+                            elif not success and "Session is too short to compact" in str(response_error):
+                                compaction_request["lifecycle_resolved"] = True
+                                compaction_request_pending = False
+                                request_compaction_wait(compaction_request["label"])
+                            # Other responses can precede compaction_end. Keep the
+                            # request pending until that authoritative lifecycle event.
                     compaction_wait = next(
                         (item for item in compaction_waits if item["id"] == request_id),
                         None,
@@ -434,8 +510,11 @@ def run_rpc(
                 elif kind == "tool_execution_start":
                     if event.get("toolName") == "ipython":
                         test_calls[str(event.get("toolCallId"))] = stage
+                elif kind == "tool_execution_update":
+                    remember_partial_test_result(event)
                 elif kind in {"tool_execution_end", "turn_end"}:
                     for result in rpc_tool_results(event):
+                        pending_tool_results.pop(result["tool_call_id"], None)
                         record_test_result(result)
                     if kind == "turn_end" and not compaction_active and not compaction_request_pending:
                         if baseline_ready and not pivot_sent:
@@ -446,15 +525,47 @@ def run_rpc(
                     compaction_active = True
                 elif kind == "compaction_end":
                     compaction_active = False
+                    flush_pending_test_results()
                     completed = {
                         "event_number": event_number,
                         "reason": event.get("reason"),
                         "aborted": bool(event.get("aborted")),
+                        "errorMessage": event.get("errorMessage"),
+                        "willRetry": bool(event.get("willRetry")),
                     }
                     if event.get("reason") == "manual" and compaction_request_pending:
-                        pending_manual_compaction = completed
+                        compaction_request = active_compaction_request()
+                        if compaction_request is None:
+                            raise RuntimeError("manual compaction ended without a pending request")
+                        lifecycle_error = completed["errorMessage"]
+                        if compaction_end_succeeded(completed):
+                            compaction_request["lifecycle_resolved"] = True
+                            compaction_request_pending = False
+                            pending_manual_compaction = None
+                            complete_compaction(completed)
+                        elif "success" not in compaction_request or completed["willRetry"]:
+                            pending_manual_compaction = completed
+                        elif "Session is too short to compact" in str(
+                            compaction_request.get("error") or lifecycle_error
+                        ):
+                            compaction_request["lifecycle_resolved"] = True
+                            compaction_request_pending = False
+                            pending_manual_compaction = None
+                            request_compaction_wait(compaction_request["label"])
+                        elif retryable_compaction_error(
+                            compaction_request.get("error") or lifecycle_error
+                        ):
+                            retry_failed_compaction(
+                                compaction_request,
+                                compaction_request.get("error") or lifecycle_error,
+                            )
+                        else:
+                            raise RuntimeError(
+                                "manual compaction failed: "
+                                f"{compaction_request.get('error') or lifecycle_error}"
+                            )
                         continue
-                    if event.get("aborted"):
+                    if not compaction_end_succeeded(event):
                         continue
                     complete_compaction(completed)
                 elif kind == "goal_update":
