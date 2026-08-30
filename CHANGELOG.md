@@ -2,12 +2,423 @@
 
 ## 8.1.0 - 2026-08-29
 
-- Align the Prime Context release line with Prime Agent 0.8.1 and include all beast-mode context-management improvements developed against that runtime.
-- Inject the no-verification-theater/KISS policy into Prime Agent's assembled system prompt once per agent run, so it remains active across ordinary turns, autonomous continuations, and compaction without requiring `AGENTS.md`.
-- Preserve raw session history while projecting a stable, purpose-aware model view with immutable completed exchanges, multipart envelopes, large-output streaming archives, typed media paging, bounded recovery, scoped recall, and prefix folds.
-- Add execution-aware tool intent, validation-suite identity, staged workflow state, durable task anchors, exact terminal-result handling, and direct IPython `write_text`/`write_bytes` workspace revision tracking.
-- Bundle the runtime `diff` dependency and target Prime Agent 0.8.1 extension, compaction, recursive-session, and cache-local context hooks.
-- Include a version-pinned, idempotent Prime Agent 0.8.1 host-contract patch for purpose-aware `model_context`, awaited hidden `turn_end` messages, execution-mode metadata, and exact entry references. Full 8.1.0 behavior requires this patch.
+> **Cumulative upgrade note:** this entry describes the complete change from the public 6.3.4 baseline to 8.1.0. It includes the Prime Agent 0.8.1 alignment first released as 6.3.5 and the full context-virtualization implementation developed afterward. This is a major architecture release, not a small iteration on the old output pager.
+
+### Executive summary
+
+Prime Context 8.1.0 changes the extension from a result-oriented compression layer into a branch-aware context runtime. It now observes complete tool exchanges, understands execution and validation semantics, stores exact multipart evidence, keeps raw session history intact, and creates a separate stable working set for the model. Long tasks retain their objective, requirements revision, workspace revision, validation state, failures, open items, and exact recoverable evidence across tool-heavy turns, compaction, tree navigation, and recursive child sessions.
+
+The release also adds a global no-verification-theater/KISS system policy, a strict 30-task evaluation corpus, a retained vanilla/current runner, and a version-pinned Prime Agent 0.8.1 host-contract patch required by the full projection pipeline.
+
+### At a glance: 6.3.4 versus 8.1.0
+
+| Area | 6.3.4 behavior | 8.1.0 behavior |
+|---|---|---|
+| Model context | Primarily reduced oversized visible tool results | Projects complete call/result exchanges into a purpose-aware working set |
+| Persisted history | Tool output handling and model view were closely coupled | Raw session history remains intact; provider projection is temporary and separate |
+| Tool understanding | Mostly output- and command-text-oriented | Execution-aware typed intent, resources, mutation, validation identity, and factual outcomes |
+| Task state | Compact snapshot and dynamic task tail | Branch-scoped runtime, durable task anchor, state checkpoint, revisions, diagnostics, gates, and readiness |
+| Archive format | Ordinary full-text observation storage | Multipart exchange envelopes, typed parts, line-aligned gzip chunks, media, and pageable call fields |
+| Repeated output | Pass-through, structured capsule, or one delta | Immutable completed views, subject-scoped deltas, multiple change hunks, and utility-aware budgets |
+| Compaction | Primarily relied on the host's normal context | Shared projection for provider, compaction, tree summary, and refinement, plus deterministic fast paths |
+| Long-context reduction | Repeated local reductions | Stable fixed views and rare immutable prefix-fold generations |
+| Recovery | Direct list/read/search of current observations | Part-addressable inspect, deterministic recall, task/session/parent/project scopes, and one-response leases |
+| Media | Tool images could remain expensive in repeated context | Exact media archive, show-once semantics, bounded recovery, and placeholders afterward |
+| Recursive work | Limited cross-session context | Direct-parent recall, exact-cwd project recall, fork import, and bounded child task anchors |
+| Observability | Basic broker/status metrics | Archive, projection, recovery, fold, reload, recursive cost, token, and cache economics |
+
+### Compatibility and required Prime Agent host contract
+
+- The package version moves from the 6.x line to **8.1.0** and targets **Prime Agent 0.8.1** and Node.js `>=22.8.0`.
+- Carries forward the 6.3.5 baseline update from Prime Agent 0.8.0 to 0.8.1 and its recursive accounting of descendant delegation cost after Prime Agent raised the default RLM depth.
+- Full 8.1.0 behavior requires the version-pinned host patch published in the GitHub source as `scripts/patch-prime-agent.mjs`.
+- The patch adds runtime surfaces that stock Prime Agent 0.8.1 does not provide:
+  - a purpose-aware `model_context` event for provider, compaction, branch-summary, and refinement projections;
+  - exact message-to-session-entry references;
+  - awaited hidden custom messages returned from `turn_end`;
+  - the effective parallel/sequential tool-execution mode on `turn_end`;
+  - the bundled and nested-agent plumbing needed to preserve those results through the active run.
+- The patch is idempotent, accepts only Prime Agent 0.8.1, checks each exact patch site, and fails instead of guessing when the installed host differs.
+- The host patch was installed identically in benchmark vanilla and Prime Context arms. It was shared infrastructure; the only paired product difference was whether Prime Context was loaded.
+- The npm 8.1.0 tarball contains the extension, README, changelog, and license. The host patch is distributed in the GitHub source, so installation requires cloning the repository before applying the patch.
+- Reinstalling or updating Prime Agent may overwrite the patch; rerun the patch and `--check` command afterward.
+- The npm package name remains `prime-agent-context`.
+
+### Complete exchange lifecycle and deterministic turn reduction
+
+- Added a first-class exchange tracker that correlates:
+  - model-authored tool calls;
+  - the actual executed tool input;
+  - execution-start metadata;
+  - provisional public tool results;
+  - authoritative results persisted at `turn_end`;
+  - assistant source order and completion state.
+- Each completed exchange now receives a stable exchange ID and typed metadata rather than being treated as an isolated output string.
+- Parallel tool batches are reduced in assistant source order after all results are known. Sequential batches advance revisions after each successful mutation.
+- Validation in a parallel batch observes the base workspace revision; validation in a sequential batch observes prior successful mutations from the same batch.
+- Captures both the model-visible call and executed call so shell wrapping, argument transformation, and host adapters cannot silently change the semantic record.
+- Reconciles persisted call/result payloads at the turn boundary and records whether either changed after an earlier hook.
+- Defers final semantic admission until `turn_end`; partial and out-of-order hook events no longer advance task readiness prematurely.
+- Freezes file-backed Bash output when execution completes so later file changes cannot alter the archived evidence.
+- Preserves replay-sensitive signed, encrypted, or opaque metadata literally when safe reconstruction is impossible.
+- Excludes Prime Context's own recovery calls from ordinary observation archiving to prevent recursive self-compression.
+
+### Execution-aware tool adapters
+
+- Added direct adapters for Prime Agent `bash`, `edit`, `ipython`, the `prime_context` tool, and generic custom tools.
+- Bash handling now understands:
+  - Bash and Zsh execution;
+  - command chains, pipelines, redirection, and heredocs;
+  - Python, Node, shell, and executable test runners;
+  - typed complete-output files supplied by Prime Agent;
+  - stdout, stderr, exit status, timeout, and command facts.
+- IPython handling now understands:
+  - normal Python code;
+  - executable `%%bash` cells;
+  - subprocess-based validation;
+  - `Path.write_text(...)` and `Path.write_bytes(...)` mutations;
+  - literal and persistent-kernel path expressions.
+- Edit handling records changed resources and archives oversized old/new bodies separately instead of retaining huge edit calls in every model turn.
+- Generic tools receive conservative intent, resource, mutation, and factual-outcome handling instead of being forced through shell-specific assumptions.
+- Path-valued subprocess arguments such as `str(root / "run_tests.py")` resolve to the same validation suite as their direct command form.
+- Direct IPython writes advance the workspace revision even when a persistent expression cannot be statically resolved; literal paths also attach normalized resources.
+
+### Branch- and task-scoped semantic runtime
+
+- Replaced mutable global workflow state with a bounded full replacement runtime snapshot scoped to the selected branch and task.
+- Added deterministic task selection from session structure, active goals, root user entries, and child-session context.
+- Resets runtime state before loading another branch so stale requirements, validations, diagnostics, or folds cannot leak across tree navigation.
+- Tracks requirements revision and workspace revision independently.
+- Records modified resources with the workspace revision that produced them.
+- Replaced the old “largest test total wins” heuristic with explicit validation identities:
+  - suite family;
+  - target/scope;
+  - command identity;
+  - test count and result;
+  - requirements/workspace revision;
+  - turn sequence.
+- Smaller focused checks no longer replace the largest cumulative acceptance suite.
+- Later requirements changes make older validation stale even when the workspace did not change.
+- Later mutations make earlier validation stale even when the requirements did not change.
+- Added active diagnostics that survive failed checks and become “awaiting rerun” after a relevant mutation.
+- Successful validation clears diagnostics for its own suite without erasing unrelated failures.
+- Requirements lock is monotonic and accepted only from a leading declaration in the complete user message; quoted or incidental text cannot lock the workflow.
+- Staged readiness now distinguishes command-clean, stage-clean, and goal-ready states.
+- Goal readiness requires a current cumulative post-lock pass and no later decisive failure.
+
+### Durable cache-stable control plane
+
+- Replaced the disappearing dynamic task tail with typed hidden control messages.
+- Added one durable task anchor containing only missing, task-defining information:
+  - objective and task identity;
+  - acceptance requirements;
+  - relevant child deliverables and parent references;
+  - bounded focus and open work.
+- Added small state checkpoints after meaningful workflow changes rather than replaying a full volatile state dump every turn.
+- State checkpoints include requirements/workspace revisions, lock state, latest and cumulative validation, active diagnostics, and readiness.
+- Control messages are omitted when the same exact state is already visible.
+- After compaction or branch changes, missing control state is reconstructed from persisted runtime snapshots rather than inferred from an incomplete transcript.
+- Goal-context repeats, unchanged idle polls, and oversized IPython name inventories are compacted in the model view without changing Prime Agent scheduler or kernel state.
+- Focus, open items, completed items, and pinned observations remain bounded and branch aware.
+- `/pc mode off` disables archive/projection behavior for the current session but intentionally does not remove the bundled global system policy.
+
+### Multipart exact observation envelopes
+
+- Introduced the `prime-context.exchange/v2` multipart envelope: one envelope per completed exchange rather than one undifferentiated text blob.
+- Stores call arguments, result text, stdout, stderr, traceback, diffs, and media as addressable parts with typed metadata.
+- Preserves exact public evidence locally while allowing each part to receive an independent model-facing representation.
+- Records source kind, visible bytes, source bytes, line counts, media type, dimensions, archive references, and replay protection.
+- Oversized call fields are independently pageable:
+  - edit old/new aggregates over 4 KiB;
+  - Bash/IPython fields over 8 KiB;
+  - generic strings or JSON subtrees over 8 KiB.
+- Projected calls use explicit `<archived-call ...>` markers that retain the exact part reference needed for recovery.
+- Existing legacy observation records remain minimally readable while all new writes use the multipart format.
+
+### Streamed, bounded archive storage
+
+- Replaced whole-file handling for large artifacts with streamable sources and bounded-memory processing.
+- Text is written in line-aligned **256 KiB gzip chunks** with sidecar metadata for exact paging.
+- Sources above **1 MiB** switch to bounded streaming summarization; ordinary admitted text still uses the same exact chunk store.
+- Archive finalization is independent from the synchronous turn-boundary control result, reducing model-loop latency.
+- Large Bash complete-output sources are frozen before admission and streamed without rereading the whole artifact into memory.
+- Catalog and envelope updates avoid rewriting a single growing central index for every part.
+- Archive reads, fixed-string searches, inspection, recall, and fork import work directly from local JSON envelopes and compressed parts.
+- Small novel pass-through output is intentionally not archived; only admitted observations can later be recovered through Prime Context.
+- Exact content comparison remains hash-free.
+- Storage remains local under the Prime Context session root, with optional `PRIME_CONTEXT_HOME` relocation and explicit cleanup.
+
+### Immutable complete-exchange projection
+
+- Provider context now virtualizes both historical calls and results for completed exchanges.
+- The first completed representation is frozen into a fixed exchange view; later turns do not continually recompute a different summary for the same evidence.
+- Raw session entries are not rewritten. Prime Context builds a temporary model view immediately before the relevant host operation.
+- Fixed views can contain:
+  - literal compact calls/results;
+  - archived call-field markers;
+  - structured result capsules;
+  - typed delta capsules;
+  - media descriptors;
+  - replay-protected literal data.
+- Added an aggregate first-exposure budget so one parallel tool batch cannot flood the next model request even when each individual result is under its local threshold.
+- Fixed-view budgets adapt to context pressure: approximately 24 KiB below 60% use, 16 KiB above 60%, and 8 KiB above 80%.
+- Stable projection generations are measured and reused when the visible prefix and fold generation remain unchanged.
+- Model-irrelevant typed details are removed from provider messages while exact typed data remains in the archive.
+- User `!` Bash entries receive reconstructed fixed views when Prime Agent exposes their complete public output.
+
+### Smarter observation broker and capsules
+
+- Kept the three useful outcomes—pass-through, structured capsule, and delta—but rebuilt their admission around typed exchange facts.
+- Short, novel, decision-useful output still passes through.
+- The normal broker admission threshold remains 24 KiB. Large, repetitive, trace-heavy, verbose-usage, or semantically repeated output can become a bounded capsule earlier when compression has useful token return on investment.
+- Failure capsules preserve decisive evidence:
+  - recognized terminal/test summary;
+  - all detected failing-test IDs;
+  - direct exception messages;
+  - source locations;
+  - exit/timeout status;
+  - relevant factual outcomes.
+- Subject keys now come from tool intent, resources, suite identity, and typed facts rather than the first informative output line.
+- Repeated file/tool subjects can produce several bounded changed hunks instead of a single fragile textual delta.
+- Clean test results, failing test sets, exceptions, paths, and command failures are normalized before comparison.
+- Counted test outcomes are accepted only from result-shaped runtime lines; requirements or source code that merely mention phrases such as `1 failed` are not mistaken for executed tests.
+- Trace-only capsules avoid low-value recovery hints and recommend rerunning a filtered source command when exact trace content would be more useful.
+- Capsule budgets adapt from observed recovery utility while remaining bounded.
+- Poor-ROI failure or delta capsules can pass through instead of optimizing compression ratio at the expense of follow-up reasoning.
+- Workflow commands and internal control text are kept out of ordinary observation capsules.
+
+### Shared purpose-aware projection and immutable folds
+
+- Added one projection engine for four host purposes:
+  - provider inference;
+  - automatic compaction;
+  - branch/tree summaries;
+  - continual-harness refinement input.
+- Compaction and tree preparation can consume the same fixed exchange views used by the model instead of summarizing the large raw tool payload again.
+- Added narrow deterministic compaction/tree fast paths when entry identities, roles, media, and fold boundaries can be represented exactly.
+- Fast paths fail closed: unsafe, opaque, ambiguous, or unsupported content falls back to Prime Agent's normal behavior.
+- Structural boundaries reload branch-scoped runtime and fixed views before the next provider projection.
+- Added rare immutable prefix-fold generations for high-pressure sessions.
+- Fold creation begins only above meaningful pressure (normally 65%), keeps the latest four turn starts hot, and requires roughly 8,000 saved tokens or 15% estimated savings.
+- Fold selection:
+  - starts only after meaningful context pressure;
+  - keeps the recent hot turns visible;
+  - requires substantial estimated savings;
+  - retains pinned, modified, failing, validation, and task-defining evidence;
+  - never continuously rewrites a “latest-only” summary.
+- Unsafe or opaque entries remain exact instead of being forced into a fold.
+
+### Part-addressable recovery and deterministic recall
+
+- Retained direct `list`, `read`, `search`, `status`, and `update` actions.
+- Added `inspect` for exact part-level access:
+  - result/call bodies;
+  - JSON-pointer call fields;
+  - stdout/stderr/traceback;
+  - diffs;
+  - archived media references;
+  - line, byte, and fixed-query pages.
+- Added deterministic embedding-free `recall` ranked by explicit ID, query, path, subject, kind, tool, status, and scope.
+- Recall scopes include:
+  - current task;
+  - current session;
+  - direct parent session;
+  - other local project sessions with the exact normalized working directory.
+- Historical evidence is never injected automatically; the model or user must request it.
+- Recovery uses a one-successful-response lease: exact requested content appears in the next provider view once, while persisted history retains only a compact receipt.
+- Recovery utility records whether exposed evidence contributed to later work and informs future bounded capsule budgets.
+- Model-facing recovery remains capped at 12 KiB, 80 lines, 10 matches, and 20 listed observations even when the human `/pc` budget is larger.
+- Snapshot updates support bounded focus, open items, completion, and pin/unpin operations.
+
+### Tool-generated media and typed attachments
+
+- Archives exact tool-generated image and attachment parts rather than flattening them into text.
+- Provider-displayable PNG, JPEG, GIF, and WebP images up to 8 MiB are shown once after successful generation.
+- Later turns use a compact inspectable descriptor rather than resending the same base64 payload.
+- Unsupported or oversized media fails closed to a textual placeholder with an exact archive reference.
+- Recovered images can be leased into one provider response using the same transient-recovery mechanism.
+- User-authored images remain under Prime Agent's normal handling and are not paged by Prime Context.
+- Signed or otherwise opaque replay metadata stays literal when transformation could invalidate it.
+
+### Branching, forks, and recursive child sessions
+
+- Observation metadata includes branch anchor, task key, goal ID, turn sequence, and relevant revisions.
+- Session start restores only fixed views that are visible on the selected branch.
+- Tree navigation resets and reloads runtime before reconstructing the provider working set.
+- Fork handling imports visible and pinned parent evidence instead of copying the entire archive.
+- Child sessions receive bounded task anchors with deliverable paths, constraints, and explicit direct-parent references.
+- Direct-parent and exact-working-directory project recall are explicit and local; no remote sync or automatic cross-session injection was added.
+- Prime Context does not launch children or change Prime Agent scheduling/delegation policy.
+
+### Metrics and success-adjusted context economics
+
+- Expanded `/pc status` and `prime_context status` with bounded session totals for:
+  - archived source and compressed bytes;
+  - projected call, result, typed/media, and current provider-view bytes;
+  - streaming work;
+  - transient recovery exposure and usefulness;
+  - inspect and recall hits;
+  - fold generations;
+  - runtime reloads;
+  - recursive model calls, tokens, cost, and compactions;
+  - cache-read, cache-write, and uncached input tokens;
+  - turns that extend a stable projection generation.
+- Correctness remains the first acceptance gate. Wall time, cost, compactions, tokens, calls, and cache behavior are compared only after required completion succeeds.
+- Visible byte reduction is treated as a mechanism diagnostic, not a success metric by itself.
+- The implementation avoids a new ledger, remote telemetry service, or alternate scheduler; metrics summarize the existing local session and archive.
+
+### Global system-prompt policy
+
+- Added `src/policy.ts` with the bundled **Absolute Prohibition: No Verification Theater / Proof Boilerplate** policy.
+- The policy is appended to Prime Agent's fully assembled system prompt through `before_agent_start`.
+- An exact existing copy is detected and not appended twice.
+- It applies without requiring a global or project `AGENTS.md`.
+- It remains active for ordinary runs, autonomous continuations, and after compaction.
+- Policy injection is intentionally independent from projection mode; `/pc mode off` does not remove it.
+
+### Lifecycle, adapter, and correctness fixes completed before release
+
+- Fixed executable validation detection for Python scripts, shell scripts, Bash/Zsh cells, redirected shell output, subprocess path expressions, and project-relative test runners.
+- Fixed persisted intent and validation-suite identities when the executed input differs from the model-authored call.
+- Fixed direct IPython file writes failing to advance workspace revision.
+- Fixed reverse-completing parallel tools so semantic reduction and archive admission remain in assistant source order.
+- Fixed file-backed result races by freezing bytes before later commands can modify the source file.
+- Fixed branch reload, fork import, compaction, and tree-navigation gaps that could leave stale fixed views or task state active.
+- Fixed image MIME filtering, show-once consumption, unsupported media placeholders, and recovered-image leases.
+- Fixed call/result archive references and exact byte/line paging across long single-line and multibyte content.
+- Fixed user Bash view reconstruction and exclusion of host entries marked out of context.
+- Fixed state/fold/recovery control messages so they appear only when semantically changed.
+- Fixed source text containing test-like prose from becoming a false workflow success or failure.
+- Bundled the runtime `diff` dependency into `dist/index.js`, eliminating packed-install failures such as `Cannot find module 'diff'`.
+
+### Commands and configuration
+
+The human command surface remains compatible and now reports the richer runtime:
+
+- `/pc status`
+- `/pc list [limit]`
+- `/pc read <observation-id> [start:end]`
+- `/pc search <observation-id|all> <fixed text>`
+- `/pc focus <text|clear>`
+- `/pc add <text>`
+- `/pc done <item-id>`
+- `/pc pin <observation-id>` / `/pc unpin <observation-id>`
+- `/pc mode on|off`
+- `/pc cleanup current`
+- `/pc doctor`
+
+The model-facing `prime_context` actions are `list`, `read`, `search`, `inspect`, `recall`, `status`, and `update`.
+
+Configuration remains deliberately small and backward compatible:
+
+```json
+{
+  "enabled": true,
+  "minTextBytes": 24576,
+  "capsuleMaxBytes": 6144,
+  "readMaxBytes": 65536
+}
+```
+
+- Project configuration overrides global configuration field by field.
+- Invalid fields use package defaults and produce a once-consumed `/pc doctor` warning.
+- Configuration is loaded at session start.
+- Mode changes are in-memory for the current session.
+- Archives remain local and require explicit cleanup.
+
+### Benchmark and evaluation infrastructure
+
+- Added a self-contained 30-task realistic Python corpus with deterministic initial, pivot, follow-up, and final-lock stages.
+- Each task contains exact prompts, protected files, expected final response, standard-library fixtures, and a cumulative nine-test acceptance suite.
+- Added the original two-arm reproduction runner with frozen host/package inputs and recursive usage/cost/cache metrics.
+- Added a three-arm major-spec workflow comparing vanilla, a published Prime Context baseline, and the progressive working tree on the same sampled tasks.
+- Added reusable Docker image layers for Prime Agent, vanilla, published, and progressive variants.
+- Added isolated per-arm workspaces, homes, configuration, session trees, daemon sockets, Prime Context storage, read-only roots, and restricted outbound network relays.
+- Added package/host/image preflight checks and Bash/Zsh package smoke against Prime Agent 0.8.1.
+- Loaded the same private read-only benchmark session policy before every arm's initial task prompt, without mounting host or project context files.
+- Reused complete bundled Prime Agent image layers and skipped the unused published-baseline stage in progressive-only builds.
+- Added explicit Step A through Step I checkpoints matching the consolidated implementation specification.
+- Added cleanup of round-owned containers, networks, superseded tags, and dangling benchmark layers while preserving reusable and unrelated Docker state.
+- Added the final strict vanilla/current runner:
+  - fresh random sample of ten eligible tasks when `--tasks` and `--seed` are omitted;
+  - alternating adjacent vanilla/current queue entries;
+  - maximum four active Docker jobs;
+  - exact 600-second deadline from initial instruction delivery;
+  - retained completed containers and networks until all pairs are inspected;
+  - explicit task exclusions for the immediate post-fix round;
+  - strict correctness before efficiency comparison.
+- Strict correctness requires both the task protocol and exact final response; a timeout, active goal, missing intervention, protected-file change, failed cumulative suite, wrong response, or run error cannot become an efficiency win.
+- Staged test detection now accepts only anchored runtime `TEST_RESULT PASS|FAIL n/n` lines and deduplicates terminal tool events.
+- Compaction boundaries advance only after a successful compact response or later authoritative completion event.
+- “Session too short to compact” now grows the session with a neutral no-tools turn before retrying instead of releasing the next stage incorrectly.
+- The runner waits for the model's actual exact final response after goal completion rather than synthesizing or projecting one.
+- Experimental local Prime Agent daemon transport changes were investigated, isolated, and then removed from the Prime Context product history; no transport patch is shipped as a Prime Context feature.
+
+### Final benchmark outcome used for the release decision
+
+The accepted final round used the same patched Prime Agent 0.8.1 host in both arms, `openai-codex/gpt-5.6-sol` at medium effort, an exact 600-second limit, and a random ten-task sample from 28 eligible tasks.
+
+- Strict completion: **Prime Context 10/10 versus vanilla 8/10**.
+- Correctness gains: **2**; correctness losses: **0**.
+- Across the eight matched-correct pairs:
+  - wall time: **−21.24%**;
+  - model calls: **−21.64%**;
+  - compactions: **−20.45%**;
+  - tokens: **−18.47%**;
+  - reported API cost: **−17.46%**;
+  - tool calls: **−1.46%**;
+  - cost was lower in **8/8** matched-correct pairs.
+- Across all ten tasks, including two vanilla timeouts:
+  - wall time: **−28.73%**;
+  - model calls: **−39.86%**;
+  - compactions: **−27.27%**;
+  - tokens: **−38.24%**;
+  - reported API cost: **−26.98%**;
+  - cost was lower in **10/10** pairs.
+- The release suite contained **106 TypeScript tests** plus **14 benchmark-runner tests**, typecheck/build, and packed Bash/Zsh smoke.
+- These figures describe one model, effort level, seed, task cohort, timeout, and patched host contract; they are release evidence, not a universal claim for every workload.
+
+### Packaging, documentation, and public source
+
+- Bumped `package.json` and `package-lock.json` to 8.1.0.
+- Continued publishing the built ESM extension from `dist/index.js` with declarations in `dist/index.d.ts`.
+- Added the runtime `diff` dependency to the bundle rather than relying on the host's module resolution.
+- Expanded package smoke to exercise the packed artifact, public extension ABI, archives, projections, recovery, lifecycle behavior, and Bash/Zsh environments.
+- Added a comprehensive README with architecture, strongest benchmark results, install/patch procedure, commands, configuration, storage, compatibility, autonomous-mode behavior, development, and limitations.
+- Added GitHub repository metadata, npm homepage, issue URL, release tag, and public-source topics.
+- Published a clean public source snapshot without local Git history, credentials, personal paths, private benchmark reports, or machine-specific files.
+- Made all retained legacy benchmark runners portable by deriving the project root from their file location and the Prime Agent home from `Path.home()`.
+
+### Deliberate boundaries retained in 8.1.0
+
+- No remote archive service or cross-machine synchronization was introduced.
+- No encryption layer, cryptographic content addressing, or hash-based equality system was added.
+- No automatic archive deletion was added; cleanup remains explicit.
+- No full-text index, regex search, fuzzy search, or embedding service was added; search and recall remain deterministic and bounded.
+- No automatic historical-memory injection was added; recall must be explicitly requested.
+- No scheduler, heartbeat, goal, or delegation behavior is replaced by Prime Context.
+- No child agent is launched automatically.
+- No general tool-specific parser framework was added; unsupported tools use conservative generic handling.
+- No claim is made that every short pass-through result can later be recovered; small novel output is intentionally left only in the raw session.
+- No claim is made that the npm extension alone provides the missing Prime Agent runtime hooks; the documented host patch is required.
+
+### Upgrade guidance from 6.3.4
+
+Apply and verify the required host contract from the cloned source:
+
+```bash
+node scripts/patch-prime-agent.mjs "$(npm root -g)/prime-agent"
+node scripts/patch-prime-agent.mjs --check "$(npm root -g)/prime-agent"
+```
+
+1. Install Prime Agent 0.8.1 and Node.js 22.8 or newer.
+2. Clone the public Prime Context source.
+3. Run the version-pinned host patch against the installed Prime Agent root and verify it with `--check`.
+4. Install `prime-agent-context@8.1.0` from npm, or build and install the cloned source.
+5. Start a new Prime Agent session and run `/pc doctor` followed by `/pc status`.
+6. Existing local archives can remain in place; new observations use the multipart exchange format and legacy records remain minimally readable.
+7. Reapply the host patch after reinstalling or updating Prime Agent.
+8. To disable the bundled global system policy, remove the package; projection mode alone does not disable policy injection.
 
 ## 6.3.5 - 2026-08-26
 
