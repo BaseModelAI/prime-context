@@ -10,7 +10,7 @@ Keep the complete local transcript. Send the model only the context it can use.
 [![Prime Agent](https://img.shields.io/badge/Prime_Agent-0.8.1_%2B_host_patch-6C63FF?style=flat-square)](https://github.com/PrimeIntellect-ai/prime-agent)
 [![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A522.8.0-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-2ea44f?style=flat-square)](LICENSE)
-[![Benchmark](https://img.shields.io/badge/strict_benchmark-10%2F10_vs_8%2F10-0A7B83?style=flat-square)](#benchmark-results)
+[![Benchmark](https://img.shields.io/badge/strict_benchmark-27%2F30_vs_19%2F30-0A7B83?style=flat-square)](#benchmark-results)
 
 [Install](#quick-start) · [Benchmark](#benchmark-results) · [How it works](#how-it-works) · [Commands](#commands) · [Configuration](#configuration)
 
@@ -36,9 +36,9 @@ It does this without rewriting the persisted session:
 
 <div align="center">
 
-| **100%** strict completion | **−38.2%** tokens | **−39.9%** model calls | **10/10** lower-cost pairs |
+| **90.0%** strict completion | **−49.1%** tokens | **−51.6%** model calls | **29/30** lower-cost pairs |
 |:---:|:---:|:---:|:---:|
-| vs 80% vanilla | all-task aggregate | all-task aggregate | final sampled round |
+| vs 63.3% `vanilla prime-agent` | whole-corpus aggregate | whole-corpus aggregate | all task pairs |
 
 </div>
 
@@ -60,77 +60,84 @@ Prime Context is not a second agent, a remote memory service, or a transcript da
 
 ## Benchmark results
 
-The final strict campaign compared **Prime Agent 0.8.1 with Prime Context** against the same Prime Agent version without extensions. Both arms inherited the identical Prime Agent host compatibility patch, so the only paired product difference was the Prime Context extension.
+The complete 30-task corpus compares `prime-context 8.1.0` with `vanilla prime-agent` on the same patched Prime Agent 0.8.1 host. `vanilla prime-agent` loaded no extension, external custom prompt, or `AGENTS.md`. Neither variant received an external benchmark prompt overlay; the system policy bundled inside Prime Context 8.1.0 remained enabled as shipped product behavior.
 
-### Headline
+### Aggregate correctness
 
-<div align="center">
-
-| Strict acceptance | Vanilla | Prime Context |
-|:---|---:|---:|
-| Tasks meeting every acceptance criterion | **8 / 10** | **10 / 10** |
-| Correctness gains | — | **2** |
-| Correctness losses | — | **0** |
-
-</div>
-
-That is **25% more tasks completed correctly** relative to vanilla, with no Prime Context-only correctness loss in the sample.
-
-Across the eight task pairs where **both** arms met every acceptance criterion:
-
-| Metric | Vanilla | Prime Context | Change |
-|---|---:|---:|---:|
-| Wall time | 2,473.19 s | 1,947.82 s | **−21.24%** |
-| Model calls | 171 | 134 | **−21.64%** |
-| Compactions | 44 | 35 | **−20.45%** |
-| Total tokens | 1,683,883 | 1,372,816 | **−18.47%** |
-| Reported API cost | $5.192214 | $4.285842 | **−17.46%** |
-| Tool calls | 137 | 135 | **−1.46%** |
-| Weighted cache reuse | 60.92% | 59.40% | −1.52 pp |
-
-Prime Context had lower reported cost in **all 8 matched-correct pairs**. Across all ten tasks, including the two vanilla timeouts, it reduced wall time by **28.73%**, model calls by **39.86%**, compactions by **27.27%**, tokens by **38.24%**, and reported cost by **26.98%**. Cost was lower in **10/10 pairs**.
-
-### Selected task results
-
-| Task | Vanilla | Prime Context | Result |
+| Correctness measure | vanilla prime-agent | prime-context 8.1.0 | Paired interpretation |
 |---|---:|---:|---|
-| `pgm-regions` | Timed out at 600 s; 82 calls; 831,566 tokens | Completed in 309.51 s; 19 calls; 200,384 tokens | Correctness gain; **−75.90% tokens** |
-| `union-payroll` | Timed out at 600 s; $1.048442 | Completed in 360.52 s; $0.662580 | Correctness gain; **−36.80% cost** |
-| `heat-plate` | 300.40 s; 212,526 tokens | 162.57 s; 117,319 tokens | **−45.88% wall**, **−44.80% tokens** |
-| `gear-train` | 344.02 s; $0.662636 | 220.72 s; $0.523912 | Won every reported efficiency metric |
+| Tasks meeting every acceptance criterion | 19 / 30 | 27 / 30 | +8 tasks |
+| Strict completion rate | 63.33% | 90.00% | +26.67 pp |
+| Correctness gains | — | 8 | 5, 7, 12, 17, 18, 19, 25, 29 |
+| Correctness losses | — | 0 | none |
+| Matched-correct pairs | 19 | 19 | formal efficiency cohort |
 
-### Direction across independent broad rounds
+`prime-context 8.1.0` met every acceptance criterion on **27/30 tasks**. `vanilla prime-agent` did so on **19/30 tasks**. The run produced **8 correctness gains** and **0 correctness losses** for `prime-context 8.1.0`.
 
-Three broad 10-task rounds showed the same direction: more strict completions, no Prime Context-only correctness loss, and lower aggregate wall time, calls, compactions, tokens, and cost among matched successes.
+### Whole-corpus workload
 
-| Round | Strict completion, Prime Context / vanilla | Correctness gains / losses | Matched wall | Calls | Compactions | Tokens | Cost |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| Round 3 | 9/10 / 7/10 | 2 / 0 | −12.39% | −8.82% | −24.44% | −4.13% | −3.87% |
-| Round 5, pre-final fix | 10/10 / 8/10 | 2 / 0 | −10.87% | −14.04% | −8.93% | −12.78% | −12.33% |
-| **Final Round 6** | **10/10 / 8/10** | **2 / 0** | **−21.24%** | **−21.64%** | **−20.45%** | **−18.47%** | **−17.46%** |
+All 30 attempted tasks per variant, including any timeout or failed-acceptance work:
 
-These rounds are not pooled: implementation and harness revisions changed, and some tasks repeated. Round 6 is the release decision; the earlier rounds are directional corroboration.
+| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+|---|---:|---:|---:|---:|
+| Wall time | 13,830.06 s | 9,232.31 s | -4,597.75 s | -33.24% |
+| Lifecycle wall time | 13,841.77 s | 9,243.13 s | -4,598.64 s | -33.22% |
+| Model calls | 1,029 | 498 | -531 | -51.60% |
+| Tool calls | 589 | 490 | -99 | -16.81% |
+| Tool results | 589 | 489 | -100 | -16.98% |
+| Visible tool bytes | 4,441,740 | 6,242,019 | +1,800,279 | +40.53% |
+| Compactions | 240 | 150 | -90 | -37.50% |
+| Input tokens | 3,472,478 | 2,179,204 | -1,293,274 | -37.24% |
+| Output tokens | 240,667 | 161,935 | -78,732 | -32.71% |
+| Cache-read tokens | 6,304,256 | 2,761,216 | -3,543,040 | -56.20% |
+| Cache-write tokens | 0 | 0 | +0 | 0.00% |
+| Total tokens | 10,017,401 | 5,102,355 | -4,915,046 | -49.07% |
+| Prompt-cache reuse | 64.48% | 55.89% | -8.59 pp | — |
+| Total API cost | $27.734528 | $17.134678 | -10.599850 | -38.22% |
 
-<details>
-<summary><strong>Methodology and caveats</strong></summary>
+### Matched-correct efficiency
 
-- Random-without-replacement sample of ten tasks from 28 eligible tasks in the 30-task realistic suite; tasks `11` and `28` were excluded by the immediate-post-fix protocol.
-- Seed: `5609401023819199837`.
-- Tasks: `5, 7, 27, 19, 8, 22, 23, 14, 9, 4`.
-- Tasks `11` and `28` were excluded because they were fixed in the immediately preceding iteration; they were separately replayed before the independent final round.
-- Alternating paired vanilla/current queue in isolated Docker environments.
+The 19 task pairs where both variants meet all acceptance criteria:
+
+| Metric | vanilla prime-agent | prime-context 8.1.0 | Δ (prime-context 8.1.0 − vanilla prime-agent) | Relative change |
+|---|---:|---:|---:|---:|
+| Wall time | 7,230.05 s | 5,626.09 s | -1,603.96 s | -22.18% |
+| Lifecycle wall time | 7,236.59 s | 5,632.85 s | -1,603.75 s | -22.16% |
+| Model calls | 419 | 333 | -86 | -20.53% |
+| Tool calls | 365 | 321 | -44 | -12.05% |
+| Tool results | 365 | 321 | -44 | -12.05% |
+| Visible tool bytes | 2,627,773 | 3,996,760 | +1,368,987 | +52.10% |
+| Compactions | 120 | 100 | -20 | -16.67% |
+| Input tokens | 1,691,530 | 1,432,628 | -258,902 | -15.31% |
+| Output tokens | 150,236 | 109,483 | -40,753 | -27.13% |
+| Cache-read tokens | 2,214,912 | 1,911,808 | -303,104 | -13.68% |
+| Cache-write tokens | 0 | 0 | +0 | 0.00% |
+| Total tokens | 4,056,678 | 3,453,919 | -602,759 | -14.86% |
+| Prompt-cache reuse | 56.70% | 57.16% | +0.46 pp | — |
+| Total API cost | $14.072186 | $11.403534 | -2.668652 | -18.96% |
+
+### Success-adjusted workload
+
+| Success-adjusted measure | vanilla prime-agent | prime-context 8.1.0 | Relative change |
+|---|---:|---:|---:|
+| Task-seconds per strict completion | 727.90 s | 341.94 s | -53.02% |
+| Model calls per strict completion | 54.16 | 18.44 | -65.94% |
+| Tokens per strict completion | 527,231.63 | 188,976.11 | -64.16% |
+| API cost per strict completion | $1.459712 | $0.634618 | -56.52% |
+
+### Method summary
+
+- All 30 deterministic staged coding tasks; 60 isolated Docker jobs.
 - Maximum four active jobs.
-- Exact 600-second deadline measured from the initial instruction.
 - `openai-codex/gpt-5.6-sol`, medium reasoning effort.
-- The same host compatibility patch was installed in vanilla and current; vanilla loaded no Prime Context extension.
-- “Strict acceptance” required the full staged protocol, expected tests, completed goal, exact final response, protected files unchanged, and no run error—not merely a passing test command.
-- Efficiency totals use matched-correct pairs unless explicitly marked “all ten tasks.”
-- This is one model, one effort level, one seed, and one ten-task sample. It is strong project evidence, not a universal statistical claim about every model or workload.
-- Prime Context was slightly slower on two matched-correct tasks because of provider compaction-summary timing; both still used fewer calls, fewer tokens, and lower cost. One task used more tokens while remaining faster, cheaper, and requiring fewer compactions.
+- Exact 600-second deadline from initial instruction delivery.
+- Same Prime Agent 0.8.1 host patch in both variants.
+- No external custom prompt or `AGENTS.md`; `vanilla prime-agent` had an empty package list.
+- Strict acceptance requires the exact cumulative tests, unchanged protected files, ordered interventions, post-lock goal completion, no run error, and the exact final response.
+- Efficiency claims use matched-correct pairs. Whole-corpus totals are also shown to capture the cost of failed or timed-out work.
+- This is one model, effort level, host version, and complete-corpus execution. It is project evidence, not a universal claim for every workload.
 
-</details>
-
-The repository includes the deterministic task fixtures and benchmark implementation under [`benchmarks/`](benchmarks/). The public numbers above are from the accepted 8.1.0 release candidate.
+See **[COMPREHENSIVE_BENCHMARK.md](COMPREHENSIVE_BENCHMARK.md)** for methodology, complete aggregate metrics, fixture notes, task definitions and pivots, and the identical full per-task comparison schema across all 30 tasks.
 
 ## Quick start
 
@@ -407,25 +414,42 @@ Autonomous quality-gate commands run as Prime Agent host subprocesses rather tha
 
 ## Reproduce the benchmark
 
-The strict paired runner requires Docker, Prime Agent authentication, and model access. A fresh run intentionally omits both `--tasks` and `--seed`:
+The published comparison used the retained runner and all 30 task IDs, but deliberately disabled the runner's external session-policy mount for both variants. The temporary launcher below changes no repository file:
 
 ```bash
-uv run python benchmarks/vanilla-current.py \
-  --round public-reproduction \
-  --output .benchmark-runs/public-reproduction
+cat >/tmp/prime-context-all30-no-agents.py <<'PY'
+from importlib.util import module_from_spec, spec_from_file_location
+from pathlib import Path
+import sys
+
+runner_path = Path.cwd() / "benchmarks" / "vanilla-current.py"
+spec = spec_from_file_location("pc_all30_no_agents", runner_path)
+runner = module_from_spec(spec)
+assert spec.loader is not None
+spec.loader.exec_module(runner)
+original = runner.major.prepare_variant
+
+def without_external_agents(name, output, image_runtime, session_policy):
+    runtime = original(name, output, image_runtime, session_policy)
+    agents_file = runtime.get("agents_file")
+    if agents_file is not None:
+        Path(agents_file).unlink(missing_ok=True)
+    runtime["agents_file"] = None
+    return runtime
+
+runner.major.prepare_variant = without_external_agents
+raise SystemExit(runner.main())
+PY
+
+python3 /tmp/prime-context-all30-no-agents.py \
+  --round all30-no-agents \
+  --tasks "$(seq -s, 1 30)" \
+  --output .benchmark-runs/all30-no-agents
 ```
 
-Replay the accepted final sample with:
+This launches 60 isolated Docker jobs, retains completed evidence, enforces the 600-second deadline from initial instruction delivery, and never exceeds four active jobs. Both variants receive the same Prime Agent 0.8.1 host patch. `vanilla prime-agent` has no package, custom prompt overlay, or `AGENTS.md`; `prime-context 8.1.0` loads `/opt/prime-context` and therefore includes its shipped global system policy. Model use can incur provider charges.
 
-```bash
-uv run python benchmarks/vanilla-current.py \
-  --round release-8.1.0-replay \
-  --seed 5609401023819199837 \
-  --exclude-tasks 11,28 \
-  --output .benchmark-runs/release-8.1.0-replay
-```
-
-The runner creates isolated arm containers, uses the alternating paired queue, enforces the exact 600-second deadline and four-job cap, and retains completed containers until inspection. Model use can incur provider charges. See [`benchmarks/README.md`](benchmarks/README.md) for task and metric details.
+See [`benchmarks/README.md`](benchmarks/README.md) for the corpus and runner internals, and [`COMPREHENSIVE_BENCHMARK.md`](COMPREHENSIVE_BENCHMARK.md) for the exact published methodology and results.
 
 ## Project structure
 
