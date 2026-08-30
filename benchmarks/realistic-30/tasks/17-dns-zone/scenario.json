@@ -1,0 +1,76 @@
+{
+  "schema": "prime-context.realistic-task/v1",
+  "id": 17,
+  "slug": "dns-zone",
+  "title": "Authoritative DNS Zone Compiler",
+  "package_name": "dnszone",
+  "goal": "Deliver the authoritative DNS compiler and master-file resolver through this interactive coding session. Incorporate every steering message and staged requirement file, preserve supplied tests, and use only the standard library. Keep the goal active until the user sends `REQUIREMENTS LOCKED`. Then run the full suite, fix failures, call `await goal.complete()`, and respond exactly `DNS ZONE GOAL COMPLETE`.",
+  "prompts": [
+    {
+      "stage": "initial",
+      "delivery": "prompt",
+      "text": "Start the active goal. Read TASK.md, run the baseline suite, and implement canonical direct DNS record lookup. Expect live steering and staged pivots. Do not complete before REQUIREMENTS LOCKED.",
+      "inject": "initial/"
+    },
+    {
+      "stage": "steering",
+      "delivery": "steer",
+      "text": "Steering update: preserve canonical absolute names, strict IP and TTL validation, deterministic record ordering, and input purity. Continue but keep the goal active."
+    },
+    {
+      "stage": "pivot",
+      "delivery": "steer",
+      "text": "Routing pivot: I added PIVOT.md and tests/test_pivot.py. Add bounded CNAME and longest-wildcard resolution exactly as specified. Run the expanded suite and keep the goal active.",
+      "inject": "pivot/",
+      "trigger": "first compaction after baseline steering"
+    },
+    {
+      "stage": "followup",
+      "delivery": "steer",
+      "text": "Operations follow-up: I added FOLLOWUP.md and tests/test_followup.py. Add the line-oriented master-file parser and directives. Run the suite but wait for the final lock.",
+      "inject": "followup/",
+      "trigger": "first pivot test run completes"
+    },
+    {
+      "stage": "lock",
+      "delivery": "steer",
+      "text": "REQUIREMENTS LOCKED. Run the complete suite, fix all failures while editing only dnszone/, call `await goal.complete()`, and respond exactly `DNS ZONE GOAL COMPLETE`.",
+      "trigger": "first compaction after followup"
+    }
+  ],
+  "expected": {
+    "test_result": "TEST_RESULT PASS 9/9",
+    "passing_tests": 9,
+    "total_tests": 9,
+    "goal_status": "complete",
+    "goal_completed_after_lock": true,
+    "final_response_exact": "DNS ZONE GOAL COMPLETE",
+    "intervention_order": [
+      "initial",
+      "steer-baseline",
+      "steer-pivot",
+      "steer-followup",
+      "steer-final-lock"
+    ],
+    "protected_files": [
+      "FOLLOWUP.md",
+      "PIVOT.md",
+      "TASK.md",
+      "run_tests.py",
+      "tests/test_base.py",
+      "tests/test_followup.py",
+      "tests/test_pivot.py"
+    ],
+    "editable_paths": [
+      "dnszone/"
+    ]
+  },
+  "benchmark": {
+    "condition_timeout_seconds": 1200,
+    "provider": "openai-codex",
+    "model": "gpt-5.6-sol",
+    "thinking": "medium",
+    "standard_library_only": true
+  },
+  "historical_summary_file": "../../history/original-30-summaries.json"
+}

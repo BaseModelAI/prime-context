@@ -1,0 +1,10 @@
+node_modules/
+.code-review-graph/
+*.tgz
+*.log
+__pycache__/
+*.py[cod]
+.coverage
+coverage/
+.benchmark-runs/
+.DS_Store

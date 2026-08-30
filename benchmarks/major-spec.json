@@ -1,0 +1,24 @@
+{
+  "schema": "prime-context.major-spec-benchmark-config/v1",
+  "task_set": "realistic-30",
+  "sample_size": 3,
+  "provider": "openai-codex",
+  "model": "gpt-5.6-sol",
+  "thinking": "medium",
+  "timeout_seconds": 1200,
+  "reserve_tokens": 265000,
+  "published_prime_context": "npm:prime-agent-context@6.3.4",
+  "variants": [
+    "vanilla",
+    "published",
+    "progressive"
+  ],
+  "session_policy": "session-policy.md",
+  "prime_agent_version": "0.8.1",
+  "image_revision": 6,
+  "vanilla_image": "prime-context-benchmark:vanilla-pa-0.8.1",
+  "published_image": "prime-context-benchmark:published-6.3.4-pa-0.8.1",
+  "progressive_image": "prime-context-benchmark:progressive-current-pa-0.8.1",
+  "base_image": "prime-context-benchmark:base-pa-0.8.1",
+  "plugin_image_revision": 2
+}

@@ -1,0 +1,76 @@
+{
+  "schema": "prime-context.realistic-task/v1",
+  "id": 20,
+  "slug": "lock-resolver",
+  "title": "Constraint-Aware Dependency Lock Resolver",
+  "package_name": "lockresolve",
+  "goal": "Deliver the constraint-aware minimal-change dependency lock resolver through this interactive coding session. Incorporate every steering message and staged requirement file, preserve supplied tests, and use only the standard library. Keep the goal active until the user sends `REQUIREMENTS LOCKED`. Then run the full suite, fix failures, call `await goal.complete()`, and respond exactly `LOCK RESOLVER GOAL COMPLETE`.",
+  "prompts": [
+    {
+      "stage": "initial",
+      "delivery": "prompt",
+      "text": "Start the active goal. Read TASK.md, run the baseline suite, and implement deterministic transitive constraint resolution with backtracking. Expect live steering and staged pivots. Do not complete before REQUIREMENTS LOCKED.",
+      "inject": "initial/"
+    },
+    {
+      "stage": "steering",
+      "delivery": "steer",
+      "text": "Steering update: preserve strict semantic versions, accumulated constraints, lexical optimization, and input purity. Continue but keep the goal active."
+    },
+    {
+      "stage": "pivot",
+      "delivery": "steer",
+      "text": "Lockfile pivot: I added PIVOT.md and tests/test_pivot.py. Add minimal-change locked resolution and exact pins. Run the expanded suite and keep the goal active.",
+      "inject": "pivot/",
+      "trigger": "first compaction after baseline steering"
+    },
+    {
+      "stage": "followup",
+      "delivery": "steer",
+      "text": "Packaging follow-up: I added FOLLOWUP.md and tests/test_followup.py. Add unioned optional-feature dependencies. Run the suite but wait for the final lock.",
+      "inject": "followup/",
+      "trigger": "first pivot test run completes"
+    },
+    {
+      "stage": "lock",
+      "delivery": "steer",
+      "text": "REQUIREMENTS LOCKED. Run the complete suite, fix all failures while editing only lockresolve/, call `await goal.complete()`, and respond exactly `LOCK RESOLVER GOAL COMPLETE`.",
+      "trigger": "first compaction after followup"
+    }
+  ],
+  "expected": {
+    "test_result": "TEST_RESULT PASS 9/9",
+    "passing_tests": 9,
+    "total_tests": 9,
+    "goal_status": "complete",
+    "goal_completed_after_lock": true,
+    "final_response_exact": "LOCK RESOLVER GOAL COMPLETE",
+    "intervention_order": [
+      "initial",
+      "steer-baseline",
+      "steer-pivot",
+      "steer-followup",
+      "steer-final-lock"
+    ],
+    "protected_files": [
+      "FOLLOWUP.md",
+      "PIVOT.md",
+      "TASK.md",
+      "run_tests.py",
+      "tests/test_base.py",
+      "tests/test_followup.py",
+      "tests/test_pivot.py"
+    ],
+    "editable_paths": [
+      "lockresolve/"
+    ]
+  },
+  "benchmark": {
+    "condition_timeout_seconds": 1200,
+    "provider": "openai-codex",
+    "model": "gpt-5.6-sol",
+    "thinking": "medium",
+    "standard_library_only": true
+  },
+  "historical_summary_file": "../../history/original-30-summaries.json"
+}
