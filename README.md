@@ -28,13 +28,13 @@ It does this without rewriting the persisted session:
 - **stable projections improve prompt locality instead of changing on every turn.**
 
 > [!NOTE]
-> **Prime Context 9.1.0 is an interim, usable release of a major runtime upgrade.** It is ready for real work on the pinned Prime Agent 0.9.1 host, while the new hermetic benchmark and its reference points continue to mature. Scores from the retired benchmark are retained as historical evidence, but they are not comparable with the new protocol.
+> **Prime Context 9.1.1 is an interim, usable release of a major runtime upgrade.** It is ready for real work on the pinned Prime Agent 0.9.1 host, while the new hermetic benchmark and its reference points continue to mature. Scores from the retired benchmark are retained as historical evidence, but they are not comparable with the new protocol.
 
 > [!WARNING]
-> **Full Prime Context 9.1.0 requires the version-pinned Prime Agent 0.9.1 host patch included in this repository.** Stock Prime Agent 0.9.1 does not yet emit the purpose-aware `model_context`, awaited hidden `turn_end` messages, and execution-mode metadata required by the finalized-exchange projection pipeline. The patch is idempotent and fails closed on any unsupported host version. [Install the host contract](#quick-start).
+> **Full Prime Context 9.1.1 requires the version-pinned Prime Agent 0.9.1 host patch included in this repository.** Stock Prime Agent 0.9.1 does not yet emit the purpose-aware `model_context`, awaited hidden `turn_end` messages, and execution-mode metadata required by the finalized-exchange projection pipeline. The patch is idempotent and fails closed on any unsupported host version. [Install the host contract](#quick-start).
 
 > [!IMPORTANT]
-> Prime Context 9.1.0 also appends its bundled **no-verification-theater / KISS policy** to Prime Agent's assembled system prompt. It applies without an `AGENTS.md` file and remains active across ordinary runs, autonomous continuations, and compaction. [Read the policy](#global-system-prompt-policy).
+> Prime Context 9.1.1 also appends its bundled **no-verification-theater / KISS policy** to Prime Agent's assembled system prompt. It applies without an `AGENTS.md` file and remains active across ordinary runs, autonomous continuations, and compaction. [Read the policy](#global-system-prompt-policy).
 
 <div align="center">
 
@@ -70,25 +70,28 @@ Prime Context is not a second agent, a remote memory service, or a transcript da
 - Node.js **22.8.0 or newer**
 - write access to the installed Prime Agent package for the compatibility patch
 
-### 1. Install the Prime Agent host contract
+### 1. Install Prime Context from npm
 
-Run the packaged, version-pinned patcher explicitly:
-
-```bash
-npx --yes --package=prime-agent-context@9.1.0 prime-context-patch-agent "$(npm root -g)/prime-agent" --check-stock
-npx --yes --package=prime-agent-context@9.1.0 prime-context-patch-agent "$(npm root -g)/prime-agent"
-npx --yes --package=prime-agent-context@9.1.0 prime-context-patch-agent "$(npm root -g)/prime-agent" --check
-```
-
-The first command verifies the complete stock host contract without writing. The patcher then validates every planned transformation before it writes any file; the final command verifies the patched contract. It accepts only `prime-agent@0.9.1`, is idempotent, and stops instead of guessing when the host differs. Nothing runs automatically during package installation. Reinstalling or updating Prime Agent can overwrite the patch, in which case rerun all three commands.
-
-The package carries the exact upstream 0.9.1 runtime tarballs because matching registry packages are not published. This prevents npm from silently resolving an incompatible peer, though the first `npx` download can be larger than usual.
-
-### 2. Install Prime Context from npm
+Prime Context pins the Prime Agent 0.9.1 runtime through its upstream release tarball because matching registry packages are not published. npm's `allowScripts` policy identifies that dependency by the exact tarball URL, not by the package name shown in npm's generated advice. Use this one-command policy so the reviewed dependency scripts run without the misleading repeated warning:
 
 ```bash
-prime-agent package install npm:prime-agent-context@9.1.0
+NPM_CONFIG_ALLOW_SCRIPTS='https://github.com/PrimeIntellect-ai/prime-agent/releases/download/v0.9.1/prime-agent-0.9.1.tgz,@google/genai,koffi,protobufjs' \
+  prime-agent package install npm:prime-agent-context@9.1.1
 ```
+
+The policy applies only to this command and does not change your user npm configuration. In particular, replacing the tarball URL with `@earendil-works/pi-coding-agent` does not work: npm matches remote tarball dependencies by resolved URL.
+
+### 2. Install the Prime Agent host contract
+
+The patch command is installed with Prime Context. Run it only after step 1:
+
+```bash
+prime-context-patch-agent --check-stock "$(npm root -g)/prime-agent"
+prime-context-patch-agent "$(npm root -g)/prime-agent"
+prime-context-patch-agent --check "$(npm root -g)/prime-agent"
+```
+
+The first command verifies the complete stock host contract without writing. The patcher then validates every planned transformation before it writes any file; the final command verifies the patched contract. It accepts only `prime-agent@0.9.1`, is idempotent, and stops instead of guessing when the host differs. The host patch does not run automatically during package installation. Reinstalling or updating Prime Agent can overwrite the patch, in which case rerun all three commands.
 
 Start a new Prime Agent session. Prime Context is enabled by default.
 
@@ -99,20 +102,27 @@ Check it:
 /pc status
 ```
 
-Update later Prime Context releases with:
+Pinned package sources are intentionally not auto-updated by Prime Agent 0.9.1. To upgrade an older installation to this release, replace its configured package and then rerun the idempotent patch and final check:
 
 ```bash
-prime-agent package update npm:prime-agent-context
+prime-agent package remove npm:prime-agent-context
+NPM_CONFIG_ALLOW_SCRIPTS='https://github.com/PrimeIntellect-ai/prime-agent/releases/download/v0.9.1/prime-agent-0.9.1.tgz,@google/genai,koffi,protobufjs' \
+  prime-agent package install npm:prime-agent-context@9.1.1
+prime-context-patch-agent "$(npm root -g)/prime-agent"
+prime-context-patch-agent --check "$(npm root -g)/prime-agent"
 ```
 
 ### Install the extension from source instead
 
-After applying the host patch above:
+Register the built source package first. A local source registration does not globally link the packaged command, so invoke its repository script directly afterward:
 
 ```bash
 npm ci
 npm run build
 prime-agent package install "$PWD"
+node scripts/patch-prime-agent.mjs --check-stock "$(npm root -g)/prime-agent"
+node scripts/patch-prime-agent.mjs "$(npm root -g)/prime-agent"
+node scripts/patch-prime-agent.mjs --check "$(npm root -g)/prime-agent"
 ```
 
 For one local run without installing the extension globally:
@@ -355,7 +365,7 @@ This is strong release evidence, not a claim of a finished benchmark standard. T
 
 ## Prime Agent compatibility
 
-Prime Context 9.1.0 targets **Prime Agent 0.9.1 with the included host compatibility patch**. The stock 0.9.1 extension ABI is not sufficient for the full projection pipeline; TypeScript declaration augmentation alone does not add runtime hooks.
+Prime Context 9.1.1 targets **Prime Agent 0.9.1 with the included host compatibility patch**. The stock 0.9.1 extension ABI is not sufficient for the full projection pipeline; TypeScript declaration augmentation alone does not add runtime hooks.
 
 | Prime Agent behavior | Prime Context support on the patched host |
 |---|---|
@@ -402,7 +412,7 @@ The current suite contains **106 tests**. Package smoke copies a pristine reposi
 
 ## Limitations
 
-- Full 9.1.0 behavior requires the included Prime Agent 0.9.1 host patch; the stock host does not emit every required runtime surface.
+- Full 9.1.1 behavior requires the included Prime Agent 0.9.1 host patch; the stock host does not emit every required runtime surface.
 - This is an interim release: the replacement benchmark and its reference points are still being refined, so retired benchmark scores are historical rather than directly comparable.
 - Capsules use generic output heuristics rather than a parser for every possible tool.
 - Most tools expose only their public result payload; Bash can additionally use its typed complete-output source when Prime Agent provides it.

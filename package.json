@@ -1,6 +1,6 @@
 {
   "name": "prime-agent-context",
-  "version": "9.1.0",
+  "version": "9.1.1",
   "description": "Purpose-aware context management for long-running Prime Agent sessions",
   "type": "module",
   "license": "MIT",

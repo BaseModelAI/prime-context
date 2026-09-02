@@ -1,5 +1,15 @@
 # Changelog
 
+## 9.1.1 - 2026-09-02
+
+### Installation repair
+
+- Reorders the public setup flow so Prime Context is installed before invoking its packaged `prime-context-patch-agent` command.
+- Uses the installed patch command directly instead of relying on a pre-install `npx` invocation.
+- Documents the working npm `allowScripts` policy for the exact pinned Prime Agent release-tarball identity. npm's generated package-name approval does not match a remote tarball dependency and therefore repeats the warning.
+- Corrects upgrades for version-pinned Prime Agent package sources, which are not changed by `prime-agent package update`.
+- Runtime behavior and the Prime Agent 0.9.1 host patch are unchanged from 9.1.0.
+
 ## 9.1.0 - 2026-09-02
 
 > **Interim release:** 9.1.0 is usable now and represents a major improvement, but the replacement benchmark and its reference points are still in progress. Results from the retired benchmark are retained as historical evidence and are not directly comparable with the new protocol.
