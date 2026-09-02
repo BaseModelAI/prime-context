@@ -1,0 +1,25 @@
+{
+  "app": {
+    "features": [
+      "dashboard"
+    ],
+    "preferences": {
+      "density": "compact",
+      "language": "fr"
+    }
+  },
+  "custom": {
+    "shortcut": "ctrl+k",
+    "theme": "solarized"
+  },
+  "database": {
+    "username": "analyst"
+  },
+  "paths": {
+    "data_dir": "/home/alice/atlas"
+  },
+  "service": {
+    "label": "Atlas"
+  },
+  "token_secret": "user-token"
+}

@@ -1,0 +1,8 @@
+{
+  "id": "ordinance-update",
+  "fixture": "generated",
+  "files": [
+    "inputs/ordinance_update.json",
+    "ORDINANCE.md"
+  ]
+}

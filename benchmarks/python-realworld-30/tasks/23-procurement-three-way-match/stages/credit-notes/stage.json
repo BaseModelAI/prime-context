@@ -1,0 +1,6 @@
+{
+  "id": "credit-notes",
+  "inject": "stages/credit-notes/",
+  "message": "inputs/credit_notes.xml contains line and header credits. Apply each line credit only to its referenced invoice line, cap that line at zero, and add excess to the supplier unapplied_credit. Header credits reduce the supplier total after line payables, freight, and tax, capped at zero; add any excess to unapplied_credit. Update line credit_applied and line_payable, supplier credit_applied, header_credit, unapplied_credit, and final_payable. Regenerate all files.",
+  "compact_after": false
+}

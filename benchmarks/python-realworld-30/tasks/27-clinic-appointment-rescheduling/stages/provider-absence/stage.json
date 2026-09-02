@@ -1,0 +1,8 @@
+{
+  "id": "provider-absence",
+  "fixture": "generated",
+  "files": [
+    "inputs/provider_absence.json",
+    "ABSENCE.md"
+  ]
+}

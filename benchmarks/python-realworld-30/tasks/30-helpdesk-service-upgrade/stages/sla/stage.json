@@ -1,0 +1,7 @@
+{
+  "id": "sla",
+  "files": [
+    "inputs/sla.json",
+    "SLA.md"
+  ]
+}

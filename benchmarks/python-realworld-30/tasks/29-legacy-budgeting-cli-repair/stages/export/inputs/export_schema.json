@@ -1,0 +1,21 @@
+{
+  "columns": [
+    "source_account",
+    "source_id",
+    "date",
+    "description",
+    "amount",
+    "category",
+    "kind",
+    "split_part",
+    "split_amount",
+    "split_category"
+  ],
+  "ordering": [
+    "date",
+    "source_account",
+    "source_id",
+    "split_part"
+  ],
+  "blank": ""
+}

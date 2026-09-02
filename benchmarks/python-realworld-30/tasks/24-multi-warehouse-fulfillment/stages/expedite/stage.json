@@ -1,0 +1,6 @@
+{
+  "id": "expedite",
+  "inject": "stages/expedite/",
+  "message": "inputs/expedite.csv raises selected unshipped orders to urgent. Replan the remaining pool under the same objective without changing shipped lines. Apply urgent priority before due date and order ID, retain the outage restriction, and rebuild new reservations from the remaining stock. Before replacing allocations.csv, compare the outage plan with the expedited plan using the same aggregated key. Preserve the existing warehouse_outage rows in allocation_changes.csv and append nonzero rows with stage=expedite. The final file header remains stage,order_id,line_id,warehouse_id,status,before_qty,after_qty,delta_qty and is ordered first by stage (warehouse_outage, then expedite), then order_id,line_id,warehouse_id,status.",
+  "compact_after": false
+}

@@ -1,0 +1,6 @@
+{
+  "id": "corrections",
+  "inject": "stages/corrections/",
+  "message": "inputs/corrections.csv voids transaction IDs and may replace them with the transaction fields on the same row. Apply all corrections before ordering and reconstruction. Add output/correction_effects.csv with exact header patron_id,old_balance,new_balance,balance_delta,old_active_items,new_active_items for patrons whose balance or sorted active-item set changed. Use two-decimal money, semicolon-join item IDs, delta is new minus old, and sort by patron ID. Keep every prior output current.",
+  "compact_after": false
+}

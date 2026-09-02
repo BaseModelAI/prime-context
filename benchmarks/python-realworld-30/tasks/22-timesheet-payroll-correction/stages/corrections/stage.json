@@ -1,0 +1,6 @@
+{
+  "id": "corrections",
+  "inject": "stages/corrections/",
+  "message": "inputs/punch_corrections.csv supersedes punch records by record_id. Apply corrections before pairing. Write output/correction_summary.csv with header employee_id,old_gross_pay,corrected_gross_pay,delta for employees whose gross changed; delta is corrected minus old, money uses two decimals, and rows are sorted by employee_id.",
+  "compact_after": false
+}

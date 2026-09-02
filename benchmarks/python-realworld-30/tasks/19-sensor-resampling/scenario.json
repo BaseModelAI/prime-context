@@ -1,0 +1,29 @@
+{
+  "schema": "prime-context.python-realworld-task/v1",
+  "id": 19,
+  "slug": "sensor-resampling",
+  "title": "Sensor Resampling and Gap Report",
+  "pressure": "N",
+  "timeout_seconds": 600,
+  "editable_paths": [
+    "solution/",
+    "output/"
+  ],
+  "initial_prompt": "Read TASK.md and complete the requested workflow using only the Python standard library.",
+  "stages": [
+    {
+      "id": "initial",
+      "inject": "visible/",
+      "message": "Read TASK.md and complete the requested workflow using only the Python standard library.",
+      "compact_after": false
+    }
+  ],
+  "judge_command": [
+    "python3.12",
+    "-E",
+    "-S",
+    "judge.py",
+    "--workspace",
+    "{workspace}"
+  ]
+}

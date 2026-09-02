@@ -1,0 +1,45 @@
+{
+  "schema": "prime-context.python-realworld-task/v1",
+  "id": 27,
+  "slug": "clinic-appointment-rescheduling",
+  "title": "Clinic Appointment Rescheduling",
+  "pressure": "H",
+  "timeout_seconds": 1800,
+  "editable_paths": [
+    "solution/",
+    "output/"
+  ],
+  "initial_prompt": "Read TASK.md and complete the requested workflow using only the Python standard library.",
+  "stages": [
+    {
+      "id": "initial",
+      "inject": "visible/",
+      "message": "Read TASK.md and complete the requested workflow using only the Python standard library.",
+      "compact_after": true
+    },
+    {
+      "id": "provider-absence",
+      "inject": "stages/provider-absence/",
+      "message": "`inputs/provider_absence.json` makes one provider unavailable. Reschedule affected unlocked appointments. Optimize: schedule the most appointments; minimize the number moved; minimize total absolute minutes moved; preserve provider when possible; then earliest slot and appointment ID. Produce `changes.csv` and `unscheduled.csv`.",
+      "compact_after": false
+    },
+    {
+      "id": "urgent-requests",
+      "inject": "stages/urgent-requests/",
+      "message": "`inputs/urgent_requests.csv` adds urgent patients. An urgent request may displace one lower-priority unlocked appointment if the displaced appointment can be rescheduled. Locked appointments cannot move.",
+      "compact_after": true
+    },
+    {
+      "id": "equipment-outage",
+      "inject": "stages/equipment-outage/",
+      "message": "`inputs/equipment_outage.json` removes one room's imaging equipment. Regenerate the final schedule and write one plain-text notification per changed or unscheduled patient under `output/notices/`. Retain every prior optimization rule.",
+      "compact_after": false
+    }
+  ],
+  "judge_command": [
+    "python",
+    "judge.py",
+    "--workspace",
+    "{workspace}"
+  ]
+}

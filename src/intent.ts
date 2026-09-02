@@ -1417,6 +1417,25 @@ function matchingPythonDelimiter(masked: string, start: number): number | undefi
   return undefined;
 }
 
+function decodePythonStringLiteral(value: string): string {
+  return value
+    .replace(/\\([\\"'])/g, "$1")
+    .replace(/\\n/g, "\n")
+    .replace(/\\t/g, "\t");
+}
+
+function pythonLeadingStringLiteral(value: string): string | undefined {
+  const source = value.trimStart();
+  const triple = /^(?:"""([\s\S]*?)"""|'''([\s\S]*?)''')/.exec(source);
+  if (triple) {
+    const rest = source.slice(triple[0].length);
+    return /^\s*(?:,|$)/.test(rest) ? decodePythonStringLiteral(triple[1] ?? triple[2] ?? "") : undefined;
+  }
+  const literal = /^(?:(["'])((?:\\.|(?!\1)[\s\S])*)\1)/.exec(source);
+  if (!literal || !/^\s*(?:,|$)/.test(source.slice(literal[0].length))) return undefined;
+  return decodePythonStringLiteral(literal[2]);
+}
+
 function pythonStringLiterals(value: string): string[] | undefined {
   const literals = [...value.matchAll(/(["'])((?:\\.|(?!\1).)*)\1/g)];
   if (literals.length === 0) return undefined;
@@ -1427,10 +1446,7 @@ function pythonStringLiterals(value: string): string[] | undefined {
     cursor = (literals[index].index ?? 0) + literals[index][0].length;
   }
   if (!/^(?:,\s*)?$/.test(value.slice(cursor))) return undefined;
-  return literals.map((match) => match[2]
-    .replace(/\\([\\"'])/g, "$1")
-    .replace(/\\n/g, "\n")
-    .replace(/\\t/g, "\t"));
+  return literals.map((match) => decodePythonStringLiteral(match[2]));
 }
 
 function pythonSubprocessArgv(value: string): string[] | undefined {
@@ -1455,21 +1471,36 @@ function ipythonSubprocessValidation(code: string, cwd: string): ShellClassifica
   return undefined;
 }
 
-function ipythonShellMagicValidation(code: string, cwd: string): ShellClassification | undefined {
-  const magic = /^\s*%%(?:bash|sh|zsh)(?:[^\r\n]*)?\r?\n([\s\S]*)$/.exec(code);
-  if (!magic) return undefined;
+function classifyEmbeddedShell(command: string, cwd: string): ShellClassification[] {
+  const classifications: ShellClassification[] = [];
   let effectiveCwd = cwd;
-  for (const line of stripHeredocBodies(magic[1]).split(/\r?\n/)) {
+  for (const line of stripHeredocBodies(command).split(/\r?\n/)) {
     const tokens = shellTokens(line);
     if (!tokens || tokens.length === 0) continue;
     if (tokens[0].value === "cd" && tokens.length === 2) {
       effectiveCwd = literalPath(tokens[1].value, effectiveCwd) ?? effectiveCwd;
       continue;
     }
-    const classified = classifyShell(line, effectiveCwd);
-    if (classified.suite && ["test", "build", "lint"].includes(classified.kind)) return classified;
+    classifications.push(classifyShell(line, effectiveCwd));
   }
-  return undefined;
+  return classifications;
+}
+
+function ipythonBashClassifications(code: string, cwd: string): ShellClassification[] {
+  const masked = maskPythonStringsAndComments(code);
+  const call = /(?:^|[^\w.])(?:await\s+)?bash\s*\(/gm;
+  const classifications: ShellClassification[] = [];
+  for (const match of masked.matchAll(call)) {
+    const start = (match.index ?? 0) + match[0].lastIndexOf("(");
+    const end = matchingPythonDelimiter(masked, start);
+    if (end === undefined) continue;
+    const argumentsSource = code.slice(start + 1, end);
+    const keyword = argumentsSource.match(/^\s*command\s*=\s*/);
+    const command = pythonLeadingStringLiteral(keyword ? argumentsSource.slice(keyword[0].length) : argumentsSource);
+    if (command === undefined) continue;
+    classifications.push(...classifyEmbeddedShell(command, cwd));
+  }
+  return classifications;
 }
 
 function customResources(input: Record<string, unknown>, cwd: string, toolSchema?: unknown): string[] {
@@ -1604,15 +1635,21 @@ export function adaptToolIntent(options: AdaptToolIntentOptions): ToolIntent {
     const code = typeof input.code === "string" ? input.code : "";
     const executable = withoutPythonStringsAndComments(code);
     const detailObject = details && typeof details === "object" ? details as Record<string, unknown> : {};
+    const bashClassifications = ipythonBashClassifications(code, cwd);
+    const bashMutationResources = bashClassifications.flatMap((classified) =>
+      classified.mutatesWorkspace ? classified.resources : []);
     const mutationResources = unique([
       ...ipythonDiffResources(details, cwd),
       ...ipythonWriteResources(code, cwd),
+      ...bashMutationResources,
     ]);
     const directFileMutation = /\.(?:write_text|write_bytes)\s*\(/.test(executable);
     const sentAgentMessages = Array.isArray(detailObject.sentAgentMessages) ? detailObject.sentAgentMessages.length : 0;
     const delegates = sentAgentMessages > 0 || /\b(?:await\s+)?rlm\s*\(/.test(executable);
     const directTests = /\bpytest\.main\s*\(|\bunittest\.(?:main|TextTestRunner)\s*\(/.test(executable);
-    const executableValidation = ipythonSubprocessValidation(code, cwd) ?? ipythonShellMagicValidation(code, cwd);
+    const bashValidation = bashClassifications.find((classified) =>
+      classified.suite && ["test", "build", "lint"].includes(classified.kind));
+    const executableValidation = ipythonSubprocessValidation(code, cwd) ?? bashValidation;
     const identifiedSuite = executableValidation?.suite ??
       (directTests ? suite(/pytest/.test(executable) ? "pytest" : "unittest", [], cwd) : undefined);
     const resources = unique([...mutationResources, ...(executableValidation?.resources ?? [])]);
@@ -1622,12 +1659,14 @@ export function adaptToolIntent(options: AdaptToolIntentOptions): ToolIntent {
       resources,
       subjectKey: identifiedSuite ? `suite:${identifiedSuite.family}:${identifiedSuite.target}` : resources[0] ?? "ipython:run",
       suite: identifiedSuite,
-      mutatesWorkspace: mutationResources.length > 0 || directFileMutation,
+      mutatesWorkspace: mutationResources.length > 0 || directFileMutation ||
+        bashClassifications.some((classified) => classified.mutatesWorkspace),
       facts: {
         ...(typeof detailObject.status === "string" ? { kernelStatus: detailObject.status } : {}),
         ...(typeof detailObject.durationMs === "number" ? { durationMs: detailObject.durationMs } : {}),
         ...(detailObject.kernelRestarted === true ? { kernelRestarted: "true" } : {}),
         ...(sentAgentMessages > 0 ? { sentAgentMessages } : {}),
+        ...(bashClassifications.length > 0 ? { bashCalls: bashClassifications.length } : {}),
       },
     };
   }
@@ -1656,6 +1695,60 @@ export function adaptToolIntent(options: AdaptToolIntentOptions): ToolIntent {
     suite: identifiedSuite,
     mutatesWorkspace: mutationName,
   };
+}
+
+
+/** Deterministically parse the final executed tool intent once for exchange finalization. */
+export interface ParseToolIntentInput {
+  toolName: string;
+  originalInput: unknown;
+  executedInput?: unknown;
+  nativeDetails?: unknown;
+  exchangeId?: string;
+  toolCallId?: string;
+  cwd?: string;
+  toolSchema?: unknown;
+}
+
+export function parseToolIntent(input: ParseToolIntentInput): ToolIntent {
+  const original = input.originalInput && typeof input.originalInput === "object" && !Array.isArray(input.originalInput)
+    ? input.originalInput as Record<string, unknown>
+    : {};
+  const executed = input.executedInput && typeof input.executedInput === "object" && !Array.isArray(input.executedInput)
+    ? input.executedInput as Record<string, unknown>
+    : original;
+  const parsed = adaptToolIntent({
+    exchangeId: input.exchangeId ?? input.toolCallId ?? `tool:${input.toolName}`,
+    toolCallId: input.toolCallId ?? input.exchangeId ?? `tool:${input.toolName}`,
+    toolName: input.toolName,
+    input: executed,
+    cwd: input.cwd ?? "/",
+    modelInputBytes: jsonBytes(original),
+    toolSchema: input.toolSchema,
+    details: input.nativeDetails,
+  });
+
+  const details = input.nativeDetails && typeof input.nativeDetails === "object" && !Array.isArray(input.nativeDetails)
+    ? input.nativeDetails as Record<string, unknown>
+    : undefined;
+  const native = details?.intent && typeof details.intent === "object" && !Array.isArray(details.intent)
+    ? details.intent as Record<string, unknown>
+    : details;
+  if (!native) return parsed;
+
+  const kind = typeof native.kind === "string" && [
+    "read", "search", "edit", "test", "build", "lint", "run", "status", "install", "delegate", "unknown",
+  ].includes(native.kind) ? native.kind as IntentKind : parsed.kind;
+  const resources = Array.isArray(native.resources)
+    ? unique(native.resources.filter((value): value is string => typeof value === "string"), 32)
+    : parsed.resources;
+  const subjectKey = typeof native.subjectKey === "string" && native.subjectKey.length > 0
+    ? truncateUtf8(native.subjectKey, 1024)
+    : parsed.subjectKey;
+  const mutatesWorkspace = typeof native.mutatesWorkspace === "boolean"
+    ? native.mutatesWorkspace
+    : parsed.mutatesWorkspace;
+  return { ...parsed, kind, resources, subjectKey, mutatesWorkspace };
 }
 
 export interface ClassifiedValidationCommand {
@@ -1916,14 +2009,51 @@ function recomputeOutcomeSignature(outcome: Omit<OutcomeSummary, "signature">): 
   ].join(";");
 }
 
+const OUTCOME_SCAN_TEXT_CHARS = 256 * 1024;
+const OUTCOME_SCAN_EDGE_CHARS = 32 * 1024;
+const OUTCOME_SCAN_LINE_CHARS = 8 * 1024;
+const OUTCOME_SCAN_EVIDENCE_CHARS = 96 * 1024;
+const OUTCOME_MARKERS = [
+  "fail", "error", "exception", "passed", "success", "test", "fatal", "traceback", "exit", "signal",
+] as const;
+
+/** Keep terminal edges plus bounded diagnostic lines while scanning every large output linearly. */
+function boundedOutcomeEvidence(text: string): string {
+  if (text.length <= OUTCOME_SCAN_TEXT_CHARS) return text;
+  const evidence: string[] = [];
+  let evidenceChars = 0;
+  let offset = 0;
+  while (offset < text.length && evidenceChars < OUTCOME_SCAN_EVIDENCE_CHARS) {
+    const newline = text.indexOf("\n", offset);
+    const end = newline < 0 ? text.length : newline;
+    const length = end - offset;
+    if (length <= OUTCOME_SCAN_LINE_CHARS) {
+      const line = text.slice(offset, end);
+      const lower = line.toLowerCase();
+      if (OUTCOME_MARKERS.some((marker) => lower.includes(marker))) {
+        evidence.push(line);
+        evidenceChars += line.length + 1;
+      }
+    }
+    if (newline < 0) break;
+    offset = newline + 1;
+  }
+  return [
+    text.slice(0, OUTCOME_SCAN_EDGE_CHARS),
+    ...evidence,
+    text.slice(-OUTCOME_SCAN_EDGE_CHARS),
+  ].join("\n");
+}
+
 export function collectFactualOutcome(
   intent: ToolIntent,
   text: string,
   isError: boolean,
   details?: unknown,
 ): OutcomeSummary {
-  const parsed = analyzeOutcome(text, isError);
-  const direct = directOutcomeFacts(intent, text);
+  const evidence = boundedOutcomeEvidence(text);
+  const parsed = analyzeOutcome(evidence, isError);
+  const direct = directOutcomeFacts(intent, evidence);
   const object = details && typeof details === "object" ? details as Record<string, unknown> : {};
   const typedError = object.error && typeof object.error === "object" ? object.error as Record<string, unknown> : undefined;
   const exceptions = unique([

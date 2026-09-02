@@ -1,0 +1,41 @@
+{
+  "schema": "prime-context.python-realworld-task/v1",
+  "id": 22,
+  "slug": "timesheet-payroll-correction",
+  "title": "Timesheet and Payroll Correction",
+  "pressure": "M",
+  "timeout_seconds": 1200,
+  "editable_paths": [
+    "solution/",
+    "output/"
+  ],
+  "initial_prompt": "Read TASK.md and complete the requested workflow using only the Python standard library.",
+  "stages": [
+    {
+      "id": "initial",
+      "inject": "visible/",
+      "message": "Read TASK.md and complete the requested workflow using only the Python standard library.",
+      "compact_after": true
+    },
+    {
+      "id": "corrections",
+      "inject": "stages/corrections/",
+      "message": "inputs/punch_corrections.csv supersedes punch records by record_id. Apply corrections before pairing. Write output/correction_summary.csv with header employee_id,old_gross_pay,corrected_gross_pay,delta for employees whose gross changed; delta is corrected minus old, money uses two decimals, and rows are sorted by employee_id.",
+      "compact_after": false
+    },
+    {
+      "id": "union-rules",
+      "inject": "stages/union-rules/",
+      "message": "inputs/union_rules.json now applies to group U: hours after 8 in a local day pay 1.5x and after 12 pay 2x; weekly overtime does not stack. Keep the night differential additive on base pay. Recalculate all files and retain correction_summary.csv.",
+      "compact_after": false
+    }
+  ],
+  "judge_command": [
+    "python3.12",
+    "-E",
+    "-S",
+    "judge.py",
+    "--workspace",
+    "{workspace}"
+  ]
+}

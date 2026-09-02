@@ -1,0 +1,35 @@
+{
+  "app": {
+    "edition": null,
+    "features": [
+      "runtime-only"
+    ]
+  },
+  "custom": {
+    "runtime_flag": true,
+    "theme": null
+  },
+  "database": {
+    "credentials": {
+      "password_secret": "runtime-password"
+    },
+    "options": {
+      "connect_timeout": 30,
+      "sslmode": null
+    }
+  },
+  "logging": {
+    "handlers": null,
+    "level": "WARNING"
+  },
+  "network": {
+    "port": 9443
+  },
+  "operator": {
+    "enabled": false,
+    "summary": "${app.name}/${network.port}"
+  },
+  "paths": {
+    "cache_dir": "${paths.data_dir}/cache"
+  }
+}

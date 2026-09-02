@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
 import {
   accessSync,
+  constants as fsConstants,
+  cpSync,
   existsSync,
+  lstatSync,
   mkdtempSync,
   mkdirSync,
   readFileSync,
@@ -10,7 +13,6 @@ import {
   renameSync,
   rmSync,
   statSync,
-  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -18,6 +20,9 @@ import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const sourceHostRoot = resolve(
+  process.env.PRIME_AGENT_ROOT ?? join(packageRoot, "node_modules", "@earendil-works", "pi-coding-agent"),
+);
 const bundledEntry = readFileSync(join(packageRoot, "dist", "index.js"), "utf8");
 assert.doesNotMatch(bundledEntry, /(?:from\s+["']diff["']|require\(["']diff["']\))/,
   "dist/index.js must bundle the runtime diff dependency for local package images.");
@@ -25,10 +30,42 @@ const temporary = mkdtempSync(join(tmpdir(), "prime-context-package-smoke-"));
 const home = join(temporary, "home");
 const app = join(temporary, "app");
 const workspace = join(temporary, "workspace with spaces");
+const hostRoot = join(temporary, "prime-agent-host");
 const daemonSocket = join(temporary, "prime-agent.sock");
 mkdirSync(home, { recursive: true });
 mkdirSync(app, { recursive: true });
 mkdirSync(workspace, { recursive: true });
+
+function dependencyTreeForHost(root) {
+  let current = root;
+  for (;;) {
+    const candidate = join(current, "node_modules");
+    if (existsSync(join(candidate, "@earendil-works", "pi-agent-core", "package.json"))) return candidate;
+    const parent = dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+  throw new Error(`Prime Agent host has no resolvable pi-agent-core dependency: ${root}`);
+}
+
+const sourceHostManifest = JSON.parse(readFileSync(join(sourceHostRoot, "package.json"), "utf8"));
+assert.equal(sourceHostManifest.name, "prime-agent");
+assert.equal(sourceHostManifest.version, "0.9.1");
+const sourceHostContract = readFileSync(join(sourceHostRoot, "dist", "core", "extensions", "types.d.ts"), "utf8");
+assert.doesNotMatch(sourceHostContract, /projectionIdentity/, "Package smoke requires a pristine Prime Agent 0.9.1 host.");
+cpSync(sourceHostRoot, hostRoot, { recursive: true, dereference: true });
+if (!existsSync(join(hostRoot, "node_modules", "@earendil-works", "pi-agent-core", "package.json"))) {
+  cpSync(dependencyTreeForHost(sourceHostRoot), join(hostRoot, "node_modules"), {
+    recursive: true,
+    dereference: true,
+  });
+}
+assert.equal(lstatSync(hostRoot).isSymbolicLink(), false, "Disposable Prime Agent host must be materialized.");
+assert.equal(
+  lstatSync(join(hostRoot, "node_modules", "@earendil-works", "pi-agent-core")).isSymbolicLink(),
+  false,
+  "Disposable pi-agent-core dependency must be materialized.",
+);
 
 const cleanEnvironment = {
   ...process.env,
@@ -99,14 +136,6 @@ function selectedShell() {
 
 const shell = selectedShell();
 
-function linkHostPeer(packageName) {
-  const source = join(packageRoot, "node_modules", ...packageName.split("/"));
-  const target = join(app, "node_modules", ...packageName.split("/"));
-  accessSync(join(source, "package.json"));
-  mkdirSync(dirname(target), { recursive: true });
-  symlinkSync(source, target, process.platform === "win32" ? "junction" : "dir");
-}
-
 function resultText(result) {
   const block = result?.content?.find((item) => item.type === "text");
   assert.equal(typeof block?.text, "string", "Prime Context tool did not return text.");
@@ -114,10 +143,6 @@ function resultText(result) {
 }
 
 async function exerciseInstalledExtension(installedPackage) {
-  for (const peer of ["@earendil-works/pi-ai", "@earendil-works/pi-coding-agent", "typebox"]) {
-    linkHostPeer(peer);
-  }
-
   const installedEntry = join(installedPackage, "dist", "index.js");
   let extension;
   try {
@@ -144,6 +169,8 @@ async function exerciseInstalledExtension(installedPackage) {
 
   const requiredHandlers = [
     "session_start",
+    "resources_discover",
+    "agent_end",
     "tool_execution_start",
     "tool_call",
     "tool_result",
@@ -208,7 +235,15 @@ async function exerciseInstalledExtension(installedPackage) {
     signal,
     sessionManager,
     getContextUsage: () => undefined,
+    setAutomaticRefinementEnabled: () => undefined,
   };
+  const nativeSkillsPath = join(workspace, ".prime", "agent", "prime-context", "knowledge", "skills");
+  mkdirSync(nativeSkillsPath, { recursive: true });
+  assert.deepEqual(
+    await handlers.get("resources_discover")({ cwd: workspace }),
+    { skillPaths: [nativeSkillsPath] },
+    "Installed Prime Context did not expose its configured native skill directory.",
+  );
   await handlers.get("session_start")({ reason: "startup" }, context);
 
   writeFileSync(join(workspace, "run_tests.py"), 'print("TEST_RESULT PASS 1/1")\n');
@@ -235,8 +270,8 @@ async function exerciseInstalledExtension(installedPackage) {
   assert.ok(statSync(fullOutputPath).size > 1024 * 1024, "Shell fixture was not file-backed and large.");
 
   const editPath = join(workspace, "large edit fixture.txt");
-  const oldText = `OLD_EDIT_SENTINEL\n${"o".repeat(12_000)}`;
-  const newText = `NEW_EDIT_SENTINEL\n${"n".repeat(12_000)}`;
+  const oldText = `OLD_EDIT_SENTINEL\n${"o".repeat(14_000)}`;
+  const newText = `NEW_EDIT_SENTINEL\n${"n".repeat(14_000)}`;
   const editInput = { path: editPath, edits: [{ oldText, newText }] };
   const editResult = `Applied large edit to ${editPath}.\n${"EDIT_RESULT_LINE\n".repeat(900)}`;
   writeFileSync(editPath, newText);
@@ -321,6 +356,14 @@ async function exerciseInstalledExtension(installedPackage) {
       timestamp: 1,
     })),
   };
+  turnEvent.exchanges = exchanges.map(({ fixture, input }, sourceOrder) => ({
+    sourceOrder,
+    toolCallId: fixture.toolCallId,
+    toolName: fixture.toolName ?? "bash",
+    originalInput: input,
+    executedInput: input,
+    result: turnEvent.toolResults[sourceOrder],
+  }));
   branch.push(
     { id: "package-smoke-assistant", type: "message", message: turnEvent.message },
     ...turnEvent.toolResults.map((message, index) => ({
@@ -329,11 +372,9 @@ async function exerciseInstalledExtension(installedPackage) {
   );
   const turnBefore = structuredClone(turnEvent);
   const firstTurnResult = await handlers.get("turn_end")(turnEvent, context);
-  const staleState = firstTurnResult?.messages?.find((message) => message.customType === "prime_context_state");
-  assert.match(staleState?.content ?? "", /readiness: NOT_READY/,
-    "The post-edit validation state was not stale after the first tool turn.");
-  assert.match(staleState?.content ?? "", /pass-stale/,
-    "The first tool turn did not retain the stale validation fact.");
+  const taskUpdate = firstTurnResult?.messages?.find((message) => message.customType === "prime_context_update");
+  assert.match(taskUpdate?.content ?? "", /TEST_RESULT PASS 1\/1/,
+    "The first finalized turn did not emit its sparse factual task update.");
   appendControlMessages(firstTurnResult, "package-smoke-first");
 
   const providerEntries = providerFixtureEntries();
@@ -347,7 +388,8 @@ async function exerciseInstalledExtension(installedPackage) {
   assert.ok(projected?.messages, "Installed Prime Context did not project provider context.");
   assert.deepEqual(providerMessages, providerBefore, "model_context changed raw provider messages.");
   assert.deepEqual(
-    projected.entryRefs?.map((ref) => ref.entryId),
+    (projected.entryRefs ?? providerEntries.map(({ entry }, messageIndex) => ({ messageIndex, entryId: entry.id })))
+      .map((ref) => ref.entryId),
     providerEntries.map(({ entry }) => entry.id),
     "model_context did not preserve exact session entry refs.",
   );
@@ -485,10 +527,15 @@ async function exerciseInstalledExtension(installedPackage) {
     toolExecution: "sequential",
     message: currentAssistant,
     toolResults: [currentResult],
+    exchanges: [{
+      sourceOrder: 0,
+      toolCallId: currentToolCallId,
+      toolName: "bash",
+      originalInput: currentInput,
+      executedInput: currentInput,
+      result: currentResult,
+    }],
   }, context);
-  const readyState = secondTurnResult?.messages?.find((message) => message.customType === "prime_context_state");
-  assert.match(readyState?.content ?? "", /readiness: GOAL_READY/,
-    "A current post-edit validation did not restore the required gate.");
   appendControlMessages(secondTurnResult, "package-smoke-second");
   const secondProviderEntries = providerFixtureEntries();
   const secondProjection = await handlers.get("model_context")({
@@ -518,7 +565,8 @@ async function exerciseInstalledExtension(installedPackage) {
     signal,
   );
   const receipt = resultText(recovery);
-  assert.ok(receipt.includes(`Recovered ${observationId}:result lines ${startLine}-${endLine}`));
+  assert.ok(receipt.includes(`${startLine}: SMOKE_TAIL_ONE`),
+    "prime_context inspect did not return the recovered text directly.");
   const recoveryMessage = {
     role: "toolResult",
     toolCallId: "package-smoke-inspect",
@@ -555,7 +603,7 @@ async function exerciseInstalledExtension(installedPackage) {
   assert.equal(
     resultText(retryProjection.messages.at(-1)),
     expectedRecovery,
-    "An aborted assistant response consumed the recovery lease.",
+    "An aborted assistant response changed persistent recovered evidence.",
   );
   handlers.get("message_end")({
     message: { role: "assistant", content: [], stopReason: "stop" },
@@ -567,8 +615,8 @@ async function exerciseInstalledExtension(installedPackage) {
   }, context);
   assert.equal(
     resultText(consumedProjection.messages.at(-1)),
-    receipt,
-    "A successful assistant response did not consume the recovery lease.",
+    expectedRecovery,
+    "A successful assistant response changed persistent recovered evidence.",
   );
   assert.equal(resultText(recoveryMessage), receipt, "Recovery projection changed the persisted receipt.");
 }
@@ -646,7 +694,7 @@ try {
   tarball = join(packageRoot, packed[0].filename);
 
   writeFileSync(join(app, "package.json"), `${JSON.stringify({ private: true }, null, 2)}\n`);
-  run("npm", ["install", "--ignore-scripts", "--legacy-peer-deps", tarball], { cwd: app });
+  run("npm", ["install", "--ignore-scripts", tarball], { cwd: app });
 
   const installedPackage = join(app, "node_modules", "prime-agent-context");
   const manifest = JSON.parse(readFileSync(join(installedPackage, "package.json"), "utf8"));
@@ -654,13 +702,40 @@ try {
   if (manifest.version !== sourceManifest.version || manifest.pi?.extensions?.[0] !== "./dist/index.js") {
     throw new Error("Packed Prime Context manifest is invalid.");
   }
+  assert.match(manifest.dependencies?.["@earendil-works/pi-ai"] ?? "", /prime-agent-ai-0\.9\.1\.tgz$/);
+  assert.match(manifest.dependencies?.["@earendil-works/pi-coding-agent"] ?? "", /prime-agent-0\.9\.1\.tgz$/);
+  assert.equal(manifest.dependencies?.typebox, "^1.3.9");
+  for (const dependency of ["@earendil-works/pi-ai", "@earendil-works/pi-coding-agent"]) {
+    const dependencyManifest = JSON.parse(
+      readFileSync(join(app, "node_modules", ...dependency.split("/"), "package.json"), "utf8"),
+    );
+    assert.equal(dependencyManifest.version, "0.9.1", `${dependency} must install from the pinned host release.`);
+  }
+  const packedPatcher = join(installedPackage, "scripts", "patch-prime-agent.mjs");
+  const packedBin = join(app, "node_modules", ".bin", "prime-context-patch-agent");
+  accessSync(packedPatcher, fsConstants.X_OK);
+  accessSync(packedBin, fsConstants.X_OK);
+  accessSync(join(hostRoot, "package.json"));
+  run(process.execPath, [packedBin, "--check-stock", hostRoot]);
+  run(process.execPath, [packedBin, hostRoot]);
+  run(process.execPath, [packedBin, "--check", hostRoot]);
+  assert.doesNotMatch(
+    readFileSync(join(sourceHostRoot, "dist", "core", "extensions", "types.d.ts"), "utf8"),
+    /projectionIdentity/,
+    "Package smoke mutated its pristine Prime Agent source host.",
+  );
+  assert.equal(
+    readFileSync(join(packageRoot, "dist", "index.js"), "utf8"),
+    bundledEntry,
+    "Prime Agent patching mutated the Prime Context checkout.",
+  );
 
   await exerciseInstalledExtension(installedPackage);
 
-  cliPath = join(packageRoot, "node_modules", "@earendil-works", "pi-coding-agent", "dist", "bundle", "cli.js");
+  cliPath = join(hostRoot, "dist", "bundle", "cli.js");
   run(process.execPath, [cliPath, "package", "install", installedPackage], { cwd: app });
   await loadPrimeAgentExtension(cliPath);
-  console.log(`Prime Context package smoke passed on Prime Agent v0.8.1 with configured ${shell.flavor} (${shell.command}).`);
+  console.log(`Prime Context package smoke passed on Prime Agent v0.9.1 with configured ${shell.flavor} (${shell.command}).`);
 } finally {
   if (cliPath) {
     try {

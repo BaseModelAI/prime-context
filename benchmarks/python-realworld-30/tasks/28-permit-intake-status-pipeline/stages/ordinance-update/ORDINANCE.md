@@ -1,0 +1,3 @@
+# Ordinance update
+
+Re-run `python -m permitflow validate workspace/permits.db --output output` after reading `inputs/ordinance_update.json`. Apply its document and fee replacements only to applications that were still open on its effective date (`closed_date` blank or on/after the date). Write `output/ordinance_impacts.csv` with exact header `application_id,source_id,field,before,after`, sorted by application ID then field. Emit a row only when the effective requirements or fee changed; document sets use sorted `+`-joined names and fees use two decimals.

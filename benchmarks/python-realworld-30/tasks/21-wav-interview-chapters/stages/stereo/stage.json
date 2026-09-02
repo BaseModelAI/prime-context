@@ -1,0 +1,6 @@
+{
+  "id": "stereo",
+  "inject": "stages/stereo/",
+  "message": "A stereo 16-bit recording and transcript were added. Accept either mono or stereo. A frame is silent only when both channels are below the threshold. Produce a separate output directory for each input named by WAV stem.",
+  "compact_after": false
+}

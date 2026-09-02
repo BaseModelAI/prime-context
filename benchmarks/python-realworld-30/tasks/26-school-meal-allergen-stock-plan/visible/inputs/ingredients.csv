@@ -1,0 +1,8 @@
+ingredient_id,name,allergens,may_contain,stock_g,pack_size_g
+flour,Wheat flour,wheat,,500,1000
+cheese,Cheddar cheese,milk,,40,200
+tomato,Tomato,,,100,500
+olive_oil,Olive oil,,,50,250
+spice,School spice mix,,peanut,5,25
+rice,Rice,,,300,500
+beans,Beans,,,100,400

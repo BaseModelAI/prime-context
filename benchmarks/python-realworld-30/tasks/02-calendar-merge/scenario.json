@@ -1,0 +1,33 @@
+{
+  "schema": "prime-context.python-realworld-task/v1",
+  "id": 2,
+  "slug": "calendar-merge",
+  "title": "Calendar Merge and Conflict Report",
+  "pressure": "L",
+  "timeout_seconds": 900,
+  "editable_paths": [
+    "solution/",
+    "output/"
+  ],
+  "initial_prompt": "Read TASK.md and complete the requested workflow using only the Python standard library.",
+  "stages": [
+    {
+      "id": "initial",
+      "inject": "visible/",
+      "message": "Read TASK.md and complete the requested workflow using only the Python standard library.",
+      "compact_after": false
+    },
+    {
+      "id": "late-changes",
+      "inject": "stages/late-changes/",
+      "message": "A fourth calendar, `inputs/late_changes.ics`, has arrived with cancellations, one higher-sequence room change, and one event spanning a daylight-saving transition. Merge it into the same outputs without changing the command.",
+      "compact_after": false
+    }
+  ],
+  "judge_command": [
+    "python",
+    "judge.py",
+    "--workspace",
+    "{workspace}"
+  ]
+}

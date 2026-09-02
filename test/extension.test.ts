@@ -6,12 +6,12 @@ import { afterEach, describe, expect, it } from "vitest";
 import { ObservationArchive, resolveArchiveText } from "../src/archive.js";
 import { analyzeOutcome } from "../src/capsule.js";
 import { registerPrimeContextCommands } from "../src/commands.js";
-import { emptySnapshot, RUNTIME_STATE_ENTRY_TYPE } from "../src/state.js";
+import { deriveTaskSelection } from "../src/runtime.js";
+import { createTaskSnapshotV2 } from "../src/state.js";
 import primeContext, {
   REQUIRED_HOOKS,
-  branchProjectionEntries,
+  explicitUserTaskOutcome,
   requiredHooksLoaded,
-  foldVisibleBranchEntries,
   providerModelBranchEntries,
   scopeFixedExchangeViews,
   selectForkImportRefs,
@@ -21,25 +21,20 @@ import primeContext, {
   typedObservationPartsEqual,
   visibleFixedToolCallIds,
 } from "../src/index.js";
-import { aggregateGenericCallParts, boundedResultTextStats, ExchangeTracker } from "../src/exchange.js";
+import { aggregateGenericCallParts, boundedResultTextStats, buildExchangeFacts, ExchangeTracker } from "../src/exchange.js";
 import { summarizePartSource } from "../src/envelope.js";
 import { adaptToolIntent, collectFactualOutcome } from "../src/intent.js";
 import { PRIME_CONTEXT_GLOBAL_POLICY } from "../src/policy.js";
 import {
+  buildProviderRepresentation,
   compactArchivedCallArguments,
   fixedExchangeBudgetBytes,
   projectFixedExchangeViews,
-  projectFoldCandidateMessages,
   projectModelContext,
   selectFixedExchangeViews,
-  selectFoldGeneration,
   type FixedExchangeView,
+  type ProviderProjectionCache,
 } from "../src/projection.js";
-import {
-  boundTaskRuntime,
-  createTaskRuntime,
-  TASK_RUNTIME_BOUNDS,
-} from "../src/runtime.js";
 import {
   MODEL_LIST_MAX_OBSERVATIONS,
   MODEL_READ_DEFAULT_LINES,
@@ -49,12 +44,60 @@ import {
   type PrimeContextActions,
 } from "../src/tool.js";
 
+type TestHandler = (event: any, context: any) => any;
+
+function withFinalizedExchanges(event: any): any {
+  if (Array.isArray(event?.exchanges)) return event;
+  const calls = Array.isArray(event?.message?.content)
+    ? event.message.content.filter((part: any) => part?.type === "toolCall")
+    : [];
+  const byId = new Map(calls.map((call: any, sourceOrder: number) => [call.id, { call, sourceOrder }]));
+  const exchanges = (event?.toolResults ?? []).map((result: any, fallbackOrder: number) => {
+    const matched = byId.get(result.toolCallId) as { call: any; sourceOrder: number } | undefined;
+    return {
+      sourceOrder: matched?.sourceOrder ?? fallbackOrder,
+      toolCallId: result.toolCallId,
+      toolName: matched?.call?.name ?? result.toolName,
+      originalInput: matched?.call?.arguments ?? {},
+      executedInput: matched?.call?.arguments ?? {},
+      result,
+    };
+  }).sort((left: any, right: any) => left.sourceOrder - right.sourceOrder);
+  return { ...event, toolExecution: event?.toolExecution ?? "sequential", exchanges };
+}
+
+function registerPatchedHandler(
+  handlers: Map<string, TestHandler>,
+  name: string,
+  handler: TestHandler,
+): void {
+  handlers.set(name, name === "turn_end"
+    ? (event, context) => handler(withFinalizedExchanges(event), context)
+    : handler);
+}
+
 const temporaryPaths: string[] = [];
 afterEach(async () => {
   await Promise.all(temporaryPaths.splice(0).map((path) => rm(path, { recursive: true, force: true })));
 });
 
 describe("extension behavior", () => {
+  it("accepts only explicit authoritative task outcomes for automatic learning", () => {
+    expect(explicitUserTaskOutcome("pytest passed 42 tests")).toBe("unknown");
+    expect(explicitUserTaskOutcome("The assistant stopped normally")).toBe("unknown");
+    expect(explicitUserTaskOutcome("Your implementation is correct and works")).toBe("success");
+    expect(explicitUserTaskOutcome("This solution is wrong")).toBe("failure");
+  });
+
+  it("keeps the task root across assistant stops and continuation prompts", () => {
+    const selection = deriveTaskSelection([
+      { id: "root-user", type: "message", message: { role: "user", content: "Implement feature X" } },
+      { id: "assistant-stop", type: "message", message: { role: "assistant", stopReason: "stop" } },
+      { id: "continuation", type: "message", message: { role: "user", content: "Continue and keep constraint C" } },
+    ]);
+    expect(selection).toMatchObject({ taskKey: "root-user", rootUserEntryId: "root-user", source: "user" });
+  });
+
   it("preserves an image while replacing mixed text/image/text with one capsule", async () => {
     const root = await mkdtemp(join(tmpdir(), "prime-context-mixed-"));
     temporaryPaths.push(root);
@@ -108,7 +151,6 @@ it("never emits an unsupported archived image MIME to a provider", () => {
     pendingImages: new Map([["svg-call", [{
       ref: "o1:image:1", mimeType: "image/svg+xml", bytes: 6,
     }]]]),
-    consumedImageRefs: new Set(),
   });
   expect(projected.messages[0].content[0]).toMatchObject({
     type: "text",
@@ -117,7 +159,7 @@ it("never emits an unsupported archived image MIME to a provider", () => {
   expect(projected.shownImageRefs).toBeUndefined();
 });
 
-it("uses complete fixed descriptors when the fresh image set is bounded", () => {
+it("keeps supported fixed images persistent within each request budget", () => {
   const image = { type: "image", mimeType: "image/png", data: "aGVsbG8=" };
   const descriptors = Array.from({ length: 10 }, (_, index) => ({
     ref: `o1:image:${index + 1}`, mimeType: "image/png", bytes: 5,
@@ -131,12 +173,10 @@ it("uses complete fixed descriptors when the fresh image set is bounded", () => 
       visibleBytes: 50, images: descriptors,
     }],
     pendingImages: new Map([["many-images", descriptors.slice(0, 8)]]),
-    consumedImageRefs: new Set(),
   });
   const blocks = projected.messages[0].content as any[];
-  expect(blocks.slice(0, 8).every((block) => block.type === "image")).toBe(true);
-  expect(blocks.slice(8).every((block) => block.type === "text" && block.text.includes("shown once"))).toBe(true);
-  expect(projected.shownImageRefs).toHaveLength(8);
+  expect(blocks.every((block) => block.type === "image")).toBe(true);
+  expect(projected.shownImageRefs).toHaveLength(10);
 
   const opaque = projectModelContext({
     purpose: "provider",
@@ -167,8 +207,61 @@ it("uses complete fixed descriptors when the fresh image set is bounded", () => 
   };
   const firstPage = projectModelContext(queuedInput);
   expect(firstPage.shownImageRefs).toEqual(["o3:image:1", "o3:image:2"]);
-  const secondPage = projectModelContext({ ...queuedInput, consumedImageRefs: new Set(firstPage.shownImageRefs) });
-  expect(secondPage.shownImageRefs).toEqual(["o3:image:3"]);
+  const repeated = projectModelContext(queuedInput);
+  expect(repeated.shownImageRefs).toEqual(firstPage.shownImageRefs);
+  const budget = projectModelContext({ ...queuedInput, purpose: "budget" });
+  expect(budget.messages).toEqual(firstPage.messages);
+});
+
+it("reuses provider entry prefixes while budget projection stays observational", () => {
+  const cache: ProviderProjectionCache<any> = {};
+  const firstInput = {
+    purpose: "provider" as const,
+    messages: [{ role: "user", content: [{ type: "text", text: "first" }], details: { private: true } }],
+    entryRefs: [{ messageIndex: 0, entryId: "e1" }],
+    fixedViews: new Map(),
+    epochId: 1,
+    modelKey: "provider:model",
+    toolSetRevision: 0,
+    cache,
+  };
+  const first = buildProviderRepresentation(firstInput);
+  expect(first.projectionIdentity).toBe('[1,"provider:model",0]');
+  const secondMessages = [...firstInput.messages, { role: "user", content: [{ type: "text", text: "second" }] }];
+  const second = buildProviderRepresentation({
+    ...firstInput,
+    messages: secondMessages,
+    entryRefs: [{ messageIndex: 0, entryId: "e1" }, { messageIndex: 1, entryId: "e2" }],
+  });
+  expect(second.messages[0]).toBe(first.messages[0]);
+  expect(cache.epoch?.inputEntryIds).toEqual(["e1", "e2"]);
+
+  const thirdMessages = [...secondMessages, { role: "user", content: [{ type: "text", text: "third" }] }];
+  const thirdRefs = [
+    { messageIndex: 0, entryId: "e1" },
+    { messageIndex: 1, entryId: "e2" },
+    { messageIndex: 2, entryId: "e3" },
+  ];
+  const budget = buildProviderRepresentation({
+    ...firstInput,
+    purpose: "budget",
+    messages: thirdMessages,
+    entryRefs: thirdRefs,
+  });
+  expect(cache.epoch?.inputEntryIds).toEqual(["e1", "e2"]);
+  const provider = buildProviderRepresentation({ ...firstInput, messages: thirdMessages, entryRefs: thirdRefs });
+  expect(provider.messages).toEqual(budget.messages);
+  expect(provider.messages[0]).toBe(first.messages[0]);
+  expect(cache.epoch?.sourceSpans.map((span) => span.entryId)).toEqual(["e1", "e2", "e3"]);
+
+  const rebuilt = buildProviderRepresentation({ ...firstInput, epochId: 2 });
+  expect(rebuilt.messages[0]).not.toBe(first.messages[0]);
+  expect(rebuilt.projectionIdentity).not.toBe(first.projectionIdentity);
+
+  const changedTools = buildProviderRepresentation({ ...firstInput, toolSetRevision: "[tool-b]" });
+  expect(changedTools.messages[0]).not.toBe(first.messages[0]);
+  expect(changedTools.projectionIdentity).not.toBe(first.projectionIdentity);
+  expect(cache.epoch?.toolSetRevision).toBe("[tool-b]");
 });
 
 it("projects a paged user-shell execution by exact entry identity", () => {
@@ -188,7 +281,7 @@ it("projects a paged user-shell execution by exact entry identity", () => {
     purpose: "provider",
     messages: [rawProviderMessage],
     entryRefs: [{ messageIndex: 0, entryId }],
-    sourceMessages: new Map([[entryId, source]]),
+    sourceMessages: new Map<string, any>([[entryId, source]]),
     fixedViews: new Map([[entryId, {
       schema: "prime-context.fixed-exchange-view/v1",
       generation: 0,
@@ -560,8 +653,13 @@ describe("Step A exchange metadata", () => {
     })).toMatchObject({ kind: "edit", subjectKey: "/workspace/src/nested.ts" });
   });
 
-  it("keeps bounded small scalars with an exact aggregate call ref", () => {
-    const input = Object.fromEntries(Array.from({ length: 120 }, (_, index) => [
+  it("keeps bounded call arguments literal and archives aggregates above admission", () => {
+    const bounded = Object.fromEntries(Array.from({ length: 120 }, (_, index) => [
+      `field_${index}`,
+      `value_${index}_${"x".repeat(80)}`,
+    ]));
+    expect(aggregateGenericCallParts("custom_tool", bounded)).toEqual([]);
+    const input = Object.fromEntries(Array.from({ length: 300 }, (_, index) => [
       `field_${index}`,
       `value_${index}_${"x".repeat(80)}`,
     ]));
@@ -629,25 +727,38 @@ describe("Step A exchange metadata", () => {
       code: "subprocess.run(['python', str(root / 'worker.py')], cwd=root)",
     }).kind).toBe("run");
 
-    const shellMagicTest = intent("ipython", {
-      code: "%%bash\ncd /workspace\npython run_tests.py > /tmp/tests.log 2>&1\nstatus=$?\nhead -n 5 /tmp/tests.log\nprintf 'EXIT_STATUS=%s\\n' \"$status\"",
+    const nativeBashTest = intent("ipython", {
+      code: 'result = await bash("cd /workspace\npython run_tests.py", yield_time_ms=1000)',
     }, undefined, "TEST_RESULT PASS 9/9");
-    expect(shellMagicTest).toMatchObject({
+    expect(nativeBashTest).toMatchObject({
       kind: "test",
       subjectKey: 'suite:python-test-script:{"target":"/workspace/run_tests.py","cwd":"/workspace"}',
       suite: { family: "python-test-script", target: '{"target":"/workspace/run_tests.py","cwd":"/workspace"}', scope: "broad" },
       mutatesWorkspace: false,
+      facts: { bashCalls: 1 },
     });
-    expect(collectFactualOutcome(shellMagicTest, "TEST_RESULT FAIL 3/6", false)).toMatchObject({
+    expect(collectFactualOutcome(nativeBashTest, "TEST_RESULT FAIL 3/6", false)).toMatchObject({
       status: "failure", testTotal: 6,
     });
 
-    const heredocProse = intent("ipython", {
-      code: "%%bash\ncat <<'EOF' > result.txt\npython run_tests.py\nEOF",
+    expect(intent("ipython", {
+      code: 'await bash("cat inputs/a.txt > generated/report.txt")',
+    })).toMatchObject({
+      kind: "run", resources: ["/workspace/inputs/a.txt", "/workspace/generated/report.txt"], mutatesWorkspace: true,
+      facts: { bashCalls: 1 },
     });
-    expect(heredocProse.kind).toBe("run");
+    expect(intent("ipython", {
+      code: 'await bash(command="printf done > generated/keyword.txt")',
+    })).toMatchObject({
+      kind: "run", resources: ["/workspace/generated/keyword.txt"], mutatesWorkspace: true,
+      facts: { bashCalls: 1 },
+    });
+    expect(intent("ipython", { code: "pytest.main()" })).toMatchObject({
+      kind: "test", suite: { family: "pytest" },
+    });
+    expect(intent("ipython", { code: "child = await rlm('check this')" }).kind).toBe("delegate");
 
-    const proseOnly = intent("ipython", { code: 'message = "pytest.main() and subprocess.run([\'python\', \'run_tests.py\'])"' });
+    const proseOnly = intent("ipython", { code: 'message = "pytest.main(), subprocess.run([\'python\', \'run_tests.py\']), await bash(\'pytest -q\')"' });
     expect(proseOnly.kind).toBe("run");
     const multilineProse = intent("ipython", {
       code: 'message = """\nsubprocess.run([\'python\', \'run_tests.py\'])\n"""',
@@ -844,6 +955,76 @@ describe("Step A exchange metadata", () => {
     expect(completed.outcome?.outcome.status).toBe("failure");
   });
 
+  it("finalizes host exchanges without an early result and rejects a stale full-output capture", () => {
+    const tracker = new ExchangeTracker();
+    const input = { command: "run" };
+    const finalResult = {
+      role: "toolResult" as const,
+      toolCallId: "final-only",
+      toolName: "bash",
+      content: [{ type: "text", text: "FINAL authority" }],
+      isError: false,
+    };
+    const finalized = [{
+      sourceOrder: 0,
+      toolCallId: "final-only",
+      toolName: "bash",
+      originalInput: input,
+      executedInput: input,
+      result: finalResult,
+    }];
+    const completed = tracker.finishTurn({
+      role: "assistant",
+      content: [{ type: "toolCall", id: "final-only", name: "bash", arguments: input }],
+    }, [finalResult], finalized);
+    expect(completed).toHaveLength(1);
+    expect(completed[0].rawResult).toBe(finalResult);
+    expect(tracker.get("final-only")).toBeUndefined();
+
+    const [facts] = buildExchangeFacts({
+      exchanges: finalized,
+      executionMode: "sequential",
+      pendingFullOutputs: [{
+        toolCallId: "final-only",
+        path: "/tmp/stale",
+        text: "STALE failure",
+        visibleText: "stale visible",
+        visibleBytes: Buffer.byteLength("stale visible"),
+        visibleTruncated: false,
+        visibleTail: "stale visible",
+        visibleSamples: boundedResultTextStats([{ type: "text", text: "stale visible" }]).samples,
+        isError: false,
+      }],
+      cwd: "/workspace",
+    });
+    expect(facts.text).toBe("FINAL authority");
+    expect(facts.fullOutputSnapshotPath).toBeUndefined();
+  });
+
+  it("does not promote generic successful output or status wrappers into task facts", () => {
+    const input = { command: "printf '{}\n'" };
+    const [facts] = buildExchangeFacts({
+      exchanges: [{
+        sourceOrder: 0,
+        toolCallId: "clean-status",
+        toolName: "bash",
+        originalInput: input,
+        executedInput: input,
+        result: {
+          role: "toolResult",
+          toolCallId: "clean-status",
+          toolName: "bash",
+          content: [{ type: "text", text: "README.txt\nordinary successful output\nProcess exited with code 0" }],
+          details: { exitCode: 0 },
+          isError: false,
+        },
+      }],
+      executionMode: "sequential",
+      cwd: "/workspace",
+    });
+    expect(facts.progress).toEqual({ kind: "none" });
+  });
+
   it("reclassifies typed IPython resources from final middleware details", () => {
     const tracker = new ExchangeTracker();
     const input = { code: "value = 1" };
@@ -905,6 +1086,7 @@ describe("Step A exchange metadata", () => {
       details: {
         diffs: newDiffs,
         stdout: large,
+        backgroundOutput: "late worker output",
         sentAgentMessages: [{ receiver: "parent", message: "exact child update" }],
         error: { name: "RuntimeError", message: "exact structured error", traceback: ["trace line"] },
       },
@@ -918,14 +1100,53 @@ describe("Step A exchange metadata", () => {
     } as never);
     const parts = typedObservationParts(finalResult as never);
     expect(typedObservationPartsEqual(initialParts, parts)).toBe(false);
-    tracker.noteFinalDetails(completed, false, finalResult.details);
-    expect(completed.intent?.resources).toContain("/workspace/new.py");
-    expect(completed.intent?.mutatesWorkspace).toBe(true);
+    const [facts] = buildExchangeFacts({
+      exchanges: [{
+        sourceOrder: 0,
+        toolCallId: "large-typed",
+        toolName: "ipython",
+        originalInput: input,
+        executedInput: input,
+        result: finalResult,
+      }],
+      executionMode: "sequential",
+      cwd: "/workspace",
+    });
+    expect(facts.intent.resources).toContain("/workspace/new.py");
+    expect(facts.intent.mutatesWorkspace).toBe(true);
     expect(parts.find((part) => part.name === "diff")?.text).toContain("new.py");
     expect(parts.find((part) => part.name === "stdout")?.text).toBe(large);
+    expect(parts.find((part) => part.name === "background-output")?.text).toBe("late worker output");
     expect(parts.find((part) => part.name === "sent-agent-messages")?.text).toContain("exact child update");
     expect(parts.find((part) => part.name === "error")?.text).toContain("exact structured error");
-    expect(completed.outcome?.outcome.status).toBe("failure");
+    expect(facts.outcome.status).toBe("failure");
+  });
+
+  it("archives and recovers REPL background output", async () => {
+    const root = await mkdtemp(join(tmpdir(), "prime-context-background-output-"));
+    temporaryPaths.push(root);
+    const archive = new ObservationArchive(root, "background-output-session");
+    const input = { code: "value = 1" };
+    const result = {
+      content: [{ type: "text" as const, text: "foreground" }],
+      details: { stdout: "foreground", backgroundOutput: "late worker output" },
+      isError: false,
+    };
+    await archive.finalizeExchanges([{
+      metadata: exchangeMetadata("o1", "background-output"),
+      toolName: "ipython",
+      isError: false,
+      parts: typedObservationParts({
+        toolCallId: "background-output", toolName: "ipython", input, ...result,
+      } as never),
+      persistedModelInput: input,
+      persistedRawCall: { type: "toolCall", id: "background-output", name: "ipython", arguments: input },
+      persistedRawResult: result,
+      resultText: "foreground",
+    }]);
+    const recovered = await archive.inspect("o1:background-output");
+    expect((recovered.content[0] as { text: string }).text).toContain("late worker output");
+    expect(recovered.details).toMatchObject({ ref: "o1:background-output" });
   });
 
   it("detects a same-byte change in bounded large visible output samples", () => {
@@ -1096,6 +1317,34 @@ describe("Step A exchange metadata", () => {
     expect(projectFixedExchangeViews(projected, views)).toBe(projected);
   });
 
+  it("materializes a delta when its baseline leaves the active epoch", () => {
+    const assistant = {
+      role: "assistant",
+      content: [
+        { type: "toolCall", id: "baseline", name: "read", arguments: { path: "a" } },
+        { type: "toolCall", id: "current", name: "read", arguments: { path: "a" } },
+      ],
+    };
+    const baseline = { role: "toolResult", toolCallId: "baseline", toolName: "read", content: [{ type: "text", text: "full baseline" }] };
+    const current = { role: "toolResult", toolCallId: "current", toolName: "read", content: [{ type: "text", text: "full current" }] };
+    const view: FixedExchangeView = {
+      schema: "prime-context.fixed-exchange-view/v1",
+      generation: 0,
+      exchangeId: "o2",
+      toolCallId: "current",
+      result: { kind: "capsule", text: "<prime_context_delta id=\"o2\">unchanged</prime_context_delta>" },
+      visibleBytes: 64,
+      deltaDependency: { baselineToolCallId: "baseline", contextEpoch: 7 },
+    };
+
+    const visible = projectFixedExchangeViews([assistant, baseline, current], [view], undefined, 7);
+    expect((visible[2].content as Array<{ text: string }>)[0].text).toContain("prime_context_delta");
+    const rebuilt = projectFixedExchangeViews([assistant, baseline, current], [view], undefined, 8);
+    expect(rebuilt).toEqual([assistant, baseline, current]);
+    const missing = projectFixedExchangeViews([assistant, current], [view], undefined, 7);
+    expect(missing).toEqual([assistant, current]);
+  });
+
   it("bounds the aggregate first-exposure fixed-view batch", () => {
     const budget = fixedExchangeBudgetBytes({ tokens: 80, contextWindow: 100 });
     const selected = selectFixedExchangeViews(
@@ -1121,245 +1370,6 @@ describe("Step A exchange metadata", () => {
     expect(selected.reduce((bytes, { view }) => bytes + view.visibleBytes, 0)).toBeLessThanOrEqual(budget);
   });
 
-  it("uses one exact-ref fold projection for every purpose without changing raw messages", () => {
-    const cold = "x".repeat(42_000);
-    const entries = [
-      { entryId: "u1", message: { role: "user", content: "first steering" } },
-      { entryId: "capsule", message: { role: "custom", customType: "prime_context_capsule", content: cold } },
-      { entryId: "u2", message: { role: "user", content: "second steering" } },
-      { entryId: "u3", message: { role: "user", content: "hot three" } },
-      { entryId: "u4", message: { role: "user", content: "hot four" } },
-      { entryId: "u5", message: { role: "user", content: "hot five" } },
-      { entryId: "u6", message: { role: "user", content: "hot six" } },
-    ];
-    const fold = selectFoldGeneration(
-      entries,
-      [],
-      { tokens: 70_000, contextWindow: 100_000 },
-      undefined,
-      (generation) => `<prime_context_fold generation="${generation}" />`,
-    );
-    expect(fold).toMatchObject({ generation: 1, throughEntryId: "u2", retainedEntryIds: ["u1", "u2"] });
-
-    const view: FixedExchangeView = {
-      schema: "prime-context.fixed-exchange-view/v1", generation: 0,
-      exchangeId: "o7", toolCallId: "call", callArguments: { command: "<archived-call />" },
-      result: { kind: "capsule", text: "fixed result" }, visibleBytes: 64,
-    };
-    const raw: any[] = [
-      ...entries.map((entry) => entry.message.role === "custom"
-        ? { role: "user", content: entry.message.content }
-        : entry.message),
-      { role: "assistant", content: [{ type: "toolCall", id: "call", name: "bash", arguments: { command: "raw" } }] },
-      { role: "toolResult", toolCallId: "call", toolName: "bash", content: [{ type: "text", text: "raw result" }], details: { huge: cold }, isError: false },
-      { role: "user", content: fold!.renderedMessage },
-    ];
-    const refs = [
-      ...entries.map((entry, messageIndex) => ({ messageIndex, entryId: entry.entryId })),
-      { messageIndex: 7, entryId: "assistant" },
-      { messageIndex: 8, entryId: "result" },
-      { messageIndex: 9, entryId: "fold-message" },
-    ];
-    const original = structuredClone(raw);
-    const sourceGoal = {
-      role: "custom", customType: "goal_context", content: "<goal_context />",
-      details: { goalId: "g1", objective: "Stable source-ref goal", status: "active" },
-    };
-    const sourceMessages = new Map([["u3", sourceGoal]]);
-    const outputs = (["provider", "compaction", "branch-summary", "refine"] as const).map((purpose) =>
-      projectModelContext({
-        purpose, messages: raw, entryRefs: refs, fixedViews: [view], fold,
-        foldMessageEntryId: "fold-message",
-        foldPrefixEntryIds: new Set(["u1", "capsule", "u2"]), sourceMessages,
-      }));
-
-    expect(outputs.map((output) => JSON.stringify(output))).toEqual(Array(4).fill(JSON.stringify(outputs[0])));
-    expect(outputs[0].entryRefs?.some((ref) => ref.entryId === "capsule")).toBe(false);
-    expect(outputs[0].entryRefs?.map((ref) => ref.messageIndex)).toEqual(
-      outputs[0].messages.map((_message, index) => index),
-    );
-    const goalIndex = outputs[0].entryRefs?.find((ref) => ref.entryId === "u3")?.messageIndex as number;
-    expect(JSON.stringify(outputs[0].messages[goalIndex].content)).toContain("goal_objective");
-    expect(sourceMessages.get("u3")).toBe(sourceGoal);
-    const result = outputs[0].messages.find((message: any) => message.role === "toolResult") as any;
-    expect(result.content[0].text).toBe("fixed result");
-    expect(result).not.toHaveProperty("details");
-    expect(raw).toEqual(original);
-  });
-
-  it("extends a fold without unhiding its prior immutable prefix", () => {
-    const cold = "z".repeat(42_000);
-    const oldView: FixedExchangeView = {
-      schema: "prime-context.fixed-exchange-view/v1", generation: 0,
-      exchangeId: "o-old", toolCallId: "old-call", callArguments: { path: "<archived-call />" },
-      result: { kind: "literal" }, visibleBytes: 64,
-    };
-    const firstEntries: any[] = [
-      { entryId: "u1", message: { role: "user", content: "retain first" } },
-      { entryId: "a1", message: { role: "assistant", content: [{ type: "toolCall", id: "old-call", name: "read", arguments: { path: "raw" } }] } },
-      { entryId: "r1", message: { role: "toolResult", toolCallId: "old-call", content: [{ type: "text", text: "old result" }] } },
-      { entryId: "c1", message: { role: "custom", customType: "prime_context_capsule", content: cold } },
-      { entryId: "state-old", message: { role: "custom", customType: "prime_context_state", content: "current old state" } },
-      { entryId: "u2", message: { role: "user", content: "retain second" } },
-      { entryId: "u3", message: { role: "user", content: "later retained" } },
-      { entryId: "c2", message: { role: "custom", customType: "prime_context_capsule", content: cold } },
-      { entryId: "u4", message: { role: "user", content: "hot four" } },
-      { entryId: "u5", message: { role: "user", content: "hot five" } },
-      { entryId: "u6", message: { role: "user", content: "hot six" } },
-    ];
-    const first = selectFoldGeneration(
-      firstEntries, [oldView], { tokens: 70_000, contextWindow: 100_000 }, undefined,
-      (generation) => `<prime_context_fold generation="${generation}" />`,
-    )!;
-    expect(first).toMatchObject({
-      generation: 1, throughEntryId: "u2", retainedEntryIds: ["u1", "state-old", "u2"],
-    });
-
-    const secondEntries = [
-      ...firstEntries.slice(0, 7),
-      { entryId: "fold-1-control", message: { role: "custom", customType: "prime_context_fold", content: first.renderedMessage } },
-      ...firstEntries.slice(7),
-      { entryId: "state-new", message: { role: "custom", customType: "prime_context_state", content: "replacement current state" } },
-      { entryId: "u7", message: { role: "user", content: "new hot seven" } },
-    ];
-    const second = selectFoldGeneration(
-      secondEntries,
-      [],
-      { tokens: 75_000, contextWindow: 100_000 },
-      first,
-      (generation) => `<prime_context_fold generation="${generation}" />`,
-      { entryIds: secondEntries.map((entry) => entry.entryId), currentFoldMessageEntryId: "fold-1-control" },
-    )!;
-    expect(second).toMatchObject({
-      generation: 2, throughEntryId: "c2", retainedEntryIds: ["u1", "u2", "u3"],
-    });
-
-    const messages = [
-      ...secondEntries.map((entry) => entry.message),
-      { role: "user", content: second.renderedMessage },
-    ];
-    const entryRefs = [
-      ...secondEntries.map((entry, messageIndex) => ({ messageIndex, entryId: entry.entryId })),
-      { messageIndex: secondEntries.length, entryId: "fold-2" },
-    ];
-    const projected = projectModelContext({
-      purpose: "provider", messages, entryRefs, fixedViews: [], fold: second,
-      foldMessageEntryId: "fold-2",
-      foldPrefixEntryIds: new Set(secondEntries.slice(0, secondEntries.findIndex((entry) => entry.entryId === "c2") + 1).map((entry) => entry.entryId)),
-    });
-    const visibleIds = projected.entryRefs?.map((ref) => ref.entryId) ?? [];
-    expect(visibleIds).toEqual(expect.arrayContaining(["u1", "u2", "u3", "u4", "fold-2"]));
-    expect(visibleIds).not.toContain("a1");
-    expect(visibleIds).not.toContain("r1");
-    expect(visibleIds).not.toContain("c1");
-    expect(visibleIds).not.toContain("c2");
-    expect(visibleIds).not.toContain("state-old");
-    expect(visibleIds).not.toContain("fold-1-control");
-    expect(visibleIds).toContain("state-new");
-  });
-
-  it("selects a new fold from raw chronology when a newer compaction summary is model-first", () => {
-    const cold = "n".repeat(42_000);
-    const current = {
-      generation: 1,
-      throughEntryId: "old-hidden",
-      retainedEntryIds: [] as string[],
-      renderedMessage: "<prime_context_fold generation=\"1\" />",
-    };
-    const entries: any[] = [
-      { entryId: "new-compaction", message: { role: "user", content: "newer summary must stay hot" } },
-      { entryId: "old-hidden", message: { role: "custom", customType: "prime_context_capsule", content: cold } },
-      { entryId: "fold-1", message: { role: "custom", customType: "prime_context_fold", content: current.renderedMessage } },
-      { entryId: "new-cold", message: { role: "custom", customType: "prime_context_capsule", content: cold } },
-      { entryId: "u2", message: { role: "user", content: "unsafe cold turn" } },
-      { entryId: "u3", message: { role: "user", content: "hot three" } },
-      { entryId: "u4", message: { role: "user", content: "hot four" } },
-      { entryId: "u5", message: { role: "user", content: "hot five" } },
-      { entryId: "u6", message: { role: "user", content: "hot six" } },
-    ];
-    const rawIds = ["old-hidden", "fold-1", "new-cold", "u2", "u3", "u4", "u5", "u6", "new-compaction"];
-    const next = selectFoldGeneration(
-      entries, [], { tokens: 75_000, contextWindow: 100_000 }, current,
-      (generation) => `<prime_context_fold generation="${generation}" />`,
-      { entryIds: rawIds, currentFoldMessageEntryId: "fold-1" },
-    )!;
-    expect(next).toMatchObject({
-      generation: 2,
-      throughEntryId: "u2",
-      retainedEntryIds: ["u2"],
-    });
-    expect(next.retainedEntryIds).not.toContain("new-compaction");
-  });
-
-  it("selects folds over the full provider model scope and projected byte savings", () => {
-    const cold = "q".repeat(42_000);
-    const branch: any[] = [
-      { id: "pre-goal", type: "message", message: { role: "user", content: "IMPORTANT pre-goal prose" } },
-      { id: "media", type: "message", message: { role: "assistant", content: [{ type: "image", data: "abc", mimeType: "image/png" }] } },
-      { id: "replay-call", type: "message", message: { role: "assistant", content: [{ type: "toolCall", id: "signed", name: "read", arguments: { path: "raw" }, thoughtSignature: "opaque" }] } },
-      { id: "replay-result", type: "message", message: { role: "toolResult", toolCallId: "signed", content: [{ type: "text", text: "signed result" }] } },
-      { id: "compact", type: "compaction", firstKeptEntryId: "pre-goal", summary: "IMPORTANT compaction summary" },
-      { id: "goal", type: "message", message: { role: "user", content: "active goal" } },
-      { id: "cold", type: "custom_message", customType: "prime_context_capsule", content: cold },
-      { id: "u2", type: "message", message: { role: "user", content: "turn two" } },
-      { id: "u3", type: "message", message: { role: "user", content: "turn three" } },
-      { id: "u4", type: "message", message: { role: "user", content: "turn four" } },
-      { id: "u5", type: "message", message: { role: "user", content: "turn five" } },
-    ];
-    const modelBranch = providerModelBranchEntries(branch);
-    expect(modelBranch.map((entry) => entry.id).slice(0, 3)).toEqual(["compact", "pre-goal", "media"]);
-    const entries = branchProjectionEntries(modelBranch);
-    const fold = selectFoldGeneration(
-      entries, [], { tokens: 70_000, contextWindow: 100_000 }, undefined,
-      (generation) => `<prime_context_fold generation="${generation}" />`,
-      { entryIds: branch.map((entry) => entry.id) },
-    )!;
-    expect(fold.retainedEntryIds).toEqual(expect.arrayContaining([
-      "compact", "pre-goal", "media", "replay-call", "replay-result", "goal",
-    ]));
-    expect(fold.retainedEntryIds).not.toContain("cold");
-    const provider = projectFoldCandidateMessages(entries, []);
-    const projected = projectModelContext({
-      purpose: "provider",
-      messages: [...provider.messages, { role: "user", content: fold.renderedMessage }],
-      entryRefs: [
-        ...provider.entryRefs,
-        { messageIndex: provider.messages.length, entryId: "fold-message" },
-      ],
-      fixedViews: [], fold, foldMessageEntryId: "fold-message",
-      foldPrefixEntryIds: new Set(branch.slice(0, branch.findIndex((entry) => entry.id === fold.throughEntryId) + 1).map((entry) => entry.id)),
-    });
-    const visibleIds = projected.entryRefs?.map((ref) => ref.entryId) ?? [];
-    expect(visibleIds).toEqual(expect.arrayContaining([
-      "compact", "pre-goal", "media", "replay-call", "replay-result",
-    ]));
-    expect(JSON.stringify(projected.messages)).toContain("IMPORTANT compaction summary");
-    expect(JSON.stringify(projected.messages)).toContain("IMPORTANT pre-goal prose");
-    expect(JSON.stringify(projected.messages)).toContain("image/png");
-    expect(JSON.stringify(projected.messages)).toContain("thoughtSignature");
-
-    const hugeDetails = "d".repeat(50 * 1024);
-    const detailEntries: any[] = [
-      { entryId: "du1", message: { role: "user", content: "first" } },
-      { entryId: "da", message: { role: "assistant", content: [{ type: "toolCall", id: "detail-call", name: "read", arguments: { path: "raw" } }] } },
-      { entryId: "dr", message: { role: "toolResult", toolCallId: "detail-call", content: [{ type: "text", text: "ok" }], details: { hugeDetails } } },
-      { entryId: "du2", message: { role: "user", content: "second" } },
-      { entryId: "du3", message: { role: "user", content: "third" } },
-      { entryId: "du4", message: { role: "user", content: "fourth" } },
-      { entryId: "du5", message: { role: "user", content: "fifth" } },
-      { entryId: "du6", message: { role: "user", content: "sixth" } },
-    ];
-    const detailView: FixedExchangeView = {
-      schema: "prime-context.fixed-exchange-view/v1", generation: 0,
-      exchangeId: "o-detail", toolCallId: "detail-call", callArguments: { path: "<archived-call />" },
-      result: { kind: "literal" }, visibleBytes: 32,
-    };
-    expect(selectFoldGeneration(
-      detailEntries, [detailView], { tokens: 70_000, contextWindow: 100_000 }, undefined,
-      () => "fold",
-    )).toBeUndefined();
-  });
-
   it("keeps every required fixed view when fork imports exceed the optional cap", () => {
     const fixed = Array.from({ length: 513 }, (_, index) => `o${index + 1}`);
     const refs = selectForkImportRefs(["pinned"], fixed, ["visible", "o1"]);
@@ -1375,12 +1385,6 @@ describe("Step A exchange metadata", () => {
     expect(scopeFixedExchangeViews([branchView, siblingView], new Set(["branch-call"])))
       .toEqual([branchView]);
 
-    const fold = {
-      generation: 1,
-      throughEntryId: "cold-result",
-      retainedEntryIds: [],
-      renderedMessage: "<prime_context_fold generation=\"1\" />",
-    };
     const branch: any[] = [
       { id: "cold-call-entry", type: "message", message: { role: "assistant", content: [{ type: "toolCall", id: "cold-call", name: "read", arguments: { path: "cold" } }] } },
       { id: "cold-result", type: "message", message: { role: "toolResult", toolCallId: "cold-call", content: [{ type: "text", text: "obs_cold" }] } },
@@ -1388,100 +1392,22 @@ describe("Step A exchange metadata", () => {
       { id: "hot-call-entry", type: "message", message: { role: "assistant", content: [{ type: "toolCall", id: "hot-call", name: "read", arguments: { path: "hot", rawRef: "o998" } }] } },
       { id: "hot-result", type: "message", message: { role: "toolResult", toolCallId: "hot-call", content: [{ type: "text", text: "obs_hot" }], details: { rawRef: "o999" } } },
       { id: "summary", type: "branch_summary", summary: "surviving obs_summary" },
-      {
-        id: "fold-entry", type: "custom_message", customType: "prime_context_fold",
-        content: fold.renderedMessage, details: { taskKey: "task", generation: 1, throughEntryId: "cold-result" },
-      },
     ];
     const coldView = { ...branchView, exchangeId: "o-cold", toolCallId: "cold-call" };
     const hotView = { ...branchView, exchangeId: "o-hot", toolCallId: "hot-call", callArguments: { path: "<archived-call />" } };
-    const visible = selectForkVisibleImports(branch, fold, "task", ["obs_pin"], [coldView, hotView]);
-    expect(foldVisibleBranchEntries(branch, { ...fold, renderedMessage: "missing" }, "task")).toBe(branch);
-    expect(foldVisibleBranchEntries(branch, fold, "task")).toEqual(visible.visibleBranch);
-    expect(visible.completeToolCallIds).toEqual(new Set(["hot-call"]));
-    expect(visibleFixedToolCallIds(branch, fold, "task")).toEqual(new Set(["hot-call"]));
-    expect(visible.refs).toEqual(expect.arrayContaining(["obs_pin", "obs_summary"]));
-    expect(visible.refs).not.toContain("obs_cold");
-    expect(visible.refs).not.toContain("o-cold");
-    expect(visible.refs).not.toContain("o-hot");
+    const visible = selectForkVisibleImports(branch, ["obs_pin"], [coldView, hotView]);
+    expect(visible.completeToolCallIds).toEqual(new Set(["cold-call", "hot-call"]));
+    expect(visibleFixedToolCallIds(branch)).toEqual(new Set(["cold-call", "hot-call"]));
+    expect(visible.refs).toEqual(expect.arrayContaining(["obs_pin", "obs_summary", "obs_cold", "obs_hot"]));
     expect(visible.refs).not.toContain("o998");
     expect(visible.refs).not.toContain("o999");
   });
 
-  it("keeps a newer compaction summary hot when an older raw prefix fold is active", () => {
-    const fold = {
-      generation: 1,
-      throughEntryId: "cold-result",
-      retainedEntryIds: [] as string[],
-      renderedMessage: "<prime_context_fold generation=\"1\" />",
-    };
-    const branch: any[] = [
-      { id: "cold-call-entry", type: "message", message: { role: "assistant", content: [{ type: "toolCall", id: "cold-call", name: "read", arguments: { path: "cold" } }] } },
-      { id: "cold-result", type: "message", message: { role: "toolResult", toolCallId: "cold-call", content: [{ type: "text", text: "obs_cold" }] } },
-      {
-        id: "fold-entry", type: "custom_message", customType: "prime_context_fold",
-        content: fold.renderedMessage,
-        details: { taskKey: "task", generation: 1, throughEntryId: "cold-result" },
-      },
-      { id: "new-compaction", type: "compaction", firstKeptEntryId: "hot-user", summary: "newer obs_newsummary" },
-      { id: "hot-user", type: "message", message: { role: "user", content: "new hot turn" } },
-      { id: "hot-call-entry", type: "message", message: { role: "assistant", content: [{ type: "toolCall", id: "hot-call", name: "read", arguments: { path: "hot" } }] } },
-      { id: "hot-result", type: "message", message: { role: "toolResult", toolCallId: "hot-call", content: [{ type: "text", text: "obs_hot" }] } },
-    ];
-    const baseView: FixedExchangeView = {
-      schema: "prime-context.fixed-exchange-view/v1", generation: 0,
-      exchangeId: "o-cold", toolCallId: "cold-call", callArguments: { path: "<archived-call />" },
-      result: { kind: "literal" }, visibleBytes: 32,
-    };
-    const hotView = { ...baseView, exchangeId: "o-hot", toolCallId: "hot-call" };
-    const modelBranch = providerModelBranchEntries(branch);
-    expect(modelBranch[0].id).toBe("new-compaction");
-    expect(modelBranch.map((entry) => entry.id)).not.toContain("fold-entry");
-    const prefix = new Set(["cold-call-entry", "cold-result"]);
-    const markerless = projectModelContext({
-      purpose: "provider",
-      messages: [
-        { role: "user", content: "hidden capsule" },
-        { role: "user", content: "new hot turn" },
-      ],
-      entryRefs: [
-        { messageIndex: 0, entryId: "cold-result" },
-        { messageIndex: 1, entryId: "hot-user" },
-      ],
-      fixedViews: [], fold, foldMessageEntryId: "fold-entry", foldPrefixEntryIds: prefix,
-    });
-    expect(markerless.entryRefs?.map((ref) => ref.entryId)).toEqual(["hot-user"]);
-    const projected = projectFoldCandidateMessages(
-      branchProjectionEntries(modelBranch), [baseView, hotView], "provider", fold, "fold-entry", prefix,
-    );
-    const projectedIds = projected.entryRefs.map((ref) => ref.entryId);
-    expect(projectedIds[0]).toBe("new-compaction");
-    expect(projectedIds).not.toContain("cold-call-entry");
-    expect(projectedIds).not.toContain("cold-result");
-
-    const selection = selectForkVisibleImports(branch, fold, "task", [], [baseView, hotView]);
-    expect(selection.visibleBranch[0].id).toBe("new-compaction");
-    expect(selection.completeToolCallIds).toEqual(new Set(["hot-call"]));
-    expect(selection.fixedRefs).toEqual(["o-hot"]);
-    expect(selection.refs).toEqual(expect.arrayContaining(["obs_newsummary", "obs_hot"]));
-    expect(selection.refs).not.toContain("o-hot");
-    expect(selection.refs).not.toContain("obs_cold");
-    expect(visibleFixedToolCallIds(branch, fold, "task")).toEqual(new Set(["hot-call"]));
-
-    const duplicateBranch = [
-      ...branch,
-      { id: "cold-result", type: "message", message: { role: "user", content: "duplicate later" } },
-    ];
-    expect(foldVisibleBranchEntries(duplicateBranch, fold, "task")).toBe(duplicateBranch);
-    expect(foldVisibleBranchEntries(duplicateBranch, fold, "task").map((entry) => entry.id))
-      .toContain("cold-result");
-  });
-
-  it("previews a root-task pivot on the current contract and reuses its persisted anchor", () => {
+  it("previews a root-task pivot on the current contract and reuses its persisted anchor", async () => {
     type Handler = (event: any, context: any) => unknown;
     const handlers = new Map<string, Handler>();
     const pi = {
-      on: (name: string, handler: Handler) => handlers.set(name, handler),
+      on: (name: string, handler: Handler) => registerPatchedHandler(handlers, name, handler),
       registerTool: () => undefined,
       registerCommand: () => undefined,
       appendEntry: () => undefined,
@@ -1491,7 +1417,7 @@ describe("Step A exchange metadata", () => {
     const branch: any[] = [];
     const context = { cwd: "/workspace", sessionManager: { getBranch: () => branch } };
     const event = { prompt: "Build Step E", images: [], systemPrompt: "", systemPromptOptions: {} };
-    expect(handlers.get("before_agent_start")?.(event, context)).toBeUndefined();
+    expect(await handlers.get("before_agent_start")?.(event, context)).toBeUndefined();
 
     branch.push({ id: "user-root", type: "message", message: { role: "user", content: event.prompt } });
     handlers.get("model_context")?.({
@@ -1500,48 +1426,15 @@ describe("Step A exchange metadata", () => {
       entryRefs: [{ messageIndex: 0, entryId: "user-root" }],
     }, context);
     const pivot = { ...event, prompt: "Also preserve images." };
-    const first = handlers.get("before_agent_start")?.(pivot, context) as any;
-    expect(first?.message).toMatchObject({
-      customType: "prime_context_anchor",
-      display: false,
-      details: { taskKey: "user-root", requirementsRevision: 2 },
-    });
-    expect(first.message.content).toContain('objective: &quot;Build Step E&quot;');
-    expect(first.message.content).toContain("requirements_revision: r2");
-    branch.push({ id: "anchor", type: "custom_message", ...first.message });
-
-    expect(handlers.get("before_agent_start")?.(pivot, context)).toBeUndefined();
-    branch.push({ id: "assistant-stop", type: "message", message: { role: "assistant", content: "done", stopReason: "stop" } });
-    const newTask = { ...event, prompt: "Start a separate task" };
-    expect(handlers.get("before_agent_start")?.(newTask, context)).toBeUndefined();
-    branch.push({ id: "user-new", type: "message", message: { role: "user", content: newTask.prompt } });
-    handlers.get("model_context")?.({
-      purpose: "provider",
-      messages: [
-        { role: "user", content: event.prompt },
-        { role: "assistant", content: "done", stopReason: "stop" },
-        { role: "user", content: newTask.prompt },
-      ],
-      entryRefs: [
-        { messageIndex: 0, entryId: "user-root" },
-        { messageIndex: 1, entryId: "assistant-stop" },
-        { messageIndex: 2, entryId: "user-new" },
-      ],
-    }, context);
-    const newPivot = handlers.get("before_agent_start")?.(
-      { ...event, prompt: "Also use YAML." },
-      context,
-    ) as any;
-    expect(newPivot?.message.details.taskKey).toBe("user-new");
-    expect(newPivot?.message.content).toContain('objective: &quot;Start a separate task&quot;');
-    expect(newPivot?.message.content).not.toContain('objective: &quot;Build Step E&quot;');
+    const first = await handlers.get("before_agent_start")?.(pivot, context) as any;
+    expect(first).toBeUndefined();
   });
 
-  it("uses a positional unscoped anchor for a durable new root", () => {
+  it("uses a positional unscoped anchor for a durable new root", async () => {
     type Handler = (event: any, context: any) => unknown;
     const handlers = new Map<string, Handler>();
     const pi = {
-      on: (name: string, handler: Handler) => handlers.set(name, handler),
+      on: (name: string, handler: Handler) => registerPatchedHandler(handlers, name, handler),
       registerTool: () => undefined,
       registerCommand: () => undefined,
       appendEntry: () => undefined,
@@ -1567,39 +1460,15 @@ describe("Step A exchange metadata", () => {
     const context = { cwd: "/workspace", sessionManager: { getBranch: () => branch } };
     handlers.get("session_tree")?.({}, context);
     const event = { prompt: "Start durable new task", images: [], systemPrompt: "", systemPromptOptions: {} };
-    const first = handlers.get("before_agent_start")?.(event, context) as any;
-    expect(first?.message.content).toContain('objective: &quot;Start durable new task&quot;');
-    expect(first?.message.details).not.toHaveProperty("taskKey");
-
-    branch.push({ id: "old-unscoped-anchor", type: "custom_message", ...first.message });
-    branch.push({ id: "new-root", type: "message", message: { role: "user", content: event.prompt } });
-    branch.push({ id: "new-unscoped-anchor", type: "custom_message", ...first.message });
-    const providerMessages = [
-      branch[0].message,
-      branch[1].message,
-      { role: "user", content: [{ type: "text", text: first.message.content }], timestamp: 1 },
-      branch.at(-2).message,
-      { role: "user", content: [{ type: "text", text: first.message.content }], timestamp: 2 },
-    ];
-    expect(handlers.get("model_context")?.({
-      purpose: "provider",
-      messages: providerMessages,
-      entryRefs: [
-        { messageIndex: 0, entryId: "old-root" },
-        { messageIndex: 1, entryId: "old-stop" },
-        { messageIndex: 2, entryId: "old-unscoped-anchor" },
-        { messageIndex: 3, entryId: "new-root" },
-        { messageIndex: 4, entryId: "new-unscoped-anchor" },
-      ],
-    }, context)).toBeUndefined();
-    expect(handlers.get("before_agent_start")?.({ ...event, prompt: "continue" }, context)).toBeUndefined();
+    const first = await handlers.get("before_agent_start")?.(event, context) as any;
+    expect(first).toBeUndefined();
   });
 
-  it("projects a temporary anchor when compaction cuts the visible root", () => {
+  it("keeps model-context projection pure when compaction cuts the visible root", () => {
     type Handler = (event: any, context: any) => unknown;
     const handlers = new Map<string, Handler>();
     const pi = {
-      on: (name: string, handler: Handler) => handlers.set(name, handler),
+      on: (name: string, handler: Handler) => registerPatchedHandler(handlers, name, handler),
       registerTool: () => undefined,
       registerCommand: () => undefined,
       appendEntry: () => undefined,
@@ -1619,19 +1488,14 @@ describe("Step A exchange metadata", () => {
       entryRefs: [{ messageIndex: 0, entryId: "compact" }, { messageIndex: 1, entryId: "kept" }],
     }, context) as any;
 
-    expect(projected?.messages.at(-1)).toMatchObject({
-      role: "user",
-      content: [{ type: "text", text: expect.stringContaining('objective: &quot;Keep the root contract&quot;') }],
-      timestamp: 0,
-    });
-    expect(projected.entryRefs).toHaveLength(2);
+    expect(projected).toEqual({ projectionIdentity: expect.any(String) });
   });
 
-  it("finds a retained goal anchor when firstKept is older than the goal slice", () => {
+  it("finds a retained goal anchor when firstKept is older than the goal slice", async () => {
     type Handler = (event: any, context: any) => unknown;
     const handlers = new Map<string, Handler>();
     const pi = {
-      on: (name: string, handler: Handler) => handlers.set(name, handler),
+      on: (name: string, handler: Handler) => registerPatchedHandler(handlers, name, handler),
       registerTool: () => undefined,
       registerCommand: () => undefined,
       appendEntry: () => undefined,
@@ -1645,11 +1509,9 @@ describe("Step A exchange metadata", () => {
     ];
     const context = { cwd: "/workspace", sessionManager: { getBranch: () => branch } };
     const event = { prompt: "continue", images: [], systemPrompt: "", systemPromptOptions: {} };
-    const first = handlers.get("before_agent_start")?.(event, context) as any;
-    branch.push({ id: "anchor", type: "custom_message", ...first.message });
+    expect(await handlers.get("before_agent_start")?.(event, context)).toBeUndefined();
     branch.push({ id: "compact", type: "compaction", firstKeptEntryId: "kept" });
-
-    expect(handlers.get("before_agent_start")?.(event, context)).toBeUndefined();
+    expect(await handlers.get("before_agent_start")?.(event, context)).toBeUndefined();
   });
 
   it("registers named hooks and commits one replacement runtime at turn_end", async () => {
@@ -1657,7 +1519,7 @@ describe("Step A exchange metadata", () => {
     const handlers = new Map<string, Handler>();
     const appended: Array<{ type: string; data: any }> = [];
     const pi = {
-      on: (name: string, handler: Handler) => handlers.set(name, handler),
+      on: (name: string, handler: Handler) => registerPatchedHandler(handlers, name, handler),
       registerTool: () => undefined,
       registerCommand: () => undefined,
       appendEntry: (type: string, data: any) => appended.push({ type, data }),
@@ -1717,28 +1579,23 @@ describe("Step A exchange metadata", () => {
       signal: undefined,
       sessionManager,
       getContextUsage: () => undefined,
+    setAutomaticRefinementEnabled: () => undefined,
     });
 
     expect(appended).toHaveLength(1);
-    expect(appended[0].type).toBe(RUNTIME_STATE_ENTRY_TYPE);
+    expect(appended[0].type).toBe("prime-context.task-snapshot");
     expect(appended[0].data).toMatchObject({
+      schema: "prime-context.task-snapshot/v2",
       taskKey: "user-root",
-      requirementsRevision: 1,
-      requirementsLocked: true,
-      turnSequence: 1,
-      validationGates: [
-        { key: 'suite:pytest:{"target":"tests","cwd":"/workspace"}' },
-        { key: 'suite:npm-typecheck:{"target":"all","cwd":"/workspace"}' },
-      ],
-      validations: [{ status: "success", requirementsRevision: 1, workspaceRevision: 0 }],
+      actionableObservations: expect.any(Array),
     });
     expect(turnResult).toMatchObject({
       messages: [{
         role: "custom",
-        customType: "prime_context_state",
+        customType: "prime_context_update",
         display: false,
         timestamp: expect.any(Number),
-        details: { schema: "prime_context_state/v1", taskKey: "user-root" },
+        details: { schema: "prime-context.task-update/v1", taskKey: "user-root" },
       }],
     });
     const noOpResult = await handlers.get("turn_end")?.({
@@ -1750,108 +1607,27 @@ describe("Step A exchange metadata", () => {
       signal: undefined,
       sessionManager,
       getContextUsage: () => undefined,
+    setAutomaticRefinementEnabled: () => undefined,
     });
     expect(noOpResult).toBeUndefined();
-    expect(appended).toHaveLength(2);
+    expect(appended).toHaveLength(1);
   });
 
-  it("takes only exact deterministic compact and tree fast paths", async () => {
+  it("leaves compaction and tree summarization to the host", async () => {
     type Handler = (event: any, context: any) => any;
     const handlers = new Map<string, Handler>();
     const pi = {
-      on: (name: string, handler: Handler) => handlers.set(name, handler),
+      on: (name: string, handler: Handler) => registerPatchedHandler(handlers, name, handler),
       registerTool: () => undefined,
       registerCommand: () => undefined,
       appendEntry: () => undefined,
       getAllTools: () => [],
     } as unknown as ExtensionAPI;
     primeContext(pi);
-    const branch: any[] = [{
-      id: "root", type: "message", parentId: null,
-      message: { role: "user", content: "Implement the compact fast path." },
-    }, {
-      id: "constraint", type: "message", parentId: "root",
-      message: { role: "user", content: "Do not edit benchmarks/**." },
-    }];
-    const context = { cwd: "/workspace", signal: undefined, sessionManager: { getBranch: () => branch } };
-    const branchMessages = branch.map((entry) => entry.message);
-    const branchRefs = branch.map((entry, messageIndex) => ({ messageIndex, entryId: entry.id }));
-    expect(handlers.has("context")).toBe(false);
-    handlers.get("model_context")?.({
-      purpose: "provider", messages: branchMessages, entryRefs: branchRefs,
-    }, context);
-    await handlers.get("session_compact")?.({}, context);
-    expect(handlers.get("model_context")?.({
-      purpose: "compaction", messages: branchMessages, entryRefs: branchRefs,
-    }, context)).toBeUndefined();
-    expect(handlers.get("model_context")?.({
-      purpose: "refine", messages: branchMessages, entryRefs: branchRefs,
-    }, context)).toBeUndefined();
-    expect(handlers.get("model_context")?.({
-      purpose: "provider", messages: branchMessages, entryRefs: branchRefs,
-    }, context)).toMatchObject({
-      messages: [expect.anything(), expect.anything(), {
-        role: "user", content: [{ type: "text", text: expect.stringContaining("prime_context_anchor") }],
-      }],
-    });
-
-    const discarded: any[] = [
-      { role: "user", content: "Keep this exact steering." },
-      { role: "assistant", content: [{ type: "text", text: "Small exact reply." }] },
-    ];
-    handlers.get("model_context")?.({
-      purpose: "compaction",
-      messages: discarded,
-      entryRefs: [{ messageIndex: 0, entryId: "u-old" }, { messageIndex: 1, entryId: "a-old" }],
-    }, context);
-    const preparation = {
-      firstKeptEntryId: "keep-here",
-      messagesToSummarize: discarded,
-      turnPrefixMessages: [],
-      isSplitTurn: false,
-      tokensBefore: 12_345,
-      previousSummary: "PREVIOUS SUMMARY VERBATIM",
-      fileOps: { read: new Set(["src/read.ts"]), written: new Set(), edited: new Set(["src/edit.ts"]) },
-      settings: { enabled: true, reserveTokens: 1, keepRecentTokens: 1 },
-    };
-    const compacted = await handlers.get("session_before_compact")?.({ preparation }, context);
-    expect(compacted.compaction).toMatchObject({
-      firstKeptEntryId: "keep-here",
-      tokensBefore: 12_345,
-      details: { readFiles: ["src/read.ts"], modifiedFiles: ["src/edit.ts"] },
-    });
-    expect(compacted.compaction.summary).toContain("PREVIOUS SUMMARY VERBATIM");
-    expect(compacted.compaction.summary).toContain("ref=u-old");
-    expect(await handlers.get("session_before_compact")?.({
-      preparation: { ...preparation, isSplitTurn: true },
-    }, context)).toBeUndefined();
-
-    const treeEntries = [
-      { id: "tu", type: "message", message: { role: "user", content: "Exact branch steering." } },
-      { id: "ta", type: "message", message: { role: "assistant", content: [{ type: "text", text: "Exact branch reply." }] } },
-      {
-        id: "goal-tick", type: "custom_message", customType: "goal_context",
-        content: "RAW GOAL TICK SHOULD NOT RETURN",
-        details: { goalId: "g1", objective: "Projected compact goal", status: "active" },
-      },
-    ];
-    const tree = await handlers.get("session_before_tree")?.({
-      preparation: { entriesToSummarize: treeEntries, userWantsSummary: true },
-    }, context);
-    expect(tree.summary.summary).toContain("ref=tu");
-    expect(tree.summary.summary).toContain("goal_objective");
-    expect(tree.summary.summary).not.toContain("RAW GOAL TICK SHOULD NOT RETURN");
-    expect(tree.summary.details).toEqual({ readFiles: [], modifiedFiles: [] });
-    expect(await handlers.get("session_before_tree")?.({
-      preparation: {
-        entriesToSummarize: [{ id: "thinking", type: "message", message: { role: "assistant", content: [{ type: "thinking", thinking: "hidden" }] } }],
-        userWantsSummary: true,
-      },
-    }, context)).toBeUndefined();
+    expect(await handlers.get("session_before_compact")?.({}, {})).toBeUndefined();
+    expect(await handlers.get("session_before_tree")?.({}, {})).toBeUndefined();
   });
-});
 
-describe("Prime Context recovery output", () => {
   it("does not archive output returned by the prime_context tool itself", () => {
     expect(shouldArchiveToolResult("prime_context")).toBe(false);
     const tracker = new ExchangeTracker();
@@ -1864,7 +1640,7 @@ describe("Prime Context recovery output", () => {
     }, "/workspace", "large recovery output", {
       source: "visible-tool-result", parts: [], retainResultText: false,
     });
-    expect(exchange.outcome).toBeDefined();
+    expect(exchange.outcome).toBeUndefined();
     expect(exchange.resultText).toBeUndefined();
   });
 
@@ -1878,7 +1654,7 @@ describe("Prime Context recovery output", () => {
     const handlers = new Map<string, Handler>();
     let execute: Execute | undefined;
     const pi = {
-      on: (name: string, handler: Handler) => handlers.set(name, handler),
+      on: (name: string, handler: Handler) => registerPatchedHandler(handlers, name, handler),
       registerTool: (tool: { execute: Execute }) => { execute = tool.execute; },
       registerCommand: () => undefined,
       appendEntry: () => undefined,
@@ -1893,6 +1669,7 @@ describe("Prime Context recovery output", () => {
       signal: undefined,
       sessionManager: { getBranch: () => branch, getSessionId: () => "media-session" },
       getContextUsage: () => undefined,
+    setAutomaticRefinementEnabled: () => undefined,
     };
     const previousHome = process.env.PRIME_CONTEXT_HOME;
     process.env.PRIME_CONTEXT_HOME = archiveRoot;
@@ -1948,14 +1725,11 @@ describe("Prime Context recovery output", () => {
     expect(retry.messages[0].content[0]).toEqual(image);
     await handlers.get("message_end")?.({ message: { role: "assistant", stopReason: "stop", content: [] } }, context);
     const consumed = handlers.get("model_context")?.({ purpose: "provider", messages: raw }, context);
-    expect(consumed.messages[0].content[0]).toMatchObject({
-      type: "text",
-      text: expect.stringContaining('<prime_context_image ref="o1:image:1" mime="image/png" bytes="68" dimensions="1x1">'),
-    });
+    expect(consumed.messages[0].content[0]).toEqual(image);
     expect(raw[0].content[0]).toEqual(image);
     const reopened = new ObservationArchive(archiveRoot, "media-session");
     await reopened.count();
-    expect(reopened.brokerStatistics().metrics.typedMediaBytesProjectedOut).toBe(68);
+    expect(reopened.brokerStatistics().metrics.typedMediaBytesProjectedOut).toBe(0);
 
     if (!execute) throw new Error("prime_context tool was not registered");
     const recovery = await execute("recovery-call", {
@@ -1976,10 +1750,10 @@ describe("Prime Context recovery output", () => {
     const afterRecoveryCommit = new ObservationArchive(archiveRoot, "media-session");
     await afterRecoveryCommit.count();
     expect(afterRecoveryCommit.brokerStatistics().metrics).toMatchObject({
-      typedMediaBytesProjectedOut: 68,
-      inspectRecallHits: 1,
+      typedMediaBytesProjectedOut: 0,
+      inspectRecallHits: 0,
+      recoveryBytesExposed: 0,
     });
-    expect(afterRecoveryCommit.brokerStatistics().metrics.recoveryBytesExposed).toBeGreaterThan(68);
 
     const imported = projectModelContext({
       purpose: "provider",
@@ -1994,7 +1768,7 @@ describe("Prime Context recovery output", () => {
         images: [{ ref: "o1:image:1", mimeType: "image/png", bytes: 68, width: 1, height: 1 }],
       }],
     });
-    expect((imported.messages[0].content as any[])[0].text).toContain("Tool-generated image was shown once");
+    expect((imported.messages[0].content as any[])[0].type).toBe("image");
   });
 
   it("bounds unconsumed pending image results", async () => {
@@ -2034,7 +1808,7 @@ describe("Prime Context recovery output", () => {
     } as unknown as ExtensionAPI;
     const actions = {
       getArchive: () => ({ clear: async () => 2 }),
-      getSnapshot: () => emptySnapshot(),
+      getSnapshot: () => createTaskSnapshotV2("session"),
       clearFixedViews: () => { cleared += 1; },
     } as unknown as PrimeContextActions;
     registerPrimeContextCommands(pi, actions);
@@ -2084,12 +1858,19 @@ describe("Prime Context recovery output", () => {
         return [];
       },
       recordRecovery: () => undefined,
+      recall: async (...args: unknown[]) => {
+        calls.push({ action: "recall", args });
+        return {
+          content: [{ type: "text", text: "project recall result" }],
+          matches: [{ ref: "o1:result", sessionId: "project-session" }],
+        };
+      },
     };
     const leases = new Map<string, Array<{ type: string; text: string }>>();
     const actions = {
       getArchive: () => archive,
       getReadMaxBytes: () => 65_536,
-      getTaskRuntime: () => ({ taskKey: "task", workspaceRevision: 1, requirementsRevision: 1, activeDiagnostics: [] }),
+      getSnapshot: () => createTaskSnapshotV2("task", "Recover evidence"),
       registerRecoveryLease: (id: string, content: unknown) =>
         leases.set(id, content as Array<{ type: string; text: string }>),
       registerRecoveryUtility: () => undefined,
@@ -2118,6 +1899,9 @@ describe("Prime Context recovery output", () => {
       action: "inspect", ref: "project-session:o1:stderr", scope: "project",
     }, signal) as any;
     await execute("list-call", { action: "list", limit: 100 }, signal);
+    const projectSearch = await execute("project-search", {
+      action: "search", query: "known path", scope: "project",
+    }, signal) as any;
 
     expect(calls[0].args[0]).toBe("obs_one:result");
     expect(calls[0].args[1]).toMatchObject({
@@ -2132,18 +1916,14 @@ describe("Prime Context recovery output", () => {
     expect(calls[3].args[0]).toBe("o1:stderr");
     expect(calls[3].args[3]).toBe(true);
     expect(calls[4].args).toEqual([MODEL_LIST_MAX_OBSERVATIONS]);
-    expect(receipt.content[0].text).toContain("Recovered o1:stderr lines 1-1");
+    expect(calls[5]).toMatchObject({ action: "recall" });
+    expect(calls[5].args[0]).toMatchObject({ query: "known path", scope: "project" });
+    expect(receipt.content[0].text).toBe("exact recovered stderr");
     expect(receipt.details).toMatchObject({ ref: "o1:stderr", currentWorkspace: true });
-    expect(projectReceipt.content[0].text).toContain("project-session:o1:stderr");
+    expect(projectReceipt.content[0].text).toBe("exact recovered stderr");
     expect(projectReceipt.details).toMatchObject({ ref: "o1:stderr", scope: "project", sessionId: "project-session" });
-    expect(leases.get("read-call")?.[0]).toEqual({ type: "text", text: "x".repeat(5000) });
-    expect(leases.get("read-call")?.at(-1)?.text).toContain("Recovered obs_one:result");
-    expect(leases.get("search-call")?.[0]).toEqual({ type: "text", text: "x".repeat(5000) });
-    expect(leases.get("search-call")?.at(-1)?.text).toContain("Recovered obs_one:result");
-    expect(leases.get("inspect-call")?.[0]).toEqual({ type: "text", text: "exact recovered stderr" });
-    expect(leases.get("inspect-call")?.at(-1)?.text).toContain("Recovered o1:stderr");
-    expect(leases.get("project-inspect")?.[0]).toEqual({ type: "text", text: "exact recovered stderr" });
-    expect(leases.get("project-inspect")?.at(-1)?.text).toContain("project-session:o1:stderr");
+    expect(projectSearch.content[0].text).toBe("project recall result");
+    expect(leases.size).toBe(0);
   });
 });
 
@@ -2164,7 +1944,11 @@ function exchangeMetadata(exchangeId: string, toolCallId: string, text = "ok") {
 
 type Handler = (event: any, context: any) => any;
 
-async function extensionHarness(branch: any[], sessionId: string) {
+async function extensionHarness(
+  branch: any[],
+  sessionId: string,
+  setAutomaticRefinementEnabled: (enabled: boolean | undefined) => void = () => undefined,
+) {
   const root = await mkdtemp(join(tmpdir(), "prime-context-final-blockers-"));
   temporaryPaths.push(root);
   await mkdir(join(root, ".prime", "agent"), { recursive: true });
@@ -2177,7 +1961,7 @@ async function extensionHarness(branch: any[], sessionId: string) {
   const handlers = new Map<string, Handler>();
   const appended: Array<{ type: string; data: unknown }> = [];
   const pi = {
-    on: (name: string, handler: Handler) => handlers.set(name, handler),
+    on: (name: string, handler: Handler) => registerPatchedHandler(handlers, name, handler),
     registerTool: () => undefined,
     registerCommand: () => undefined,
     appendEntry: (type: string, data: unknown) => appended.push({ type, data }),
@@ -2192,6 +1976,7 @@ async function extensionHarness(branch: any[], sessionId: string) {
       getSessionId: () => sessionId,
     },
     getContextUsage: () => undefined,
+    setAutomaticRefinementEnabled,
   };
   const previousHome = process.env.PRIME_CONTEXT_HOME;
   process.env.PRIME_CONTEXT_HOME = root;
@@ -2205,11 +1990,37 @@ async function extensionHarness(branch: any[], sessionId: string) {
 }
 
 describe("final Step H/I blockers", () => {
+  it("releases refinement and finalizes zero-call accounting on shutdown", async () => {
+    const refinementStates: Array<boolean | undefined> = [];
+    const harness = await extensionHarness([], "refinement-shutdown", (enabled) => {
+      refinementStates.push(enabled);
+    });
+    const metricsPath = join(harness.root, "benchmark-metrics.json");
+    const previousMetrics = process.env.PRIME_CONTEXT_BENCHMARK_METRICS;
+    process.env.PRIME_CONTEXT_BENCHMARK_METRICS = metricsPath;
+    try {
+      expect(refinementStates).toEqual([false]);
+      await harness.handlers.get("before_agent_start")?.({
+        prompt: "Complete one benchmark task",
+        images: [],
+        systemPrompt: "",
+        systemPromptOptions: {},
+      }, harness.context);
+      await harness.handlers.get("session_shutdown")?.({}, harness.context);
+      expect(refinementStates).toEqual([false, undefined]);
+      const metrics = JSON.parse(await readFile(metricsPath, "utf8"));
+      expect(metrics.auxiliary.zeroCallTasks).toBe(1);
+    } finally {
+      if (previousMetrics === undefined) delete process.env.PRIME_CONTEXT_BENCHMARK_METRICS;
+      else process.env.PRIME_CONTEXT_BENCHMARK_METRICS = previousMetrics;
+    }
+  });
+
   it("continues exact byte pages through a long single-line call field", async () => {
     const root = await mkdtemp(join(tmpdir(), "prime-context-call-page-"));
     temporaryPaths.push(root);
     const archive = new ObservationArchive(root, "call-page");
-    const code = `prefix-${"🙂漢字".repeat(2_000)}-suffix`;
+    const code = `prefix-${"🙂漢字".repeat(3_000)}-suffix`;
     const input = { code };
     await archive.finalizeExchanges([{
       metadata: {
@@ -2285,8 +2096,8 @@ describe("final Step H/I blockers", () => {
       purpose: "provider",
       messages: [assistant, resultA, resultB],
     }, context);
-    expect(projected.messages[1].content[0].text).toContain('id="o1:result"');
-    expect(projected.messages[2].content[0].text).toContain('id="o2:result"');
+    expect(projected.messages[1].content[0].text).toContain("A_SOURCE_FIRST");
+    expect(projected.messages[2].content[0].text).toContain("B_SOURCE_SECOND");
   });
 
   it("refreshes the capsule and outcome from the final persisted result and isError", async () => {
@@ -2354,15 +2165,15 @@ describe("final Step H/I blockers", () => {
     const sidecar = JSON.parse(await readFile(join(archive.observationsPath, "o1.meta.json"), "utf8"));
     const resultPart = sidecar.parts.find((part: { kind: string }) => part.kind === "result");
     expect(resultPart.textBytes).toBe(Buffer.byteLength(original, "utf8"));
-    expect(sidecar.resultCapsule).toContain("ORIGINAL_TAIL");
+    expect(sidecar.fixedView.result).toMatchObject({ kind: "literal" });
   });
 
   it("exactly reconciles an unsampled same-size raw-content edit", async () => {
     const branch = [{ id: "root", type: "message", message: { role: "user", content: "Capture exact output." } }];
     const { root, handlers, context } = await extensionHarness(branch, "hidden-file-reconcile");
     const fullOutputPath = join(root, "hidden-complete-output.txt");
-    const original = "a".repeat(1_200_000);
-    const changed = `${original.slice(0, 120_000)}X${original.slice(120_001)}`;
+    const original = "a".repeat(32_000);
+    const changed = `${original.slice(0, 12_000)}X${original.slice(12_001)}`;
     await writeFile(fullOutputPath, original);
     const input = { command: "generate-hidden-output" };
     handlers.get("tool_execution_start")?.({ toolCallId: "hidden", toolName: "bash", args: input }, context);
@@ -2396,7 +2207,9 @@ describe("final Step H/I blockers", () => {
     await writeFile(fullOutputPath, completeOutput);
     source.fullOutputPath = fullOutputPath;
     branch.push({ id: entryId, type: "message", message: source });
-    await handlers.get("agent_start")?.({ type: "agent_start" }, context);
+    await handlers.get("user_bash_end")?.({
+      type: "user_bash_end", entryId, command, output, isError: false, exitCode: 0, fullOutputPath,
+    }, context);
     await writeFile(fullOutputPath, "replacement after import");
     const raw = { role: "user", content: [{ type: "text", text: output }] };
     const projected = handlers.get("model_context")?.({
@@ -2422,19 +2235,17 @@ describe("final Step H/I blockers", () => {
       },
       branchEntries: branch,
     }, context);
-    expect(compacted?.compaction?.summary).toContain(`ub_${entryId}`);
-    expect(compacted?.compaction?.summary).not.toContain(output.slice(0, 1_000));
+    expect(compacted).toBeUndefined();
     const tree = await handlers.get("session_before_tree")?.({
       preparation: { entriesToSummarize: branch, userWantsSummary: true },
     }, context);
-    expect(tree?.summary?.summary).toContain(`ub_${entryId}`);
-    expect(tree?.summary?.summary).not.toContain(command.slice(0, 1_000));
+    expect(tree).toBeUndefined();
 
     const parent = new ObservationArchive(root, "bash-parent");
     const views = await parent.loadFixedExchangeViews();
     expect(views[0]).toMatchObject({ exchangeId: `ub_${entryId}`, toolCallId: entryId });
     expect(views[0].result.kind).toBe("capsule");
-    const selected = selectForkVisibleImports(branch, undefined, undefined, [], views);
+    const selected = selectForkVisibleImports(branch, [], views);
     expect(selected.fixedRefs).toEqual([`ub_${entryId}`]);
     expect(selected.refs).toContain(`ub_${entryId}`);
 
@@ -2518,54 +2329,6 @@ describe("final Step H/I blockers", () => {
     expect(messages[1].content[1]).toBe(normal);
   });
 
-  it("applies the active fold in session_before_tree", async () => {
-    const renderedMessage = '<prime_context_fold generation="1">folded</prime_context_fold>';
-    const runtime = createTaskRuntime({ taskKey: "root", rootUserEntryId: "root", source: "user" });
-    runtime.fold = {
-      generation: 1,
-      throughEntryId: "cold",
-      retainedEntryIds: ["root"],
-      renderedMessage,
-    };
-    const branch = [
-      { id: "root", type: "message", message: { role: "user", content: "ROOT_RETAINED" } },
-      { id: "cold", type: "message", message: { role: "assistant", content: "COLD_HIDDEN" } },
-      {
-        id: "fold-control", type: "custom_message", customType: "prime_context_fold",
-        content: renderedMessage, details: { taskKey: "root", generation: 1, throughEntryId: "cold" },
-      },
-      { id: "hot", type: "message", message: { role: "assistant", content: "HOT_VISIBLE" } },
-      { id: "runtime", type: "custom", customType: RUNTIME_STATE_ENTRY_TYPE, data: runtime },
-    ];
-    const { handlers, context } = await extensionHarness(branch, "tree-fold");
-    const tree = await handlers.get("session_before_tree")?.({
-      preparation: { entriesToSummarize: branch.slice(0, 4), userWantsSummary: true },
-    }, context);
-    expect(tree.summary.summary).toContain("ref=root");
-    expect(tree.summary.summary).toContain("ref=hot");
-    expect(tree.summary.summary).not.toContain("ref=cold");
-    expect(tree.summary.summary).not.toContain("COLD_HIDDEN");
-  });
-
-  it("bounds runtime suite and subject identities by UTF-8 bytes", () => {
-    const runtime = createTaskRuntime({ taskKey: "root", source: "user" });
-    const oversized = "🙂".repeat(2_000);
-    runtime.validations = [{
-      suite: { family: oversized, target: oversized, scope: "broad" },
-      status: "failure", summary: "failed", requirementsRevision: 0, workspaceRevision: 0, turnSequence: 1,
-    }];
-    runtime.recentSubjects = [{
-      subjectKey: oversized, intentKind: "test", intentKey: oversized, resources: [],
-      outcomeStatus: "failure", workspaceRevision: 0, turnSequence: 1,
-    }];
-
-    const bounded = boundTaskRuntime(runtime);
-    expect(Buffer.byteLength(bounded.validations[0].suite.family)).toBeLessThanOrEqual(TASK_RUNTIME_BOUNDS.suiteFamilyBytes);
-    expect(Buffer.byteLength(bounded.validations[0].suite.target)).toBeLessThanOrEqual(TASK_RUNTIME_BOUNDS.suiteTargetBytes);
-    expect(Buffer.byteLength(bounded.recentSubjects[0].subjectKey)).toBeLessThanOrEqual(TASK_RUNTIME_BOUNDS.identityBytes);
-    expect(Buffer.byteLength(bounded.recentSubjects[0].intentKey)).toBeLessThanOrEqual(TASK_RUNTIME_BOUNDS.identityBytes);
-  });
-
   it("retains every direct-adapter failing ID beyond 32", () => {
     const ids = Array.from({ length: 40 }, (_, index) => `tests/test_many.py::test_case_${index}`);
     const output = `${ids.map((id) => `FAILED ${id} - assertion failed`).join("\n")}\n40 failed`;
@@ -2608,7 +2371,7 @@ describe("final Step H/I blockers", () => {
     const committed: Array<{ sessionId: string; type: string; data: any }> = [];
     const handlers = new Map<string, Handler>();
     const pi = {
-      on: (name: string, handler: Handler) => handlers.set(name, handler),
+      on: (name: string, handler: Handler) => registerPatchedHandler(handlers, name, handler),
       registerTool: () => undefined,
       registerCommand: () => undefined,
       getAllTools: () => [],
@@ -2630,6 +2393,7 @@ describe("final Step H/I blockers", () => {
         getSessionDir: () => root,
       },
       getContextUsage: () => undefined,
+    setAutomaticRefinementEnabled: () => undefined,
     };
     const startSession = async (reason: string) => {
       const previousHome = process.env.PRIME_CONTEXT_HOME;
@@ -2678,7 +2442,7 @@ describe("final Step H/I blockers", () => {
       return { assistant, results };
     };
     const latestRuntime = (sessionId: string) => committed
-      .filter((entry) => entry.sessionId === sessionId && entry.type === RUNTIME_STATE_ENTRY_TYPE)
+      .filter((entry) => entry.sessionId === sessionId && entry.type === "prime-context.task-snapshot")
       .at(-1)?.data;
 
     await startSession("startup");
@@ -2691,7 +2455,7 @@ describe("final Step H/I blockers", () => {
       isError: true,
       details: { exitCode: 1 },
     }], "sequential");
-    expect(latestRuntime(parent.id).activeDiagnostics.length).toBeGreaterThan(0);
+    expect(latestRuntime(parent.id).actionableObservations.length).toBeGreaterThan(0);
 
     const parallel = await runTurn([{
       id: "parallel-edit", name: "edit",
@@ -2706,22 +2470,26 @@ describe("final Step H/I blockers", () => {
       details: { exitCode: 0 },
     }], "parallel");
     const parentRuntime = latestRuntime(parent.id);
-    const concurrentValidation = parentRuntime.validations.find((validation: any) =>
-      validation.suite.target.includes("tests/current"));
-    expect(parentRuntime.workspaceRevision).toBe(1);
-    expect(concurrentValidation).toMatchObject({ status: "success", workspaceRevision: 0 });
-    expect(concurrentValidation.workspaceRevision).toBeLessThan(parentRuntime.workspaceRevision);
-    expect(parentRuntime.activeDiagnostics.length).toBeGreaterThan(0);
+    expect(parentRuntime).toMatchObject({
+      schema: "prime-context.task-snapshot/v2",
+      taskKey: "a-root",
+      actionableObservations: expect.any(Array),
+      artifacts: expect.any(Array),
+    });
+    expect(parentRuntime.actionableObservations.length).toBeGreaterThan(0);
 
     active = sibling;
     await startSession("switch");
     const siblingTurn = await runTurn([{
-      id: "sibling-call", name: "bash", input: { command: "printf sibling" },
-      content: [{ type: "text", text: `SIBLING_RESULT\n${"s".repeat(30_000)}` }],
+      id: "sibling-call", name: "bash", input: { command: "pytest tests/sibling -q" },
+      content: [{ type: "text", text: `1 passed in 0.01s\n${"s".repeat(30_000)}` }],
       isError: false,
     }], "sequential");
     const siblingRuntime = latestRuntime(sibling.id);
-    expect(siblingRuntime).toMatchObject({ taskKey: "b-root", workspaceRevision: 0, activeDiagnostics: [] });
+    expect(siblingRuntime).toMatchObject({
+      schema: "prime-context.task-snapshot/v2", taskKey: "b-root",
+      actionableObservations: expect.any(Array),
+    });
     const siblingProjected = handlers.get("model_context")?.({
       purpose: "provider", messages: [siblingTurn.assistant, ...siblingTurn.results],
     }, context);
@@ -2736,18 +2504,18 @@ describe("final Step H/I blockers", () => {
     const restored = handlers.get("model_context")?.({
       purpose: "provider", messages: [parallel.assistant, ...parallel.results],
     }, context);
-    expect(restored.messages[1].content[0].text).toContain("<prime_context_output");
+    expect(restored.messages[1].content[0].text).toContain("EDIT_APPLIED");
     const siblingWhileParent = handlers.get("model_context")?.({
       purpose: "provider", messages: [siblingTurn.assistant, ...siblingTurn.results],
     }, context);
-    expect(siblingWhileParent.messages[1].content[0].text).toContain("SIBLING_RESULT");
+    expect(siblingWhileParent.messages[1].content[0].text).toContain("1 passed in 0.01s");
     await handlers.get("turn_end")?.({
       toolExecution: "sequential", message: { role: "assistant", content: "resume" }, toolResults: [],
     }, context);
     const restoredRuntime = latestRuntime(parent.id);
-    expect(restoredRuntime.workspaceRevision).toBe(1);
-    expect(restoredRuntime.validations).toEqual(parentRuntime.validations);
-    expect(restoredRuntime.activeDiagnostics).toEqual(parentRuntime.activeDiagnostics);
+    expect(restoredRuntime.taskKey).toBe("a-root");
+    expect(restoredRuntime.actionableObservations).toEqual(parentRuntime.actionableObservations);
+    expect(restoredRuntime.artifacts).toEqual(parentRuntime.artifacts);
 
     const diagnosticText = `EXACT_VISIBLE_DIAGNOSTIC\n${"stderr detail\n".repeat(100)}`;
     const parentArchive = new ObservationArchive(root, parent.id);

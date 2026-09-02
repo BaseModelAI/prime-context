@@ -1,0 +1,33 @@
+{
+  "schema": "prime-context.python-realworld-task/v1",
+  "id": 8,
+  "slug": "travel-itinerary-repair",
+  "title": "Travel Itinerary Repair",
+  "pressure": "L",
+  "timeout_seconds": 900,
+  "editable_paths": [
+    "solution/",
+    "output/"
+  ],
+  "initial_prompt": "Read TASK.md and complete the requested workflow using only the Python standard library.",
+  "stages": [
+    {
+      "id": "initial",
+      "inject": "visible/",
+      "message": "Read TASK.md and complete the requested workflow using only the Python standard library.",
+      "compact_after": false
+    },
+    {
+      "id": "updates",
+      "inject": "stages/updates/",
+      "message": "`inputs/updates.json` contains revised and cancelled segments, and `inputs/alternatives.csv` contains replacement choices. Apply the highest revision per segment. For each broken connection caused by the update, choose the earliest-arriving alternative that satisfies the connection rules; break ties by price then alternative ID. Add `output/rebook.csv` and regenerate the timeline and issues.",
+      "compact_after": false
+    }
+  ],
+  "judge_command": [
+    "python",
+    "judge.py",
+    "--workspace",
+    "{workspace}"
+  ]
+}

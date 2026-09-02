@@ -1,0 +1,6 @@
+{
+  "id": "receipt-corrections",
+  "inject": "stages/receipt-corrections/",
+  "message": "inputs/receipt_corrections.json voids or replaces selected receipt records by record_id (the receipt_id in goods_receipts.json). Remove a voided record; replace a selected record with its replacement object. Apply corrections before aggregation and regenerate every output.",
+  "compact_after": false
+}

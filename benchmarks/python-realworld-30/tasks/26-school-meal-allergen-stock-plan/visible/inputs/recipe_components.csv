@@ -1,0 +1,12 @@
+recipe_id,component_kind,component_id,quantity
+tomato_sauce,ingredient,tomato,80
+tomato_sauce,ingredient,olive_oil,5
+tomato_sauce,ingredient,spice,1
+pizza,ingredient,flour,100
+pizza,ingredient,cheese,30
+pizza,recipe,tomato_sauce,0.5
+pasta,ingredient,flour,80
+pasta,recipe,tomato_sauce,0.75
+bean_bowl,ingredient,rice,100
+bean_bowl,ingredient,beans,80
+bean_bowl,ingredient,spice,2

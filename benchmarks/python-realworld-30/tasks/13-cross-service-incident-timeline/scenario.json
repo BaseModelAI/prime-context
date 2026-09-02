@@ -1,0 +1,46 @@
+{
+  "schema": "prime-context.python-realworld-task/v1",
+  "id": 13,
+  "slug": "cross-service-incident-timeline",
+  "title": "Cross-Service Incident Timeline",
+  "pressure": "H",
+  "timeout_seconds": 1800,
+  "editable_paths": [
+    "solution/",
+    "output/",
+    "monitor/"
+  ],
+  "initial_prompt": "Read TASK.md and complete the requested workflow using only the Python standard library.",
+  "stages": [
+    {
+      "id": "initial",
+      "inject": "visible/",
+      "message": "Read TASK.md and complete the requested workflow using only the Python standard library.",
+      "compact_after": true
+    },
+    {
+      "id": "recovered-db",
+      "inject": "stages/recovered-db/",
+      "message": "A delayed database log batch was recovered as `inputs/logs/db-extra.log.gz`. Re-run the analysis and update the report. Distinguish the earliest causal event from the first user-visible failure. Keep exactly three primary source anchors: the causal change, the first application failure, and the first user-visible failure.",
+      "compact_after": false
+    },
+    {
+      "id": "clock-offsets",
+      "inject": "stages/clock-offsets/",
+      "message": "`inputs/clock_offsets.json` now gives service clock offsets in milliseconds. The file defines the sign convention: the service clock equals UTC plus its listed offset, so subtract the offset from each raw instant. Normalize `timestamp_utc`, preserve every `raw_timestamp`, re-sort the timeline, and update every source anchor. The known incident is tied to a deployment release; name the release and the exact schema operation that caused the failures.",
+      "compact_after": true
+    },
+    {
+      "id": "stream-monitor",
+      "inject": "stages/stream-monitor/",
+      "message": "Repair `monitor/monitor.py`. It receives mixed log lines on stdin and must write either no output or exactly one JSON object followed by a newline. Detect the earliest deployment schema operation containing `DROP COLUMN <column>` followed, for the same release and column, by application `UNDEFINED_COLUMN` records from 0 through 90 seconds later (inclusive), using the instants encoded in those input lines. Emit after EOF with exactly these keys: `release_id`, `column`, `causal_timestamp`, `first_application_error_timestamp`, and `affected_request_count`. Timestamps use normalized UTC milliseconds and the count is the number of distinct nonempty affected request IDs in that 90-second window. Keep the batch timeline outputs and all earlier behavior.",
+      "compact_after": false
+    }
+  ],
+  "judge_command": [
+    "python",
+    "judge.py",
+    "--workspace",
+    "{workspace}"
+  ]
+}

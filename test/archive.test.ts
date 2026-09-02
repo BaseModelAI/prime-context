@@ -164,7 +164,7 @@ describe("observation archive", () => {
     const root = await mkdtemp(join(tmpdir(), "prime-context-v2-"));
     temporaryPaths.push(root);
     const archive = new ObservationArchive(root, "session-v2");
-    const persistedInput = { code: `print(1)\n${"x".repeat(8200)}` };
+    const persistedInput = { code: `print(1)\n${"x".repeat(25_000)}` };
     const resultText = Array.from({ length: 80 }, (_, index) => `result ${index}`).join("\n");
     const ipythonEvent = {
       type: "tool_result",
@@ -227,7 +227,7 @@ describe("observation archive", () => {
       suite: { family: "pytest", target: "tests/", scope: "broad" as const },
     };
     const largeObject = Object.fromEntries(
-      Array.from({ length: 500 }, (_, index) => [`field_${499 - index}`, `value-${index}-${"z".repeat(16)}`]),
+      Array.from({ length: 1_200 }, (_, index) => [`field_${1_199 - index}`, `value-${index}-${"z".repeat(16)}`]),
     );
     const largeCustomInput = { label: "small", payload: largeObject };
 
@@ -324,7 +324,9 @@ describe("observation archive", () => {
     ))).toEqual(Buffer.from("attachment bytes"));
 
     const current = { taskKey: "task", requirementsRevision: 2, workspaceRevision: 5 };
-    const inspectedCall = await archive.inspect("o1:call#/code", { current });
+    const inspectedCall = await archive.inspect("o1:call#/code", {
+      current, maxBytes: Buffer.byteLength(persistedInput.code),
+    });
     expect(inspectedCall.content).toEqual([{ type: "text", text: persistedInput.code }]);
     expect(inspectedCall.details).toMatchObject({
       ref: "o1:call#/code",
@@ -441,7 +443,7 @@ describe("observation archive", () => {
       toolName: "custom", isError: false, persistedModelInput,
       source: "visible-tool-result", parts: [{ name: "result", kind: "result", mediaType: "text/plain", text: "ok" }],
       resultText: "ok", largeResult: true,
-    }]);
+    }], undefined, { budgetBytes: 8192, capsuleMaxBytes: 1024 });
     const [view] = await archive.loadFixedExchangeViews();
     expect(Buffer.byteLength(JSON.stringify(view.callArguments), "utf8")).toBeLessThanOrEqual(8192);
     expect(view.callArguments).toMatchObject({ ok: 1 });
@@ -631,7 +633,7 @@ describe("observation archive", () => {
     expect(literal.result).toEqual({ kind: "literal" });
     expect((await archive.findObservation("o3")).partRefs).not.toContain("o3:result");
 
-    const shellCommand = `cat <<'EOF' > generated.txt\n${"payload line\n".repeat(900)}EOF`;
+    const shellCommand = `cat <<'EOF' > generated.txt\n${"payload line\n".repeat(2_000)}EOF`;
     const shellInput = { command: shellCommand };
     const shellIntent = adaptToolIntent({
       exchangeId: "o5", toolCallId: "call-shell", toolName: "bash",
@@ -811,7 +813,7 @@ describe("observation archive", () => {
     expect((await archive.list())[0]).toMatchObject({ id: "obs_legacy", relativeFile });
   });
 
-  it("archives an exact repeated medium result on its second appearance", async () => {
+  it("archives exact medium repeats only within the same tool subject", async () => {
     const root = await mkdtemp(join(tmpdir(), "prime-context-medium-"));
     temporaryPaths.push(root);
     const archive = new ObservationArchive(root, "session-medium");
@@ -826,8 +828,7 @@ describe("observation archive", () => {
     expect(second).not.toBeNull();
     expect(third).not.toBeNull();
     expect(utf8Bytes((second?.content[0] as { text: string }).text)).toBeLessThanOrEqual(1536);
-    expect(otherTool).not.toBeNull();
-    expect((otherTool?.content[0] as { text: string }).text).toContain("Unchanged since previous observation.");
+    expect(otherTool).toBeNull();
 
     const distinct = new ObservationArchive(root, "session-distinct-medium");
     expect(await distinct.archiveVisibleContent([{ type: "text", text: medium }], "ipython", false, 24576, 6144)).toBeNull();
@@ -877,7 +878,7 @@ describe("observation archive", () => {
       lineCount: 2,
       representativeLines: successful.split("\n"),
       outcome,
-    })).toMatchObject({ kind: "delta", reason: "outcome" });
+    })).toMatchObject({ kind: "structured" });
 
     const exact = new ObservationBroker();
     expect(exact.observe("bash", successful, false, {
@@ -891,7 +892,7 @@ describe("observation archive", () => {
       textBytes: utf8Bytes(successful),
       lineCount: 2,
       representativeLines: [],
-    })).toMatchObject({ kind: "delta", reason: "exact" });
+    })).toMatchObject({ kind: "structured" });
 
     const base = Array.from({ length: 100 }, (_, index) =>
       `line ${index.toString().padStart(3, "0")} ${"content ".repeat(5)}`);
@@ -988,8 +989,6 @@ describe("observation archive", () => {
       resultBytesProjectedOut: 200,
       typedMediaBytesProjectedOut: 300,
     });
-    broker.recordProviderProjection(4096, true);
-    broker.recordFoldGeneration();
     broker.recordBranchRuntimeReload();
     broker.recordUsage({ input: 11, cacheRead: 12, cacheWrite: 13 });
     const snapshot = broker.persistentState();
@@ -1005,13 +1004,10 @@ describe("observation archive", () => {
         callArgumentBytesProjectedOut: 100,
         resultBytesProjectedOut: 200,
         typedMediaBytesProjectedOut: 300,
-        currentProjectedModelViewBytes: 4096,
-        foldGenerationCount: 1,
         branchRuntimeReloadCount: 1,
         uncachedInputTokens: 11,
         cacheReadTokens: 12,
         cacheWriteTokens: 13,
-        stableProjectionExtensionTurns: 1,
       },
     });
   });
@@ -1045,6 +1041,37 @@ describe("observation archive", () => {
       [{ type: "text", text: usage }], "bash", false, 24576, 6144,
     );
     expect(utf8Bytes(usage)).toBeGreaterThanOrEqual(4096);
+    expect(archived).not.toBeNull();
+    expect((archived?.content[0] as { text: string }).text).toContain("fatal: invalid invocation");
+  });
+
+  it("keeps novel 8-24 KiB results literal until actual context pressure", async () => {
+    const root = await mkdtemp(join(tmpdir(), "prime-context-medium-pressure-"));
+    temporaryPaths.push(root);
+    const usage = [
+      "fatal: invalid invocation",
+      "usage: example [options]",
+      ...Array.from({ length: 36 }, (_, index) => `  --option-${index} ${"description ".repeat(24)}`),
+    ].join("\n");
+    expect(utf8Bytes(usage)).toBeGreaterThan(8192);
+    expect(utf8Bytes(usage)).toBeLessThanOrEqual(24576);
+
+    const noPressure = new ObservationArchive(root, "session-medium-no-pressure");
+    expect(await noPressure.archiveVisibleContent(
+      [{ type: "text", text: usage }], "bash", false, 24576, 6144,
+    )).toBeNull();
+
+    const pressured = new ObservationArchive(root, "session-medium-pressure");
+    const archived = await pressured.archiveVisibleContent(
+      [{ type: "text", text: usage }],
+      "bash",
+      false,
+      24576,
+      6144,
+      undefined,
+      undefined,
+      { tokens: 600, contextWindow: 1000 },
+    );
     expect(archived).not.toBeNull();
     expect((archived?.content[0] as { text: string }).text).toContain("fatal: invalid invocation");
   });
@@ -1141,7 +1168,9 @@ describe("observation archive", () => {
       6144,
     );
     expect((equivalent?.content[0] as { text: string }).text)
-      .toContain("Semantic outcome unchanged since previous observation.");
+      .toContain("TEST_RESULT PASS 6/6");
+    expect((equivalent?.content[0] as { text: string }).text)
+      .not.toContain("Semantic outcome unchanged since previous observation.");
 
     const finalTerminal = sampledTerminal.replace("PASS 6/6", "PASS 9/9");
     const ready = await archive.archiveVisibleContent(
@@ -1149,7 +1178,7 @@ describe("observation archive", () => {
     );
     expect((ready?.content[0] as { text: string }).text).toContain("TEST_RESULT PASS 9/9");
     expect((ready?.content[0] as { text: string }).text).not.toContain("goal.complete");
-    expect(archive.brokerContext().workflow.goalReady).toBe(false);
+    expect(archive.brokerContext()).not.toHaveProperty("workflow");
 
     const traceOnly = Array.from(
       { length: 12 },
@@ -1473,7 +1502,7 @@ describe("streamed multipart archive", () => {
       resultText: final.text,
       largeResult: final.large,
       resultSummary: final,
-    }])).toBe(1);
+    }])).toHaveLength(1);
     expect(await archive.readExactText("o1")).toBe(finalText);
     const current = await archive.findObservation("o1");
     expect(current.envelope?.parts.filter((part) => part.name === "result" && part.kind === "result"))
@@ -1775,7 +1804,7 @@ describe("adaptive capsules", () => {
     expect(failureContext).toContain("actual=3");
     expect(selectCapsuleLines("prefix\nOK\n".repeat(30), true)[0]).toBe("OK");
     const shapedFailures = selectCapsuleLines("Error item 1\ncontext a\nneutral\nError item 2\ncontext b", true);
-    expect(shapedFailures.filter((line) => line.startsWith("Error item")).length).toBe(1);
+    expect(shapedFailures.filter((line) => line.startsWith("Error item")).length).toBe(2);
     const longFailure = selectCapsuleLines(`AssertionError: ${"x".repeat(2000)}`, true)[0];
     expect(utf8Bytes(longFailure)).toBeLessThanOrEqual(384);
     expect(longFailure.endsWith("...")).toBe(true);

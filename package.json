@@ -1,7 +1,7 @@
 {
   "name": "prime-agent-context",
-  "version": "8.1.1",
-  "description": "Local paging for large Prime Agent tool output and a durable task snapshot",
+  "version": "9.1.0",
+  "description": "Purpose-aware context management for long-running Prime Agent sessions",
   "type": "module",
   "license": "MIT",
   "repository": {
@@ -22,6 +22,7 @@
   },
   "files": [
     "dist",
+    "scripts/patch-prime-agent.mjs",
     "README.md",
     "CHANGELOG.md",
     "LICENSE"
@@ -31,11 +32,6 @@
       "./dist/index.js"
     ]
   },
-  "peerDependencies": {
-    "@earendil-works/pi-ai": "*",
-    "@earendil-works/pi-coding-agent": "*",
-    "typebox": "*"
-  },
   "scripts": {
     "build": "tsup --config tsup.config.ts",
     "typecheck": "tsc --noEmit",
@@ -43,15 +39,18 @@
     "package:smoke": "node scripts/package-smoke.mjs"
   },
   "devDependencies": {
-    "@earendil-works/pi-ai": "https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.8.1/prime-agent-ai-0.8.1.tgz",
-    "@earendil-works/pi-coding-agent": "https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.8.1/prime-agent-0.8.1.tgz",
     "@types/node": "^24.3.0",
     "tsup": "^8.5.0",
-    "typebox": "^1.3.9",
     "typescript": "^5.9.3",
     "vitest": "^4.0.0"
   },
   "dependencies": {
-    "diff": "^9.0.0"
+    "@earendil-works/pi-ai": "https://github.com/PrimeIntellect-ai/prime-agent/releases/download/v0.9.1/prime-agent-ai-0.9.1.tgz",
+    "@earendil-works/pi-coding-agent": "https://github.com/PrimeIntellect-ai/prime-agent/releases/download/v0.9.1/prime-agent-0.9.1.tgz",
+    "diff": "^9.0.0",
+    "typebox": "^1.3.9"
+  },
+  "bin": {
+    "prime-context-patch-agent": "scripts/patch-prime-agent.mjs"
   }
 }

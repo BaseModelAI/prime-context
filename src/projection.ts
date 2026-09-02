@@ -3,12 +3,7 @@ import {
   mapStableControlMessages,
   type ContextMessageLike,
 } from "./context.js";
-import type { FoldState } from "./runtime.js";
-import {
-  PRIME_CONTEXT_ANCHOR_TYPE,
-  PRIME_CONTEXT_FOLD_TYPE,
-  PRIME_CONTEXT_STATE_TYPE,
-} from "./state.js";
+import { PRIME_CONTEXT_ANCHOR_TYPE } from "./state.js";
 
 export const FIXED_EXCHANGE_VIEW_SCHEMA = "prime-context.fixed-exchange-view/v1" as const;
 export const FIXED_EXCHANGE_VIEW_GENERATION = 0 as const;
@@ -30,9 +25,10 @@ export interface ProjectedImageRef {
   height?: number;
 }
 
-export interface RecoveryProjectionLease {
-  content: readonly Record<string, unknown>[];
-  bytes?: number;
+export interface DeltaDependency {
+  baselineToolCallId: string;
+  baselineEntryId?: string;
+  contextEpoch: number;
 }
 
 export interface FixedExchangeView {
@@ -46,6 +42,8 @@ export interface FixedExchangeView {
   images?: readonly ProjectedImageRef[];
   /** Provider/model identity that produced replay-protected call metadata. */
   replayOriginKey?: string;
+  /** A repeat/delta is valid only while this exact baseline remains visible. */
+  deltaDependency?: DeltaDependency;
 }
 
 export interface FixedViewContextUsage {
@@ -468,6 +466,7 @@ export function projectFixedExchangeViews<T extends MessageLike>(
   messages: readonly T[],
   viewsInput: ReadonlyMap<string, FixedExchangeView> | readonly FixedExchangeView[],
   activeModelKey?: string,
+  contextEpoch?: number,
 ): readonly T[] {
   const views = viewMap(viewsInput);
   if (views.size === 0) return messages;
@@ -481,7 +480,16 @@ export function projectFixedExchangeViews<T extends MessageLike>(
       resultIds.add(message.toolCallId);
     }
   }
-  const complete = new Set([...callIds].filter((id) => resultIds.has(id) && views.has(id)));
+  const complete = new Set([...callIds].filter((id) => {
+    if (!resultIds.has(id)) return false;
+    const view = views.get(id);
+    if (!view) return false;
+    const dependency = view.deltaDependency;
+    return dependency === undefined || (
+      contextEpoch !== undefined && dependency.contextEpoch === contextEpoch &&
+      resultIds.has(dependency.baselineToolCallId)
+    );
+  }));
   if (complete.size === 0) return messages;
 
   let anyChanged = false;
@@ -517,7 +525,7 @@ export function projectFixedExchangeViews<T extends MessageLike>(
 }
 
 
-export type ContextPurpose = "provider" | "compaction" | "branch-summary" | "refine";
+export type ContextPurpose = "provider" | "budget" | "compaction" | "branch-summary" | "refine";
 
 export interface ContextEntryRef {
   messageIndex: number;
@@ -529,63 +537,23 @@ export interface SharedProjectionInput<T extends ContextMessageLike> {
   messages: readonly T[];
   entryRefs?: readonly ContextEntryRef[];
   fixedViews: ReadonlyMap<string, FixedExchangeView> | readonly FixedExchangeView[];
-  fold?: FoldState;
-  foldMessageEntryId?: string;
-  foldPrefixEntryIds?: ReadonlySet<string>;
   /** Raw custom sources keyed by exact entry ID; model messages themselves stay provider-shaped. */
   sourceMessages?: ReadonlyMap<string, ContextMessageLike>;
-  recoveryLeases?: ReadonlyMap<string, RecoveryProjectionLease>;
   pendingImages?: ReadonlyMap<string, readonly ProjectedImageRef[]>;
-  consumedImageRefs?: ReadonlySet<string>;
   activeModelKey?: string;
+  contextEpoch?: number;
+  /** Internal prefix state used only by incremental provider/budget projection. */
+  initialShownImageRefs?: readonly string[];
+  initialProjectedImageBytes?: number;
 }
 
 export interface SharedProjectionResult<T extends ContextMessageLike> {
   messages: readonly T[];
-  entryRefs?: ContextEntryRef[];
-  shownRecoveryToolCallIds?: string[];
-  shownImageRefs?: string[];
-}
-
-function foldProjection<T extends ContextMessageLike>(
-  messages: readonly T[],
-  entryRefs: readonly ContextEntryRef[] | undefined,
-  fold: FoldState | undefined,
-  foldMessageEntryId: string | undefined,
-  foldPrefixEntryIds: ReadonlySet<string> | undefined,
-): SharedProjectionResult<T> {
-  if (!fold || !entryRefs || !foldMessageEntryId || !foldPrefixEntryIds ||
-    !foldPrefixEntryIds.has(fold.throughEntryId) || foldPrefixEntryIds.has(foldMessageEntryId) ||
-    new Set(fold.retainedEntryIds).size !== fold.retainedEntryIds.length ||
-    fold.retainedEntryIds.some((id) => !foldPrefixEntryIds.has(id))) {
-    return { messages, ...(entryRefs === undefined ? {} : { entryRefs: entryRefs.map((ref) => ({ ...ref })) }) };
-  }
-  const indices = new Set<number>();
-  const ids = new Set<string>();
-  for (const ref of entryRefs) {
-    if (ref.messageIndex < 0 || ref.messageIndex >= messages.length ||
-      indices.has(ref.messageIndex) || ids.has(ref.entryId)) {
-      return { messages, entryRefs: entryRefs.map((item) => ({ ...item })) };
-    }
-    indices.add(ref.messageIndex);
-    ids.add(ref.entryId);
-  }
-  const retained = new Set(fold.retainedEntryIds);
-  const refByIndex = new Map(entryRefs.map((ref) => [ref.messageIndex, ref.entryId]));
-  const keptIndices: number[] = [];
-  for (let index = 0; index < messages.length; index += 1) {
-    const id = refByIndex.get(index);
-    if (id === undefined || !foldPrefixEntryIds.has(id) || retained.has(id)) keptIndices.push(index);
-  }
-  if (keptIndices.length === messages.length) return { messages, entryRefs: entryRefs.map((ref) => ({ ...ref })) };
-  const rebased = new Map(keptIndices.map((source, target) => [source, target]));
-  return {
-    messages: keptIndices.map((index) => messages[index]),
-    entryRefs: entryRefs.flatMap((ref) => {
-      const messageIndex = rebased.get(ref.messageIndex);
-      return messageIndex === undefined ? [] : [{ messageIndex, entryId: ref.entryId }];
-    }),
-  };
+  entryRefs?: readonly ContextEntryRef[];
+  /** Stable identity for provider usage-anchor compatibility. */
+  projectionIdentity?: string;
+  shownRecoveryToolCallIds?: readonly string[];
+  shownImageRefs?: readonly string[];
 }
 
 function stripModelDetails<T extends ContextMessageLike>(messages: readonly T[]): readonly T[] {
@@ -654,31 +622,20 @@ function projectLeasedContent<T extends ContextMessageLike>(
   input: SharedProjectionInput<T>,
 ): { messages: readonly T[]; shownRecoveryToolCallIds: string[]; shownImageRefs: string[] } {
   const shownRecoveryToolCallIds: string[] = [];
-  const shownImageRefs: string[] = [];
-  let projectedImageBytes = 0;
-  const provider = input.purpose === "provider";
+  const shownImageRefs: string[] = [...(input.initialShownImageRefs ?? [])];
+  let projectedImageBytes = input.initialProjectedImageBytes ?? 0;
+  const provider = input.purpose === "provider" || input.purpose === "budget";
   const images = new Map<string, readonly ProjectedImageRef[]>();
-  const freshImageRefs = new Set<string>();
   for (const [toolCallId, view] of viewMap(input.fixedViews)) {
     if (view.images?.length) images.set(toolCallId, view.images);
   }
   for (const [toolCallId, refs] of input.pendingImages ?? []) {
-    // A bounded pending set marks only the fresh descriptors. Keep the fixed
-    // view's complete descriptor list so capped images become placeholders
-    // instead of passing through raw.
     if (!images.has(toolCallId)) images.set(toolCallId, refs);
-    for (const image of refs) freshImageRefs.add(image.ref);
   }
   let changed = false;
   const projected = messages.map((message) => {
     if (message.role !== "toolResult" || typeof message.toolCallId !== "string" || !Array.isArray(message.content)) {
       return message;
-    }
-    const lease = provider ? input.recoveryLeases?.get(message.toolCallId) : undefined;
-    if (lease) {
-      shownRecoveryToolCallIds.push(message.toolCallId);
-      changed = true;
-      return { ...message, content: lease.content.map((block) => ({ ...block })) } as T;
     }
     const descriptors = images.get(message.toolCallId);
     if (descriptors === undefined) return message;
@@ -699,13 +656,12 @@ function projectLeasedContent<T extends ContextMessageLike>(
         };
       }
       if (opaque) {
-        if (provider && !input.consumedImageRefs?.has(descriptor.ref)) shownImageRefs.push(descriptor.ref);
+        if (provider) shownImageRefs.push(descriptor.ref);
         return block;
       }
       if (provider && PROVIDER_IMAGE_MIME_TYPES.has(descriptor.mimeType.toLowerCase()) &&
         descriptor.bytes <= PROVIDER_IMAGE_MAX_BYTES &&
-        projectedImageBytes + descriptor.bytes <= PROVIDER_IMAGE_TOTAL_BYTES &&
-        freshImageRefs.has(descriptor.ref) && !input.consumedImageRefs?.has(descriptor.ref)) {
+        projectedImageBytes + descriptor.bytes <= PROVIDER_IMAGE_TOTAL_BYTES) {
         shownImageRefs.push(descriptor.ref);
         projectedImageBytes += descriptor.bytes;
         return block;
@@ -738,7 +694,7 @@ function projectBashExecutionViews<T extends ContextMessageLike>(
     const entryId = byIndex.get(messageIndex);
     const source = entryId ? sourceMessages.get(entryId) : undefined;
     const view = entryId ? fixed.get(entryId) : undefined;
-    if (source?.role !== "bashExecution" || !view) return message;
+    if (source?.role !== "bashExecution" || !view || view.deltaDependency !== undefined) return message;
     const compactCommand = typeof view.callArguments?.command === "string"
       ? view.callArguments.command
       : source.command;
@@ -761,21 +717,15 @@ export function projectModelContext<T extends ContextMessageLike>(
   input: SharedProjectionInput<T>,
 ): SharedProjectionResult<T> {
   const stable = stableModelControls(input.messages, input.entryRefs, input.sourceMessages);
-  const folded = foldProjection(
-    stable,
-    input.entryRefs,
-    input.fold,
-    input.foldMessageEntryId,
-    input.foldPrefixEntryIds,
-  );
   let messages = projectFixedExchangeViews(
-    folded.messages,
+    stable,
     input.fixedViews,
     input.activeModelKey,
+    input.contextEpoch,
   ) as readonly T[];
   messages = projectBashExecutionViews(
     messages,
-    folded.entryRefs,
+    input.entryRefs,
     input.sourceMessages,
     input.fixedViews,
   );
@@ -783,7 +733,7 @@ export function projectModelContext<T extends ContextMessageLike>(
   messages = stripModelDetails(leased.messages);
   return {
     messages,
-    ...(folded.entryRefs === undefined ? {} : { entryRefs: folded.entryRefs }),
+    ...(input.entryRefs === undefined ? {} : { entryRefs: input.entryRefs }),
     ...(leased.shownRecoveryToolCallIds.length === 0 ? {} : {
       shownRecoveryToolCallIds: leased.shownRecoveryToolCallIds,
     }),
@@ -791,21 +741,198 @@ export function projectModelContext<T extends ContextMessageLike>(
   };
 }
 
-export interface FoldCandidateEntry<T extends ContextMessageLike = ContextMessageLike> {
+export interface ProjectionSourceSpan {
   entryId: string;
-  message: T;
+  outputStart: number;
+  outputEnd: number;
+  estimatedBytes: number;
 }
 
-export interface FoldPressure {
-  tokens: number | null;
-  contextWindow: number;
+export interface ProjectionEpoch<T extends ContextMessageLike = ContextMessageLike> {
+  id: number;
+  modelKey: string;
+  toolSetRevision: string | number;
+  inputEntryIds: string[];
+  outputMessages: readonly T[];
+  outputRefs: readonly ContextEntryRef[];
+  sourceSpans: ProjectionSourceSpan[];
+  shownRecoveryToolCallIds: readonly string[];
+  shownImageRefs: readonly string[];
 }
 
-export interface ProjectedFoldCandidates {
-  messages: readonly ContextMessageLike[];
-  entryRefs: ContextEntryRef[];
-  sourceMessages: ReadonlyMap<string, ContextMessageLike>;
-  shownImageRefs?: string[];
+export interface ProviderProjectionCache<T extends ContextMessageLike = ContextMessageLike> {
+  epoch?: ProjectionEpoch<T>;
+}
+
+export interface ProviderRepresentationInput<T extends ContextMessageLike> extends SharedProjectionInput<T> {
+  purpose: "provider" | "budget";
+  epochId: number;
+  modelKey: string;
+  toolSetRevision: string | number;
+  cache: ProviderProjectionCache<T>;
+}
+
+function completeOrderedEntryIds<T extends ContextMessageLike>(
+  messages: readonly T[],
+  refs: readonly ContextEntryRef[] | undefined,
+): string[] | undefined {
+  if (!refs || refs.length !== messages.length || refs.some((ref, index) => ref.messageIndex !== index)) {
+    return undefined;
+  }
+  return refs.map((ref) => ref.entryId);
+}
+
+function estimatedMessageBytes(message: ContextMessageLike): number {
+  try {
+    return utf8Bytes(JSON.stringify(message));
+  } catch {
+    return 0;
+  }
+}
+
+function projectionSpans<T extends ContextMessageLike>(
+  inputEntryIds: readonly string[],
+  outputMessages: readonly T[],
+  outputRefs: readonly ContextEntryRef[],
+  initialCursor = 0,
+  initialRefIndex = 0,
+): ProjectionSourceSpan[] {
+  const outputs = new Map<string, number[]>();
+  for (let refIndex = initialRefIndex; refIndex < outputRefs.length; refIndex += 1) {
+    const ref = outputRefs[refIndex];
+    const indices = outputs.get(ref.entryId) ?? [];
+    indices.push(ref.messageIndex);
+    outputs.set(ref.entryId, indices);
+  }
+  let cursor = initialCursor;
+  return inputEntryIds.map((entryId) => {
+    const indices = outputs.get(entryId) ?? [];
+    const outputStart = indices.length === 0 ? cursor : Math.min(...indices);
+    const outputEnd = indices.length === 0 ? outputStart : Math.max(...indices) + 1;
+    cursor = outputEnd;
+    let estimatedBytes = 0;
+    for (const index of indices) {
+      const message = outputMessages[index];
+      if (message) estimatedBytes += estimatedMessageBytes(message);
+    }
+    return { entryId, outputStart, outputEnd, estimatedBytes };
+  });
+}
+
+function projectedImageBytes<T extends ContextMessageLike>(
+  input: SharedProjectionInput<T>,
+  refs: readonly string[],
+): number {
+  if (refs.length === 0) return 0;
+  const bytes = new Map<string, number>();
+  for (const view of viewMap(input.fixedViews).values()) {
+    for (const image of view.images ?? []) bytes.set(image.ref, image.bytes);
+  }
+  for (const images of input.pendingImages?.values() ?? []) {
+    for (const image of images) if (!bytes.has(image.ref)) bytes.set(image.ref, image.bytes);
+  }
+  return refs.reduce((total, ref) => total + (bytes.get(ref) ?? 0), 0);
+}
+
+function cacheProjection<T extends ContextMessageLike>(
+  input: ProviderRepresentationInput<T>,
+  inputEntryIds: string[],
+  result: SharedProjectionResult<T>,
+  reusablePrefix?: ProjectionEpoch<T>,
+): ProjectionEpoch<T> {
+  const outputRefs = result.entryRefs ?? [];
+  const sourceSpans = reusablePrefix
+    ? [
+        ...reusablePrefix.sourceSpans,
+        ...projectionSpans(
+          inputEntryIds.slice(reusablePrefix.inputEntryIds.length),
+          result.messages,
+          outputRefs,
+          reusablePrefix.outputMessages.length,
+          reusablePrefix.outputRefs.length,
+        ),
+      ]
+    : projectionSpans(inputEntryIds, result.messages, outputRefs);
+  return {
+    id: input.epochId,
+    modelKey: input.modelKey,
+    toolSetRevision: input.toolSetRevision,
+    inputEntryIds,
+    outputMessages: result.messages,
+    outputRefs,
+    sourceSpans,
+    shownRecoveryToolCallIds: result.shownRecoveryToolCallIds ?? [],
+    shownImageRefs: result.shownImageRefs ?? [],
+  };
+}
+
+/** Pure provider/budget representation with exact source-entry prefix reuse. */
+export function buildProviderRepresentation<T extends ContextMessageLike>(
+  input: ProviderRepresentationInput<T>,
+): SharedProjectionResult<T> {
+  const inputEntryIds = completeOrderedEntryIds(input.messages, input.entryRefs);
+  const previous = input.cache.epoch;
+  const compatible = inputEntryIds !== undefined && previous !== undefined &&
+    previous.id === input.epochId && previous.modelKey === input.modelKey &&
+    previous.toolSetRevision === input.toolSetRevision &&
+    previous.inputEntryIds.length <= inputEntryIds.length &&
+    previous.inputEntryIds.every((entryId, index) => inputEntryIds[index] === entryId);
+
+  let result: SharedProjectionResult<T>;
+  if (compatible && previous.inputEntryIds.length === inputEntryIds.length) {
+    result = {
+      messages: previous.outputMessages,
+      entryRefs: previous.outputRefs,
+      ...(previous.shownRecoveryToolCallIds.length === 0 ? {} : {
+        shownRecoveryToolCallIds: [...previous.shownRecoveryToolCallIds],
+      }),
+      ...(previous.shownImageRefs.length === 0 ? {} : { shownImageRefs: [...previous.shownImageRefs] }),
+    };
+  } else if (compatible) {
+    const prefixLength = previous.inputEntryIds.length;
+    const prefixOutputLength = previous.outputMessages.length;
+    const suffixIds = inputEntryIds.slice(prefixLength);
+    const suffixSources = input.sourceMessages === undefined
+      ? undefined
+      : new Map(suffixIds.flatMap((entryId) => {
+          const source = input.sourceMessages?.get(entryId);
+          return source ? [[entryId, source] as const] : [];
+        }));
+    const suffix = projectModelContext({
+      ...input,
+      messages: input.messages.slice(prefixLength),
+      entryRefs: suffixIds.map((entryId, messageIndex) => ({ entryId, messageIndex })),
+      sourceMessages: suffixSources,
+      initialShownImageRefs: previous.shownImageRefs,
+      initialProjectedImageBytes: projectedImageBytes(input, previous.shownImageRefs),
+    });
+    const suffixRefs = (suffix.entryRefs ?? []).map((ref) => ({
+      ...ref,
+      messageIndex: ref.messageIndex + prefixOutputLength,
+    }));
+    result = {
+      messages: [...previous.outputMessages, ...suffix.messages],
+      entryRefs: [...previous.outputRefs, ...suffixRefs],
+      ...(suffix.shownRecoveryToolCallIds?.length ? {
+        shownRecoveryToolCallIds: suffix.shownRecoveryToolCallIds,
+      } : {}),
+      ...(suffix.shownImageRefs?.length ? { shownImageRefs: suffix.shownImageRefs } : {}),
+    };
+  } else {
+    result = projectModelContext(input);
+  }
+
+  result = {
+    ...result,
+    projectionIdentity: JSON.stringify([input.epochId, input.modelKey, input.toolSetRevision]),
+  };
+  // Budget projections are observational. Only a real provider projection advances the cache.
+  if (input.purpose === "provider") {
+    input.cache.epoch = inputEntryIds === undefined
+      ? undefined
+      : cacheProjection(input, inputEntryIds, result, compatible ? previous : undefined);
+  }
+  return result;
 }
 
 function bashExecutionText(message: ContextMessageLike): string {
@@ -833,9 +960,7 @@ function providerMessageFromSource(message: ContextMessageLike): ContextMessageL
   if (message.role === "custom") {
     return {
       role: "user",
-      content: typeof message.content === "string"
-        ? [{ type: "text", text: message.content }]
-        : message.content,
+      content: typeof message.content === "string" ? [{ type: "text", text: message.content }] : message.content,
       timestamp: typeof message.timestamp === "number" ? message.timestamp : 0,
     };
   }
@@ -849,36 +974,6 @@ function providerMessageFromSource(message: ContextMessageLike): ContextMessageL
   return message;
 }
 
-/** Build the same provider-shaped, details-stripped shared projection used for fold accounting. */
-export function projectFoldCandidateMessages(
-  entries: readonly FoldCandidateEntry[],
-  views: ReadonlyMap<string, FixedExchangeView> | readonly FixedExchangeView[],
-  purpose: ContextPurpose = "provider",
-  fold?: FoldState,
-  foldMessageEntryId?: string,
-  foldPrefixEntryIds?: ReadonlySet<string>,
-): ProjectedFoldCandidates {
-  const sourceMessages = new Map(entries.map((entry) => [entry.entryId, entry.message]));
-  const entryRefs = entries.map((entry, messageIndex) => ({ messageIndex, entryId: entry.entryId }));
-  const messages = entries.map((entry) => providerMessageFromSource(entry.message));
-  const projected = projectModelContext({
-    purpose,
-    messages,
-    entryRefs,
-    fixedViews: views,
-    fold,
-    foldMessageEntryId,
-    foldPrefixEntryIds,
-    sourceMessages,
-  });
-  return {
-    messages: projected.messages,
-    entryRefs: projected.entryRefs ?? entryRefs,
-    sourceMessages,
-    shownImageRefs: projected.shownImageRefs,
-  };
-}
-
 function messageBlocks(message: ContextMessageLike): Record<string, unknown>[] {
   return Array.isArray(message.content)
     ? message.content.filter((part): part is Record<string, unknown> => Boolean(part) && typeof part === "object")
@@ -889,273 +984,44 @@ function hasMedia(message: ContextMessageLike): boolean {
   return messageBlocks(message).some((part) => part.type === "image" || part.type === "audio" || part.type === "file");
 }
 
-function safeFoldIndices(
-  entries: readonly FoldCandidateEntry[],
-  eligibleEntryIds: ReadonlySet<string>,
-  views: ReadonlyMap<string, FixedExchangeView>,
-): Set<number> {
-  const safe = new Set<number>();
-  const resultIndex = new Map<string, number>();
-  const duplicateResults = new Set<string>();
-  const callCounts = new Map<string, number>();
-  const allResultIds = new Set<string>();
-  for (let index = 0; index < entries.length; index += 1) {
-    const message = entries[index].message;
-    if (message.role === "toolResult" && typeof message.toolCallId === "string") {
-      if (allResultIds.has(message.toolCallId)) duplicateResults.add(message.toolCallId);
-      allResultIds.add(message.toolCallId);
-      if (eligibleEntryIds.has(entries[index].entryId)) resultIndex.set(message.toolCallId, index);
-    }
-    if (message.role === "assistant") {
-      for (const call of messageBlocks(message).filter(toolCall)) {
-        callCounts.set(call.id, (callCounts.get(call.id) ?? 0) + 1);
-      }
-    }
-  }
-  const latestControl = new Map<string, number>();
-  for (let index = 0; index < entries.length; index += 1) {
-    const type = entries[index].message.customType;
-    if (type === PRIME_CONTEXT_ANCHOR_TYPE || type === PRIME_CONTEXT_STATE_TYPE || type === PRIME_CONTEXT_FOLD_TYPE) {
-      latestControl.set(type, index);
-    }
-  }
-  for (let index = 0; index < entries.length; index += 1) {
-    if (!eligibleEntryIds.has(entries[index].entryId)) continue;
-    const message = entries[index].message;
-    if (message.role === "assistant") {
-      const blocks = messageBlocks(message);
-      const calls = blocks.filter(toolCall);
-      if (calls.length === 0 || calls.length !== blocks.length || calls.some(hasOpaqueReplayMetadata) ||
-        calls.some((call) => callCounts.get(call.id) !== 1 || duplicateResults.has(call.id))) continue;
-      const results = calls.map((call) => resultIndex.get(call.id));
-      if (results.some((result) => result === undefined) || calls.some((call) => !views.has(call.id))) continue;
-      if (results.some((result) => hasOpaqueResultContent(entries[result!].message.content) || hasMedia(entries[result!].message))) continue;
-      safe.add(index);
-      for (const result of results) safe.add(result!);
-      continue;
-    }
-    if (message.role === "custom") {
-      if (hasMedia(message)) continue;
-      const type = message.customType ?? "";
-      const supersededControl = type === PRIME_CONTEXT_FOLD_TYPE ||
-        ((type === PRIME_CONTEXT_ANCHOR_TYPE || type === PRIME_CONTEXT_STATE_TYPE) &&
-          (latestControl.get(type) ?? index) > index);
-      const fixedControl = /(?:capsule|delta|receipt|compact_tick|goal_tick|ipython_(?:state|state_restored))/i.test(type);
-      if (supersededControl || fixedControl) safe.add(index);
-    }
-  }
-  return safe;
-}
-
-function asViewMap(views: ReadonlyMap<string, FixedExchangeView> | readonly FixedExchangeView[]): ReadonlyMap<string, FixedExchangeView> {
+function asViewMap(
+  views: ReadonlyMap<string, FixedExchangeView> | readonly FixedExchangeView[],
+): ReadonlyMap<string, FixedExchangeView> {
   return Array.isArray(views)
     ? new Map(views.map((view) => [view.toolCallId, view]))
     : views as ReadonlyMap<string, FixedExchangeView>;
 }
 
-export interface FoldRawEntryOrder {
-  /** Every selected-branch entry ID in raw chronological order. */
-  entryIds: readonly string[];
-  /** Exact persisted message that activates `current`, validated by the caller. */
-  currentFoldMessageEntryId?: string;
+export interface ProjectionCandidateEntry<T extends ContextMessageLike = ContextMessageLike> {
+  entryId: string;
+  message: T;
 }
 
-/** Select one immutable raw chronological prefix fold. Unsafe model entries remain exact exceptions. */
-export function selectFoldGeneration(
-  entries: readonly FoldCandidateEntry[],
-  viewsInput: ReadonlyMap<string, FixedExchangeView> | readonly FixedExchangeView[],
-  pressure: FoldPressure | undefined,
-  current: FoldState | undefined,
-  render: (generation: number, throughEntryId: string) => string,
-  rawOrder?: FoldRawEntryOrder,
-): FoldState | undefined {
-  if (!pressure || pressure.tokens === null || pressure.contextWindow <= 0 ||
-    pressure.tokens / pressure.contextWindow <= 0.65) return undefined;
-  const turnStarts = entries.flatMap((entry, index) =>
-    entry.message.role === "user" || entry.message.role === "assistant" ||
-      entry.message.role === "bashExecution" ? [index] : []);
-  if (turnStarts.length <= 4) return undefined;
-  const cutoffExclusive = turnStarts[turnStarts.length - 4];
-  if (cutoffExclusive <= 0) return undefined;
-  const throughEntryId = entries[cutoffExclusive - 1]?.entryId;
-  if (!throughEntryId) return undefined;
-
-  const rawEntryIds = rawOrder?.entryIds ?? entries.map((entry) => entry.entryId);
-  const rawIndex = new Map(rawEntryIds.map((id, index) => [id, index]));
-  const entryIndex = new Map(entries.map((entry, index) => [entry.entryId, index]));
-  if (rawEntryIds.some((id) => !id) || rawIndex.size !== rawEntryIds.length ||
-    entries.some((entry) => !rawIndex.has(entry.entryId)) || entryIndex.size !== entries.length) {
-    return undefined;
-  }
-  const candidateRawCutoff = rawIndex.get(throughEntryId);
-  if (candidateRawCutoff === undefined) return undefined;
-  const candidateRawIds = rawEntryIds.slice(0, candidateRawCutoff + 1);
-  const candidatePrefix = new Set(candidateRawIds);
-
-  const previousRetained = new Set(current?.retainedEntryIds ?? []);
-  if (current && (previousRetained.size !== current.retainedEntryIds.length || previousRetained.size > 256)) {
-    return undefined;
-  }
-  const currentPrefix = new Set<string>();
-  let currentRawCutoff = -1;
-  if (current) {
-    currentRawCutoff = rawIndex.get(current.throughEntryId) ?? -1;
-    const foldMessageIndex = rawOrder?.currentFoldMessageEntryId
-      ? rawIndex.get(rawOrder.currentFoldMessageEntryId) ?? -1
-      : -1;
-    if (currentRawCutoff < 0 || candidateRawCutoff <= currentRawCutoff ||
-      foldMessageIndex <= currentRawCutoff || candidateRawCutoff <= foldMessageIndex) {
-      return undefined;
-    }
-    for (let index = 0; index <= currentRawCutoff; index += 1) currentPrefix.add(rawEntryIds[index]);
-    if ([...previousRetained].some((id) => !currentPrefix.has(id))) return undefined;
-  }
-
-  const oldHidden = new Set<string>();
-  for (const id of currentPrefix) {
-    if (!previousRetained.has(id)) oldHidden.add(id);
-  }
-  const views = asViewMap(viewsInput);
-  const safe = safeFoldIndices(entries, candidatePrefix, views);
-  const unsafeVisible = new Set(entries.flatMap((entry, index) =>
-    candidatePrefix.has(entry.entryId) && !oldHidden.has(entry.entryId) && !safe.has(index)
-      ? [entry.entryId]
-      : []));
-  const retainedEntryIds = candidateRawIds.filter((id) => unsafeVisible.has(id));
-  if (retainedEntryIds.length > 256) return undefined;
-
-  const retained = new Set(retainedEntryIds);
-  const projected = projectFoldCandidateMessages(entries, views).messages;
-  let incrementalBytes = 0;
-  let hiddenCount = 0;
-  for (let raw = currentRawCutoff + 1; raw <= candidateRawCutoff; raw += 1) {
-    const id = rawEntryIds[raw];
-    const modelIndex = entryIndex.get(id);
-    if (modelIndex === undefined || retained.has(id)) continue;
-    incrementalBytes += utf8Bytes(JSON.stringify(projected[modelIndex]));
-    hiddenCount += 1;
-  }
-  const savedTokens = Math.floor(incrementalBytes / 4);
-  if (hiddenCount === 0 || savedTokens < 8000 && savedTokens < pressure.tokens * 0.15) return undefined;
-  const generation = (current?.generation ?? 0) + 1;
-  const renderedMessage = render(generation, throughEntryId);
-  if (utf8Bytes(renderedMessage) > 4096) return undefined;
-  return { generation, throughEntryId, retainedEntryIds, renderedMessage };
-}
-
-export interface FastPathFileOperations {
-  read?: readonly string[];
-  modified?: readonly string[];
-  readFiles?: readonly string[];
-  modifiedFiles?: readonly string[];
-}
-
-export interface DeterministicSummaryInput {
+export interface ProjectedBranchCandidates {
   messages: readonly ContextMessageLike[];
-  entryRefs: readonly ContextEntryRef[];
-  fixedViews: ReadonlyMap<string, FixedExchangeView> | readonly FixedExchangeView[];
-  previousSummary?: string;
-  anchor?: string;
-  state?: string;
-  hiddenSteering?: readonly string[];
-  fileOps?: FastPathFileOperations;
-  sourceMessages?: ReadonlyMap<string, ContextMessageLike>;
+  entryIds: readonly string[];
+  shownImageRefs: readonly string[];
 }
 
-function smallVisibleText(message: ContextMessageLike, maxBytes = 2048): string | undefined {
-  if (hasMedia(message)) return undefined;
-  if (typeof message.content === "string") return utf8Bytes(message.content) <= maxBytes ? message.content : undefined;
-  if (!Array.isArray(message.content)) return "";
-  const blocks = messageBlocks(message);
-  if (blocks.some((part) => part.type === "thinking" || part.type === "toolCall")) return undefined;
-  if (blocks.some((part) => part.type !== "text")) return undefined;
-  const text = blocks.map((part) => typeof part.text === "string" ? part.text : "").join("\n");
-  return utf8Bytes(text) <= maxBytes ? text : undefined;
-}
-
-/** Return a deterministic summary only when every discarded message is exactly representable. */
-export function deterministicFastSummary(input: DeterministicSummaryInput): string | undefined {
-  const refs = new Map(input.entryRefs.map((ref) => [ref.messageIndex, ref.entryId]));
-  if (input.messages.some((_message, index) => !refs.has(index))) return undefined;
-  const views = asViewMap(input.fixedViews);
-  const resultIndex = new Map<string, number>();
-  const duplicateResults = new Set<string>();
-  for (let index = 0; index < input.messages.length; index += 1) {
-    const message = input.messages[index];
-    if (message.role !== "toolResult" || typeof message.toolCallId !== "string") continue;
-    if (resultIndex.has(message.toolCallId)) duplicateResults.add(message.toolCallId);
-    resultIndex.set(message.toolCallId, index);
-  }
-  if (duplicateResults.size > 0) return undefined;
-  const consumed = new Set<number>();
-  const tape: string[] = [];
-  for (let index = 0; index < input.messages.length; index += 1) {
-    if (consumed.has(index)) continue;
-    const message = input.messages[index];
-    const ref = refs.get(index)!;
-    const source = input.sourceMessages?.get(ref);
-    if (source?.role === "custom") {
-      if (hasMedia(source) || !/(?:capsule|delta|fold|receipt|compact_tick|goal_(?:context|tick)|ipython_(?:state|state_restored)|prime_context_(?:anchor|state))/i.test(source.customType ?? "")) {
-        return undefined;
-      }
-      const text = smallVisibleText(message, 8192);
-      if (text === undefined) return undefined;
-      tape.push(`- ref=${escapeXml(ref)} control=${escapeXml(source.customType ?? "custom")} content=${escapeXml(JSON.stringify(text))}`);
-      continue;
-    }
-    if (message.role === "assistant") {
-      const blocks = messageBlocks(message);
-      const calls = blocks.filter(toolCall);
-      if (calls.length > 0) {
-        if (calls.length !== blocks.length || calls.some(hasOpaqueReplayMetadata) ||
-          new Set(calls.map((call) => call.id)).size !== calls.length) return undefined;
-        const results = calls.map((call) => resultIndex.get(call.id));
-        if (results.some((result) => result === undefined) || calls.some((call) => !views.has(call.id))) return undefined;
-        for (let offset = 0; offset < calls.length; offset += 1) {
-          const result = results[offset]!;
-          if (result < index || consumed.has(result) || hasMedia(input.messages[result]) ||
-            hasOpaqueResultContent(input.messages[result].content)) return undefined;
-          const view = views.get(calls[offset].id)!;
-          tape.push(`- ref=${escapeXml(ref)} exchange=${escapeXml(view.exchangeId)} tool=${escapeXml(String(calls[offset].name ?? "tool"))}`);
-          consumed.add(result);
-        }
-        consumed.add(index);
-        continue;
-      }
-      const text = smallVisibleText(message);
-      if (text === undefined) return undefined;
-      tape.push(`- ref=${escapeXml(ref)} assistant=${escapeXml(JSON.stringify(text))}`);
-      continue;
-    }
-    if (message.role === "toolResult") return undefined;
-    if (message.role === "user" || message.role === "bashExecution") {
-      const text = smallVisibleText(message);
-      if (text === undefined) return undefined;
-      tape.push(`- ref=${escapeXml(ref)} user=${escapeXml(JSON.stringify(text))}`);
-      continue;
-    }
-    if (message.role === "custom") {
-      if (hasMedia(message)) return undefined;
-      const type = message.customType ?? "";
-      if (!/(?:capsule|delta|fold|receipt|compact_tick|goal_(?:context|tick)|ipython_(?:state|state_restored)|prime_context_(?:anchor|state))/i.test(type)) return undefined;
-      const text = smallVisibleText(message, 8192);
-      if (text === undefined) return undefined;
-      tape.push(`- ref=${escapeXml(ref)} control=${escapeXml(type)} content=${escapeXml(JSON.stringify(text))}`);
-      continue;
-    }
-    return undefined;
-  }
-  const read = input.fileOps?.readFiles ?? input.fileOps?.read ?? [];
-  const modified = input.fileOps?.modifiedFiles ?? input.fileOps?.modified ?? [];
-  const lines = ["<prime_context_compaction>"];
-  if (input.previousSummary !== undefined) lines.push("previous_summary:", input.previousSummary);
-  if (input.anchor) lines.push("current_anchor:", input.anchor);
-  if (input.state) lines.push("current_state:", input.state);
-  if (input.hiddenSteering?.length) {
-    lines.push("hidden_steering:", ...input.hiddenSteering.map((text) => `- ${escapeXml(JSON.stringify(text))}`));
-  }
-  lines.push("file_operations:", `- read: ${escapeXml(read.join(", ") || "none")}`, `- modified: ${escapeXml(modified.join(", ") || "none")}`);
-  if (tape.length) lines.push("chronological:", ...tape);
-  lines.push("</prime_context_compaction>");
-  return lines.join("\n");
+/** Project raw branch candidates through the same provider/budget path used by live requests. */
+export function projectBranchCandidateMessages(
+  entries: readonly ProjectionCandidateEntry[],
+  views: ReadonlyMap<string, FixedExchangeView> | readonly FixedExchangeView[],
+  purpose: ContextPurpose = "provider",
+): ProjectedBranchCandidates {
+  const messages = entries.map((entry) => providerMessageFromSource(entry.message));
+  const entryRefs = entries.map((entry, messageIndex) => ({ messageIndex, entryId: entry.entryId }));
+  const sourceMessages = new Map(entries.map((entry) => [entry.entryId, entry.message]));
+  const projected = projectModelContext({
+    purpose,
+    messages,
+    entryRefs,
+    fixedViews: views,
+    sourceMessages,
+  });
+  return {
+    messages: projected.messages,
+    entryIds: projected.entryRefs?.map((ref) => ref.entryId) ?? [],
+    shownImageRefs: projected.shownImageRefs ?? [],
+  };
 }

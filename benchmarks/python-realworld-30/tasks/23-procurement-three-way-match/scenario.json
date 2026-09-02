@@ -1,0 +1,41 @@
+{
+  "schema": "prime-context.python-realworld-task/v1",
+  "id": 23,
+  "slug": "procurement-three-way-match",
+  "title": "Procurement Three-Way Match",
+  "pressure": "M",
+  "timeout_seconds": 1200,
+  "editable_paths": [
+    "solution/",
+    "output/"
+  ],
+  "initial_prompt": "Read TASK.md and complete the requested workflow using only the Python standard library.",
+  "stages": [
+    {
+      "id": "initial",
+      "inject": "visible/",
+      "message": "Read TASK.md and complete the requested workflow using only the Python standard library.",
+      "compact_after": true
+    },
+    {
+      "id": "receipt-corrections",
+      "inject": "stages/receipt-corrections/",
+      "message": "inputs/receipt_corrections.json voids or replaces selected receipt records by record_id (the receipt_id in goods_receipts.json). Remove a voided record; replace a selected record with its replacement object. Apply corrections before aggregation and regenerate every output.",
+      "compact_after": false
+    },
+    {
+      "id": "credit-notes",
+      "inject": "stages/credit-notes/",
+      "message": "inputs/credit_notes.xml contains line and header credits. Apply each line credit only to its referenced invoice line, cap that line at zero, and add excess to the supplier unapplied_credit. Header credits reduce the supplier total after line payables, freight, and tax, capped at zero; add any excess to unapplied_credit. Update line credit_applied and line_payable, supplier credit_applied, header_credit, unapplied_credit, and final_payable. Regenerate all files.",
+      "compact_after": false
+    }
+  ],
+  "judge_command": [
+    "python3.12",
+    "-E",
+    "-S",
+    "judge.py",
+    "--workspace",
+    "{workspace}"
+  ]
+}

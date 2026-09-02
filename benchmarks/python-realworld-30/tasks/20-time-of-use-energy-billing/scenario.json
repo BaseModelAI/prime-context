@@ -1,0 +1,41 @@
+{
+  "schema": "prime-context.python-realworld-task/v1",
+  "id": 20,
+  "slug": "time-of-use-energy-billing",
+  "title": "Time-of-Use Energy Billing",
+  "pressure": "M",
+  "timeout_seconds": 1200,
+  "editable_paths": [
+    "solution/",
+    "output/"
+  ],
+  "initial_prompt": "Read TASK.md and complete the requested workflow using only the Python standard library.",
+  "stages": [
+    {
+      "id": "initial",
+      "inject": "visible/",
+      "message": "Read TASK.md and complete the requested workflow using only the Python standard library.",
+      "compact_after": true
+    },
+    {
+      "id": "tariff-correction",
+      "inject": "stages/tariff-correction/",
+      "message": "`inputs/tariff_correction.json` replaces the named energy rate from its local `effective_from` time. It applies only to intervals originally assigned that rate whose customer-local timestamp is on or after that time. Recalculate final bills and detail. Write `output/adjustments.csv` with the exact header `customer_id,old_total,corrected_total,delta`, affected customers only, sorted by customer ID. `old_total` is the bill under the original tariff, `corrected_total` is the updated bill, and `delta` is corrected minus old. Use two decimals and keep all earlier outputs current.",
+      "compact_after": false
+    },
+    {
+      "id": "explanations",
+      "inject": "stages/explanations/",
+      "message": "Add `output/explanations/<customer_id>.txt` for every billed customer. Follow `EXPLANATION_FORMAT.md` exactly. Show interval counts and subtotals by tariff band and exact rate ID, demand charge, tax, prior total, correction delta, and final total. Keep all prior outputs current.",
+      "compact_after": false
+    }
+  ],
+  "judge_command": [
+    "python3.12",
+    "-E",
+    "-S",
+    "judge.py",
+    "--workspace",
+    "{workspace}"
+  ]
+}

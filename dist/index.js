@@ -1,6 +1,7 @@
 // src/index.ts
-import { open as openFile } from "fs/promises";
-import { dirname as dirname2, resolve as resolve2 } from "path";
+import { existsSync as existsSync2, writeFileSync } from "fs";
+import { open as openFile, readFile as readFile3, stat } from "fs/promises";
+import { dirname as dirname3, join as join5, resolve as resolve3 } from "path";
 
 // src/capsule.ts
 var DECISIVE_FAILURE_SIGNAL = /\b(?:[a-z_]*error|exceptions?|traceback)\b|\bassertion(?:error|failed|failure)?\b|^\s*assert\b|\bfail(?:ed|ure)?\b/i;
@@ -12,6 +13,12 @@ var TERMINAL_FAILURE_SIGNAL = /^\s*(?:test_result\s+fail(?:\s+\d+\/\d+)?|failed\
 var COMMAND_STATUS_SIGNAL = /^\s*(?:exit|rc|status)\s*[:=]?\s*-?\d+\s*$/i;
 var LOW_SIGNAL_TRACE_LINE = /^\s*(?:trace|debug|progress)\b/i;
 var MARKDOWN_BULLET_LINE = /^\s*[-*]\s+/;
+var LABELED_VALUE_SIGNAL = /(?:^|[,{|]\s*)["']?[A-Za-z][A-Za-z0-9_. /-]{0,48}["']?\s*[:=]\s*(?:["'][^"'\n]{1,160}["']|(?:[-+]?\d+(?:[.,]\d+)?(?:\s*(?:%|ms|s|sec(?:onds?)?|min(?:utes?)?|h(?:ours?)?|B|KiB|MiB|GiB|KB|MB|GB|Hz|kHz|MHz|GHz|px|items?|rows?|cols?))?|true|false|null|none)\b)/i;
+var VALUE_WITH_UNIT_SIGNAL = /(?:^|\s)[-+]?\d+(?:[.,]\d+)?\s*(?:%|ms|sec(?:onds?)?|min(?:utes?)?|h(?:ours?)?|KiB|MiB|GiB|KB|MB|GB|Hz|kHz|MHz|GHz|px)\b/i;
+var TABLE_VALUE_SIGNAL = /^\s*\|.*\|\s*$|\S+\t+\S+/;
+var PATH_OR_LOCATION_SIGNAL = /(?:^|[\s"'`(])(?:\.{0,2}\/|~\/|\/)[^\s"'`),]+|\b[A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.-]+)+(?::\d+(?::\d+)?)?|\b[A-Za-z0-9_.-]+\.(?:csv|json|ya?ml|toml|txt|md|log|xml|html?|pdf|png|jpe?g|gif|webp|py|ts|tsx|js|mjs|cjs|java|rs|go)(?::\d+(?::\d+)?)?\b/i;
+var IDENTIFIER_SIGNAL = /\b(?:id|identifier|request|job|task|session|run|artifact|image|page|cell|row|column)\s*(?:id)?\s*[:=]\s*[A-Za-z0-9][A-Za-z0-9_.:/-]{1,127}\b/i;
+var STATE_TRANSITION_SIGNAL = /(?:\b[A-Za-z][A-Za-z0-9_.-]*\s*(?:->|→)\s*[A-Za-z][A-Za-z0-9_.-]*\b)|\b(?:created?|wrote|written|saved?|generated|removed?|deleted|enabled|disabled|started|stopped|connected|disconnected|changed|updated|moved|renamed)\b/i;
 function normalizedLineShape(line) {
   return line.trim().toLowerCase().replaceAll(/\b(?:0x[0-9a-f]+|\d+(?:\.\d+)?|[0-9a-f]{8,}(?:-[0-9a-f-]{4,})*)\b/gi, "#");
 }
@@ -117,14 +124,6 @@ function isRepetitiveOutput(text) {
   const shapes = new Set(sampled.map(normalizedLineShape));
   return shapes.size / sampled.length <= 0.25;
 }
-function adaptiveMinTextBytes(configuredMinBytes, usage) {
-  if (!usage || usage.contextWindow <= 0 || usage.tokens === null) return configuredMinBytes;
-  const percent = usage.tokens / usage.contextWindow;
-  if (percent >= 0.8) return Math.min(configuredMinBytes, 8192);
-  if (percent >= 0.6) return Math.min(configuredMinBytes, 12288);
-  if (percent >= 0.4) return Math.min(configuredMinBytes, 16384);
-  return configuredMinBytes;
-}
 function adaptiveCapsuleMaxBytes(text, configuredMaxBytes, usage) {
   let maxBytes = configuredMaxBytes;
   if (isRepetitiveOutput(text)) {
@@ -158,6 +157,10 @@ function escapeXml(value) {
 function splitVisibleLines(text) {
   return text.length === 0 ? [] : text.split("\n");
 }
+function isGenericFactLine(line) {
+  const trimmed = line.trim();
+  return trimmed.length > 0 && (LABELED_VALUE_SIGNAL.test(line) || VALUE_WITH_UNIT_SIGNAL.test(line) || TABLE_VALUE_SIGNAL.test(line) || PATH_OR_LOCATION_SIGNAL.test(line) || IDENTIFIER_SIGNAL.test(line) || STATE_TRANSITION_SIGNAL.test(line) || DECISIVE_FAILURE_SIGNAL.test(line) || TERMINAL_OUTCOME_SIGNAL.test(line) || COMMAND_STATUS_SIGNAL.test(line));
+}
 function selectCapsuleLineRecords(text, compact = isRepetitiveOutput(text)) {
   const lines = splitVisibleLines(text).map((rawText, index) => ({
     lineNumber: index + 1,
@@ -189,9 +192,14 @@ function selectCapsuleLineRecords(text, compact = isRepetitiveOutput(text)) {
   const informativeCompactHead = () => byShape(lines.filter(
     (line) => line.rawText.trim().length > 0 && !LOW_SIGNAL_TRACE_LINE.test(line.rawText) && !TERMINAL_OUTCOME_SIGNAL.test(line.rawText)
   )).slice(0, 8);
+  const genericFacts = edgeSignals(
+    lines.filter((line) => isGenericFactLine(line.rawText) && (!compact || !LOW_SIGNAL_TRACE_LINE.test(line.rawText))),
+    compact ? 16 : 32
+  );
   if (compact && hasTerminalSuccess(text) && !hasTerminalFailure(text)) {
     return unique3([
       ...edgeSignals(byShape(lines.filter((line) => TERMINAL_SUCCESS_SIGNAL.test(line.rawText))), 4),
+      ...genericFacts,
       ...informativeCompactHead()
     ]);
   }
@@ -208,6 +216,7 @@ function selectCapsuleLineRecords(text, compact = isRepetitiveOutput(text)) {
       ...failingTests,
       ...byShape(exceptions),
       ...byShape(sourceLocations),
+      ...genericFacts,
       ...edgeSignals(byShape(lines.filter((line) => COMMAND_STATUS_SIGNAL.test(line.rawText))), 4),
       ...edgeSignals(byShape(lines.filter(
         (line) => DECISIVE_FAILURE_SIGNAL.test(line.rawText) && !LOW_SIGNAL_TRACE_LINE.test(line.rawText) && !MARKDOWN_BULLET_LINE.test(line.rawText)
@@ -240,6 +249,7 @@ function selectCapsuleLineRecords(text, compact = isRepetitiveOutput(text)) {
   return unique3([
     ...terminalOutcomes,
     ...decisiveFailures,
+    ...genericFacts,
     ...decisiveNeighbors,
     ...successes,
     ...compact ? byShape(head) : head,
@@ -337,9 +347,11 @@ function selectBoundedCapsuleLines(records, cleanTerminalSuccess, terminalFailur
     (line) => line.rawText.trim().length > 0 && !LOW_SIGNAL_TRACE_LINE.test(line.rawText) && !TERMINAL_OUTCOME_SIGNAL.test(line.rawText)
   ).slice(0, 8);
   const tail = lines.slice(-8);
+  const genericFacts = edge(lines.filter((line) => isGenericFactLine(line.rawText)), 16);
   if (cleanTerminalSuccess) {
     return unique3([
       ...edge(lines.filter((line) => TERMINAL_SUCCESS_SIGNAL.test(line.rawText)), 4),
+      ...genericFacts,
       ...informativeHead,
       ...tail
     ]);
@@ -350,6 +362,7 @@ function selectBoundedCapsuleLines(records, cleanTerminalSuccess, terminalFailur
       ...lines.filter((line) => /^\s*FAIL\s+\S+/i.test(line.rawText)),
       ...lines.filter((line) => /\b[A-Z][A-Za-z0-9_]*(?:Error|Exception)(?::|\s*$)/.test(line.rawText)),
       ...lines.filter((line) => /File "[^"]+", line \d+/.test(line.rawText) || /[A-Za-z0-9_./-]+\.(?:py|ts|tsx|js|mjs|cjs|java|rs|go):\d+/.test(line.rawText)),
+      ...genericFacts,
       ...edge(lines.filter((line) => COMMAND_STATUS_SIGNAL.test(line.rawText)), 4),
       ...edge(lines.filter((line) => DECISIVE_FAILURE_SIGNAL.test(line.rawText) && !LOW_SIGNAL_TRACE_LINE.test(line.rawText) && !MARKDOWN_BULLET_LINE.test(line.rawText)), 8),
       ...informativeHead,
@@ -359,6 +372,7 @@ function selectBoundedCapsuleLines(records, cleanTerminalSuccess, terminalFailur
   return unique3([
     ...edge(lines.filter((line) => TERMINAL_OUTCOME_SIGNAL.test(line.rawText)), 6),
     ...edge(lines.filter((line) => DECISIVE_FAILURE_SIGNAL.test(line.rawText)), 12),
+    ...genericFacts,
     ...edge(lines.filter((line) => SUCCESS_SIGNAL.test(line.rawText) && !DECISIVE_FAILURE_SIGNAL.test(line.rawText)), 6),
     ...informativeHead,
     ...lines.filter((line) => WARNING_SIGNAL.test(line.rawText)).slice(0, 6),
@@ -819,17 +833,6 @@ function boundedOutcome(outcome) {
     signature: outcome.signature === null || utf8Bytes(outcome.signature) > 2048 ? null : outcome.signature
   };
 }
-function emptyWorkflowState() {
-  return {
-    requirementsRevision: 0,
-    locked: false,
-    latestTestRevision: null,
-    latestTestResult: null,
-    cumulativeSuite: null,
-    goalReady: false,
-    readiness: "NOT_READY"
-  };
-}
 function emptyUtilityCounters() {
   return {
     archived: 0,
@@ -847,15 +850,12 @@ function emptyAggregateMetrics() {
     resultBytesProjectedOut: 0,
     typedMediaBytesProjectedOut: 0,
     recoveryBytesExposed: 0,
-    currentProjectedModelViewBytes: 0,
     streamingBytesProcessed: 0,
     inspectRecallHits: 0,
-    foldGenerationCount: 0,
     branchRuntimeReloadCount: 0,
     cacheReadTokens: 0,
     cacheWriteTokens: 0,
-    uncachedInputTokens: 0,
-    stableProjectionExtensionTurns: 0
+    uncachedInputTokens: 0
   };
 }
 function emptyStats() {
@@ -933,8 +933,7 @@ var ObservationBroker = class {
     const outcome = observation?.outcome ?? analyzeOutcome(text, isError);
     const retainedOutcome = boundedOutcome(outcome);
     const previousOutcome = this.outcomesBySubject.get(stateKey);
-    const exactRepeat = observation?.exactRepeat ?? (textBytes >= 256 && textBytes <= FULL_ANALYZER_BYTES && this.recentAnalyzerTexts.some((value) => value.text === text));
-    const semanticRepeat = textBytes >= 256 && retainedOutcome.signature !== null && previousOutcome?.signature === retainedOutcome.signature;
+    const exactRepeat = observation?.exactRepeat ?? (textBytes >= 256 && textBytes <= FULL_ANALYZER_BYTES && this.recentAnalyzerTexts.some((value) => value.subjectKey === stateKey && value.text === text));
     const sameSubjectTexts = this.recentAnalyzerTexts.filter((value) => value.subjectKey === stateKey && value.text !== void 0).map((value) => value.text);
     let changedLines = outcome.status === "unknown" && textBytes <= FULL_ANALYZER_BYTES ? repeatedSectionsDelta(text, sameSubjectTexts) ?? void 0 : void 0;
     let documentRepeat = false;
@@ -974,7 +973,6 @@ var ObservationBroker = class {
     if (outcome.status !== "unknown") this.latestOutcome = retainedOutcome;
     if (outcome.status === "success") this.cleanSuccessSeen = true;
     if (exactRepeat || documentRepeat) return { kind: "delta", reason: "exact", outcome, previousOutcome };
-    if (semanticRepeat) return { kind: "delta", reason: "outcome", outcome, previousOutcome };
     if (changedLines) return { kind: "delta", reason: "content", outcome, changedLines };
     return { kind: "structured", outcome };
   }
@@ -982,7 +980,7 @@ var ObservationBroker = class {
     const prefix = `<prime_context_delta id="${escapeXml(metadata.id)}" tool="${escapeXml(metadata.toolName)}" bytes="${metadata.textBytes}" lines="${metadata.lineCount}" source="${escapeXml(metadata.source)}">
 `;
     const suffix = "\n</prime_context_delta>";
-    const headline = decision.reason === "exact" ? "Unchanged since previous observation." : decision.reason === "outcome" ? "Semantic outcome unchanged since previous observation." : "Content changed since previous observation.";
+    const headline = decision.reason === "exact" ? "Unchanged since previous observation." : "Content changed since previous observation.";
     const candidates = [
       headline,
       ...decision.reason === "content" ? decision.changedLines ?? [] : outcomeLines(decision.outcome)
@@ -1083,17 +1081,6 @@ var ObservationBroker = class {
       options.typedMediaBytesProjectedOut ?? 0
     );
   }
-  recordProviderProjection(bytes, extendedStableGeneration) {
-    if (Number.isFinite(bytes) && bytes >= 0) {
-      this.metrics.currentProjectedModelViewBytes = Math.min(Number.MAX_SAFE_INTEGER, Math.floor(bytes));
-    }
-    if (extendedStableGeneration) {
-      this.metrics.stableProjectionExtensionTurns = boundedAdd(this.metrics.stableProjectionExtensionTurns, 1);
-    }
-  }
-  recordFoldGeneration() {
-    this.metrics.foldGenerationCount = boundedAdd(this.metrics.foldGenerationCount, 1);
-  }
   recordBranchRuntimeReload() {
     this.metrics.branchRuntimeReloadCount = boundedAdd(this.metrics.branchRuntimeReloadCount, 1);
   }
@@ -1142,8 +1129,7 @@ var ObservationBroker = class {
     return {
       latestOutcome: this.latestOutcome,
       knownFailingTests: this.latestOutcome?.status === "failure" ? [...this.latestOutcome.failingTests] : [],
-      cleanSuccessSeen: this.cleanSuccessSeen,
-      workflow: emptyWorkflowState()
+      cleanSuccessSeen: this.cleanSuccessSeen
     };
   }
   statistics() {
@@ -2515,6 +2501,20 @@ function matchingPythonDelimiter(masked, start) {
   }
   return void 0;
 }
+function decodePythonStringLiteral(value) {
+  return value.replace(/\\([\\"'])/g, "$1").replace(/\\n/g, "\n").replace(/\\t/g, "	");
+}
+function pythonLeadingStringLiteral(value) {
+  const source = value.trimStart();
+  const triple = /^(?:"""([\s\S]*?)"""|'''([\s\S]*?)''')/.exec(source);
+  if (triple) {
+    const rest = source.slice(triple[0].length);
+    return /^\s*(?:,|$)/.test(rest) ? decodePythonStringLiteral(triple[1] ?? triple[2] ?? "") : void 0;
+  }
+  const literal = /^(?:(["'])((?:\\.|(?!\1)[\s\S])*)\1)/.exec(source);
+  if (!literal || !/^\s*(?:,|$)/.test(source.slice(literal[0].length))) return void 0;
+  return decodePythonStringLiteral(literal[2]);
+}
 function pythonStringLiterals(value) {
   const literals = [...value.matchAll(/(["'])((?:\\.|(?!\1).)*)\1/g)];
   if (literals.length === 0) return void 0;
@@ -2525,7 +2525,7 @@ function pythonStringLiterals(value) {
     cursor = (literals[index].index ?? 0) + literals[index][0].length;
   }
   if (!/^(?:,\s*)?$/.test(value.slice(cursor))) return void 0;
-  return literals.map((match) => match[2].replace(/\\([\\"'])/g, "$1").replace(/\\n/g, "\n").replace(/\\t/g, "	"));
+  return literals.map((match) => decodePythonStringLiteral(match[2]));
 }
 function pythonSubprocessArgv(value) {
   const literals = pythonStringLiterals(value);
@@ -2547,21 +2547,35 @@ function ipythonSubprocessValidation(code, cwd) {
   }
   return void 0;
 }
-function ipythonShellMagicValidation(code, cwd) {
-  const magic = /^\s*%%(?:bash|sh|zsh)(?:[^\r\n]*)?\r?\n([\s\S]*)$/.exec(code);
-  if (!magic) return void 0;
+function classifyEmbeddedShell(command, cwd) {
+  const classifications = [];
   let effectiveCwd = cwd;
-  for (const line of stripHeredocBodies(magic[1]).split(/\r?\n/)) {
+  for (const line of stripHeredocBodies(command).split(/\r?\n/)) {
     const tokens = shellTokens(line);
     if (!tokens || tokens.length === 0) continue;
     if (tokens[0].value === "cd" && tokens.length === 2) {
       effectiveCwd = literalPath(tokens[1].value, effectiveCwd) ?? effectiveCwd;
       continue;
     }
-    const classified = classifyShell(line, effectiveCwd);
-    if (classified.suite && ["test", "build", "lint"].includes(classified.kind)) return classified;
+    classifications.push(classifyShell(line, effectiveCwd));
   }
-  return void 0;
+  return classifications;
+}
+function ipythonBashClassifications(code, cwd) {
+  const masked = maskPythonStringsAndComments(code);
+  const call = /(?:^|[^\w.])(?:await\s+)?bash\s*\(/gm;
+  const classifications = [];
+  for (const match of masked.matchAll(call)) {
+    const start = (match.index ?? 0) + match[0].lastIndexOf("(");
+    const end = matchingPythonDelimiter(masked, start);
+    if (end === void 0) continue;
+    const argumentsSource = code.slice(start + 1, end);
+    const keyword = argumentsSource.match(/^\s*command\s*=\s*/);
+    const command = pythonLeadingStringLiteral(keyword ? argumentsSource.slice(keyword[0].length) : argumentsSource);
+    if (command === void 0) continue;
+    classifications.push(...classifyEmbeddedShell(command, cwd));
+  }
+  return classifications;
 }
 function customResources(input, cwd, toolSchema) {
   const values = [];
@@ -2674,29 +2688,34 @@ function adaptToolIntent(options) {
     const code = typeof input.code === "string" ? input.code : "";
     const executable = withoutPythonStringsAndComments(code);
     const detailObject = details && typeof details === "object" ? details : {};
-    const mutationResources2 = unique([
+    const bashClassifications = ipythonBashClassifications(code, cwd);
+    const bashMutationResources = bashClassifications.flatMap((classified) => classified.mutatesWorkspace ? classified.resources : []);
+    const mutationResources = unique([
       ...ipythonDiffResources(details, cwd),
-      ...ipythonWriteResources(code, cwd)
+      ...ipythonWriteResources(code, cwd),
+      ...bashMutationResources
     ]);
     const directFileMutation = /\.(?:write_text|write_bytes)\s*\(/.test(executable);
     const sentAgentMessages = Array.isArray(detailObject.sentAgentMessages) ? detailObject.sentAgentMessages.length : 0;
     const delegates = sentAgentMessages > 0 || /\b(?:await\s+)?rlm\s*\(/.test(executable);
     const directTests = /\bpytest\.main\s*\(|\bunittest\.(?:main|TextTestRunner)\s*\(/.test(executable);
-    const executableValidation = ipythonSubprocessValidation(code, cwd) ?? ipythonShellMagicValidation(code, cwd);
+    const bashValidation = bashClassifications.find((classified) => classified.suite && ["test", "build", "lint"].includes(classified.kind));
+    const executableValidation = ipythonSubprocessValidation(code, cwd) ?? bashValidation;
     const identifiedSuite2 = executableValidation?.suite ?? (directTests ? suite(/pytest/.test(executable) ? "pytest" : "unittest", [], cwd) : void 0);
-    const resources2 = unique([...mutationResources2, ...executableValidation?.resources ?? []]);
+    const resources2 = unique([...mutationResources, ...executableValidation?.resources ?? []]);
     return {
       ...base,
       kind: delegates ? "delegate" : identifiedSuite2 ? executableValidation?.kind ?? "test" : "run",
       resources: resources2,
       subjectKey: identifiedSuite2 ? `suite:${identifiedSuite2.family}:${identifiedSuite2.target}` : resources2[0] ?? "ipython:run",
       suite: identifiedSuite2,
-      mutatesWorkspace: mutationResources2.length > 0 || directFileMutation,
+      mutatesWorkspace: mutationResources.length > 0 || directFileMutation || bashClassifications.some((classified) => classified.mutatesWorkspace),
       facts: {
         ...typeof detailObject.status === "string" ? { kernelStatus: detailObject.status } : {},
         ...typeof detailObject.durationMs === "number" ? { durationMs: detailObject.durationMs } : {},
         ...detailObject.kernelRestarted === true ? { kernelRestarted: "true" } : {},
-        ...sentAgentMessages > 0 ? { sentAgentMessages } : {}
+        ...sentAgentMessages > 0 ? { sentAgentMessages } : {},
+        ...bashClassifications.length > 0 ? { bashCalls: bashClassifications.length } : {}
       }
     };
   }
@@ -2720,23 +2739,39 @@ function adaptToolIntent(options) {
     mutatesWorkspace: mutationName
   };
 }
-function classifyValidationCommand(command, cwd) {
-  const intent = adaptToolIntent({
-    exchangeId: "classification",
-    toolCallId: "classification",
-    toolName: "bash",
-    input: { command },
-    cwd,
-    modelInputBytes: Buffer.byteLength(JSON.stringify({ command }), "utf8")
+function parseToolIntent(input) {
+  const original = input.originalInput && typeof input.originalInput === "object" && !Array.isArray(input.originalInput) ? input.originalInput : {};
+  const executed = input.executedInput && typeof input.executedInput === "object" && !Array.isArray(input.executedInput) ? input.executedInput : original;
+  const parsed = adaptToolIntent({
+    exchangeId: input.exchangeId ?? input.toolCallId ?? `tool:${input.toolName}`,
+    toolCallId: input.toolCallId ?? input.exchangeId ?? `tool:${input.toolName}`,
+    toolName: input.toolName,
+    input: executed,
+    cwd: input.cwd ?? "/",
+    modelInputBytes: jsonBytes(original),
+    toolSchema: input.toolSchema,
+    details: input.nativeDetails
   });
-  if (!intent.suite || !["test", "build", "lint"].includes(intent.kind)) return void 0;
-  return {
-    kind: intent.kind,
-    command,
-    suite: { ...intent.suite },
-    subjectKey: intent.subjectKey,
-    resources: [...intent.resources]
-  };
+  const details = input.nativeDetails && typeof input.nativeDetails === "object" && !Array.isArray(input.nativeDetails) ? input.nativeDetails : void 0;
+  const native = details?.intent && typeof details.intent === "object" && !Array.isArray(details.intent) ? details.intent : details;
+  if (!native) return parsed;
+  const kind = typeof native.kind === "string" && [
+    "read",
+    "search",
+    "edit",
+    "test",
+    "build",
+    "lint",
+    "run",
+    "status",
+    "install",
+    "delegate",
+    "unknown"
+  ].includes(native.kind) ? native.kind : parsed.kind;
+  const resources = Array.isArray(native.resources) ? unique(native.resources.filter((value) => typeof value === "string"), 32) : parsed.resources;
+  const subjectKey = typeof native.subjectKey === "string" && native.subjectKey.length > 0 ? truncateUtf8(native.subjectKey, 1024) : parsed.subjectKey;
+  const mutatesWorkspace = typeof native.mutatesWorkspace === "boolean" ? native.mutatesWorkspace : parsed.mutatesWorkspace;
+  return { ...parsed, kind, resources, subjectKey, mutatesWorkspace };
 }
 function strings(value) {
   return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
@@ -2929,9 +2964,52 @@ function recomputeOutcomeSignature(outcome) {
     outcome.testSummary ?? ""
   ].join(";");
 }
+var OUTCOME_SCAN_TEXT_CHARS = 256 * 1024;
+var OUTCOME_SCAN_EDGE_CHARS = 32 * 1024;
+var OUTCOME_SCAN_LINE_CHARS = 8 * 1024;
+var OUTCOME_SCAN_EVIDENCE_CHARS = 96 * 1024;
+var OUTCOME_MARKERS = [
+  "fail",
+  "error",
+  "exception",
+  "passed",
+  "success",
+  "test",
+  "fatal",
+  "traceback",
+  "exit",
+  "signal"
+];
+function boundedOutcomeEvidence(text) {
+  if (text.length <= OUTCOME_SCAN_TEXT_CHARS) return text;
+  const evidence = [];
+  let evidenceChars = 0;
+  let offset = 0;
+  while (offset < text.length && evidenceChars < OUTCOME_SCAN_EVIDENCE_CHARS) {
+    const newline = text.indexOf("\n", offset);
+    const end = newline < 0 ? text.length : newline;
+    const length = end - offset;
+    if (length <= OUTCOME_SCAN_LINE_CHARS) {
+      const line = text.slice(offset, end);
+      const lower = line.toLowerCase();
+      if (OUTCOME_MARKERS.some((marker) => lower.includes(marker))) {
+        evidence.push(line);
+        evidenceChars += line.length + 1;
+      }
+    }
+    if (newline < 0) break;
+    offset = newline + 1;
+  }
+  return [
+    text.slice(0, OUTCOME_SCAN_EDGE_CHARS),
+    ...evidence,
+    text.slice(-OUTCOME_SCAN_EDGE_CHARS)
+  ].join("\n");
+}
 function collectFactualOutcome(intent, text, isError, details) {
-  const parsed = analyzeOutcome(text, isError);
-  const direct = directOutcomeFacts(intent, text);
+  const evidence = boundedOutcomeEvidence(text);
+  const parsed = analyzeOutcome(evidence, isError);
+  const direct = directOutcomeFacts(intent, evidence);
   const object = details && typeof details === "object" ? details : {};
   const typedError = object.error && typeof object.error === "object" ? object.error : void 0;
   const exceptions = unique([
@@ -2970,712 +3048,35 @@ function collectFactualOutcome(intent, text, isError, details) {
   return { ...withoutSignature, signature: recomputeOutcomeSignature(withoutSignature) };
 }
 
-// src/runtime.ts
-var TASK_RUNTIME_SCHEMA = "prime-context.runtime/v2";
-var TASK_RUNTIME_BOUNDS = Object.freeze({
-  validationGates: 8,
-  validations: 16,
-  activeDiagnostics: 12,
-  modifiedResources: 32,
-  recentSubjects: 32,
-  recentIntentKeys: 16,
-  steeringResources: 32,
-  steeringResourcePathBytes: 1024,
-  steeringResourcesBytes: 8192,
-  foldRetainedEntryIds: 256,
-  foldRenderedBytes: 4096,
-  steeringDeltaBytes: 8192,
-  suiteFamilyBytes: 128,
-  suiteTargetBytes: 1024,
-  identityBytes: 1024,
-  summaryBytes: 2048,
-  resourcePathBytes: 1024
-});
-function record(value) {
-  return value && typeof value === "object" ? value : void 0;
-}
-function messageRole(entry) {
-  return record(entry.message)?.role;
-}
-function entryId(entry, index) {
-  return entry.id ?? entry.entryId ?? `user:${index}`;
-}
-function isCompletedAssistant(entry) {
-  const message = record(entry.message);
-  return entry.type === "message" && message?.role === "assistant" && message.stopReason === "stop";
-}
-function deriveTaskSelection(branch, activeGoal) {
-  if (activeGoal?.goalId && activeGoal.status !== "completed" && activeGoal.status !== "cancelled") {
-    return {
-      taskKey: activeGoal.goalId,
-      goalId: activeGoal.goalId,
-      ...activeGoal.objective === void 0 ? {} : { objective: activeGoal.objective },
-      source: "goal"
-    };
-  }
-  let rootIndex = branch.findIndex((entry) => entry.type === "message" && messageRole(entry) === "user");
-  if (rootIndex < 0) return void 0;
-  for (let index = 0; index < branch.length; index += 1) {
-    if (!isCompletedAssistant(branch[index])) continue;
-    const nextUser = branch.findIndex((entry, candidate) => candidate > index && entry.type === "message" && messageRole(entry) === "user");
-    if (nextUser >= 0) rootIndex = nextUser;
-  }
-  const rootUserEntryId = entryId(branch[rootIndex], rootIndex);
-  return {
-    taskKey: rootUserEntryId,
-    rootUserEntryId,
-    source: "user"
-  };
-}
-function createTaskRuntime(selection) {
-  return {
-    schema: TASK_RUNTIME_SCHEMA,
-    taskKey: selection.taskKey,
-    ...selection.goalId === void 0 ? {} : { goalId: selection.goalId },
-    ...selection.objective === void 0 ? {} : { objective: selection.objective },
-    objectiveVersion: selection.objective === void 0 ? 0 : 1,
-    requirementsRevision: 0,
-    requirementsLocked: false,
-    workspaceRevision: 0,
-    turnSequence: 0,
-    validationGates: [],
-    validations: [],
-    activeDiagnostics: [],
-    modifiedResources: [],
-    recentSubjects: [],
-    recentIntentKeys: [],
-    steeringDeltas: [],
-    steeringResources: []
-  };
-}
-function suiteGateKey(suite2) {
-  return `suite:${suite2.family}:${suite2.target}`;
-}
-function isSuiteIdentity(value) {
-  return "family" in value && "scope" in value;
-}
-function normalizeGate(candidate) {
-  if (isSuiteIdentity(candidate)) {
-    if (!candidate.family || !candidate.target) return void 0;
-    return {
-      key: suiteGateKey(candidate),
-      suiteFamily: candidate.family,
-      target: candidate.target,
-      source: "explicit-user-command"
-    };
-  }
-  if (!candidate.key) return void 0;
-  return {
-    key: candidate.key,
-    ...candidate.suiteFamily === void 0 ? {} : { suiteFamily: candidate.suiteFamily },
-    ...candidate.target === void 0 ? {} : { target: candidate.target },
-    source: "explicit-user-command"
-  };
-}
-function sameGate(left, right) {
-  return left.key === right.key && left.suiteFamily === right.suiteFamily && left.target === right.target && left.source === right.source;
-}
-function normalizedExplicitGates(candidates) {
-  const gates = [];
-  for (const candidate of candidates) {
-    const gate = normalizeGate(candidate);
-    if (!gate || gates.some((current) => current.key === gate.key)) continue;
-    gates.push(gate);
-  }
-  return gates.slice(0, TASK_RUNTIME_BOUNDS.validationGates);
-}
-function equalGates(left, right) {
-  return left.length === right.length && left.every((gate, index) => sameGate(gate, right[index]));
-}
-function isRequirementsLockDeclaration(text) {
-  return /^\s*REQUIREMENTS LOCKED(?:[.!:]|$)/i.test(text);
-}
-function isMaterialSteering(text) {
-  const normalized = text.trim().replace(/\s+/g, " ");
-  if (!normalized) return false;
-  if (isRequirementsLockDeclaration(normalized)) return true;
-  if (/^(?:ok(?:ay)?|thanks?|thank you|got it|sounds good|great|yes|no)[.!]*$/i.test(normalized)) return false;
-  if (/^(?:continue|proceed|go on|keep going|resume)[.!]*$/i.test(normalized)) return false;
-  if (/^(?:status|status update|any update|what(?:'s| is) the status|how is it going)\??$/i.test(normalized)) return false;
-  if (/^(?:no (?:change|changes) to (?:the )?requirements|requirements (?:are )?unchanged|same requirements)[.!]*$/i.test(normalized)) return false;
-  const question = /^(?:what|which|how|where|when|why|is|are|do|does|did|can|could|would|will)\b.*\?$/i.test(normalized);
-  const contractChange = /\b(?:add|change|remove|drop|replace|implement|support|preserve|reject|require|required|must|only|protect|acceptance|constraint|API|path|file)\b/i.test(normalized);
-  if (question && !contractChange) return false;
-  return true;
-}
-function normalizeSteeringPath(value) {
-  const trimmed = value.trim().replace(/^[`'"(<]+|[`'">),;:.]+$/g, "").replace(/:\d+(?::\d+)?$/, "");
-  if (!trimmed || /^(?:https?|file):\/\//i.test(trimmed) || /\s/.test(trimmed)) return void 0;
-  const pathLike = trimmed.startsWith("/") || trimmed.startsWith("./") || trimmed.startsWith("../") || trimmed.includes("/") || /(?:^|\.)[A-Za-z0-9_-]+\.[A-Za-z0-9*?_-]+$/.test(trimmed) || /^(?:README|Dockerfile|Makefile|LICENSE)(?:\.[A-Za-z0-9_-]+)?$/i.test(trimmed);
-  if (!pathLike || !/[A-Za-z0-9*?]/.test(trimmed)) return void 0;
-  const normalized = trimmed.startsWith("./") ? trimmed.slice(2) : trimmed;
-  return Buffer.byteLength(normalized, "utf8") <= TASK_RUNTIME_BOUNDS.steeringResourcePathBytes ? normalized : void 0;
-}
-function explicitSteeringPaths(text) {
-  const candidates = [
-    ...[...text.matchAll(/[`'"]([^`'"\n]+)[`'"]/g)].map((match) => match[1]),
-    ...text.split(/\s+/)
-  ];
-  const paths = [];
-  for (const candidate of candidates) {
-    const normalized = normalizeSteeringPath(candidate);
-    if (!normalized || paths.includes(normalized)) continue;
-    paths.push(normalized);
-  }
-  return paths;
-}
-function cloneSuite(suite2) {
-  return { family: suite2.family, target: suite2.target, scope: suite2.scope };
-}
-function cloneTaskRuntime(runtime) {
-  return {
-    ...runtime,
-    validationGates: runtime.validationGates.map((gate) => ({ ...gate })),
-    validations: runtime.validations.map((validation) => ({ ...validation, suite: cloneSuite(validation.suite) })),
-    activeDiagnostics: runtime.activeDiagnostics.map((diagnostic) => ({
-      ...diagnostic,
-      resources: [...diagnostic.resources ?? []]
-    })),
-    modifiedResources: runtime.modifiedResources.map((resource) => ({ ...resource })),
-    recentSubjects: runtime.recentSubjects.map((subject) => ({ ...subject, resources: [...subject.resources] })),
-    recentIntentKeys: [...runtime.recentIntentKeys],
-    steeringDeltas: [...runtime.steeringDeltas],
-    steeringResources: (runtime.steeringResources ?? []).map((resource) => ({ ...resource })),
-    ...runtime.fold === void 0 ? {} : {
-      fold: {
-        ...runtime.fold,
-        retainedEntryIds: [...runtime.fold.retainedEntryIds]
-      }
-    }
-  };
-}
-function boundedSteering(deltas, budgetBytes) {
-  const budget = Math.max(0, Math.floor(budgetBytes));
-  const kept = [];
-  let bytes = 0;
-  for (let index = deltas.length - 1; index >= 0; index -= 1) {
-    const delta = deltas[index];
-    const size = Buffer.byteLength(delta, "utf8");
-    if (size > budget || bytes + size > budget) continue;
-    kept.push(delta);
-    bytes += size;
-  }
-  return kept.reverse();
-}
-function boundedSteeringResources(resources, budgetBytes) {
-  const budget = Math.max(0, Math.min(TASK_RUNTIME_BOUNDS.steeringResourcesBytes, Math.floor(budgetBytes)));
-  const kept = [];
-  let bytes = 0;
-  for (const resource of resources) {
-    const size = Buffer.byteLength(resource.path, "utf8");
-    if (size === 0 || size > TASK_RUNTIME_BOUNDS.steeringResourcePathBytes || bytes + size > budget) continue;
-    kept.push({ ...resource });
-    bytes += size;
-    if (kept.length >= TASK_RUNTIME_BOUNDS.steeringResources) break;
-  }
-  return kept;
-}
-function boundedValidationGate(gate) {
-  const suiteFamily = gate.suiteFamily === void 0 ? void 0 : truncateUtf8(gate.suiteFamily, TASK_RUNTIME_BOUNDS.suiteFamilyBytes);
-  const target = gate.target === void 0 ? void 0 : truncateUtf8(gate.target, TASK_RUNTIME_BOUNDS.suiteTargetBytes);
-  return {
-    ...gate,
-    key: suiteFamily && target ? `suite:${suiteFamily}:${target}` : truncateUtf8(gate.key, TASK_RUNTIME_BOUNDS.suiteFamilyBytes + TASK_RUNTIME_BOUNDS.suiteTargetBytes + 16),
-    ...suiteFamily === void 0 ? {} : { suiteFamily },
-    ...target === void 0 ? {} : { target }
-  };
-}
-function boundedSuiteIdentity(suite2) {
-  return {
-    ...suite2,
-    family: truncateUtf8(suite2.family, TASK_RUNTIME_BOUNDS.suiteFamilyBytes),
-    target: truncateUtf8(suite2.target, TASK_RUNTIME_BOUNDS.suiteTargetBytes)
-  };
-}
-function boundTaskRuntime(runtime, steeringBudgetBytes = TASK_RUNTIME_BOUNDS.steeringDeltaBytes) {
-  const bounded = cloneTaskRuntime(runtime);
-  bounded.validationGates = bounded.validationGates.slice(0, TASK_RUNTIME_BOUNDS.validationGates).map(boundedValidationGate);
-  bounded.validations = bounded.validations.slice(0, TASK_RUNTIME_BOUNDS.validations).map((validation) => ({
-    ...validation,
-    suite: boundedSuiteIdentity(validation.suite),
-    summary: truncateUtf8(validation.summary, TASK_RUNTIME_BOUNDS.summaryBytes)
-  }));
-  bounded.activeDiagnostics = bounded.activeDiagnostics.slice(0, TASK_RUNTIME_BOUNDS.activeDiagnostics).map((diagnostic) => ({
-    ...diagnostic,
-    id: truncateUtf8(diagnostic.id, TASK_RUNTIME_BOUNDS.identityBytes),
-    summary: truncateUtf8(diagnostic.summary, TASK_RUNTIME_BOUNDS.summaryBytes),
-    ...diagnostic.suiteFamily === void 0 ? {} : {
-      suiteFamily: truncateUtf8(diagnostic.suiteFamily, TASK_RUNTIME_BOUNDS.suiteFamilyBytes)
-    },
-    ...diagnostic.subjectKey === void 0 ? {} : {
-      subjectKey: truncateUtf8(diagnostic.subjectKey, TASK_RUNTIME_BOUNDS.identityBytes)
-    },
-    resources: diagnostic.resources.slice(0, TASK_RUNTIME_BOUNDS.modifiedResources).map((resource) => truncateUtf8(resource, TASK_RUNTIME_BOUNDS.resourcePathBytes))
-  }));
-  bounded.modifiedResources = bounded.modifiedResources.slice(0, TASK_RUNTIME_BOUNDS.modifiedResources).map((resource) => ({
-    ...resource,
-    path: truncateUtf8(resource.path, TASK_RUNTIME_BOUNDS.resourcePathBytes)
-  }));
-  bounded.recentSubjects = bounded.recentSubjects.slice(0, TASK_RUNTIME_BOUNDS.recentSubjects).map((subject) => ({
-    ...subject,
-    subjectKey: truncateUtf8(subject.subjectKey, TASK_RUNTIME_BOUNDS.identityBytes),
-    intentKey: truncateUtf8(subject.intentKey, TASK_RUNTIME_BOUNDS.identityBytes),
-    resources: subject.resources.slice(0, TASK_RUNTIME_BOUNDS.modifiedResources).map((resource) => truncateUtf8(resource, TASK_RUNTIME_BOUNDS.resourcePathBytes))
-  }));
-  bounded.recentIntentKeys = bounded.recentIntentKeys.slice(0, TASK_RUNTIME_BOUNDS.recentIntentKeys).map((key) => truncateUtf8(key, TASK_RUNTIME_BOUNDS.identityBytes));
-  bounded.steeringResources = boundedSteeringResources(bounded.steeringResources, steeringBudgetBytes);
-  bounded.steeringDeltas = boundedSteering(bounded.steeringDeltas, steeringBudgetBytes);
-  return bounded;
-}
-function applyRequirementDeltas(runtime, deltas, steeringBudgetBytes = TASK_RUNTIME_BOUNDS.steeringDeltaBytes) {
-  const next = cloneTaskRuntime(runtime);
-  let changed = false;
-  let materialDeltaCount = 0;
-  let acceptanceGatesChanged = false;
-  for (const delta of deltas) {
-    if (next.lastProcessedUserEntryId === delta.id) continue;
-    const material = delta.material ?? isMaterialSteering(delta.text);
-    const lockDeclared = delta.lockDeclared ?? isRequirementsLockDeclaration(delta.text);
-    if (material) {
-      next.requirementsRevision += 1;
-      next.steeringDeltas.push(delta.text);
-      for (const path of explicitSteeringPaths(delta.text)) {
-        next.steeringResources = [
-          { path, userEntryId: delta.id, requirementsRevision: next.requirementsRevision },
-          ...next.steeringResources.filter((resource) => resource.path !== path)
-        ].slice(0, TASK_RUNTIME_BOUNDS.steeringResources);
-      }
-      materialDeltaCount += 1;
-      changed = true;
-    }
-    if (lockDeclared && !next.requirementsLocked) {
-      next.requirementsLocked = true;
-      changed = true;
-    }
-    if (delta.acceptanceGates !== void 0 && delta.replaceExplicitGates !== false) {
-      const replacement = normalizedExplicitGates(delta.acceptanceGates);
-      if (!equalGates(next.validationGates, replacement)) {
-        next.validationGates = replacement;
-        acceptanceGatesChanged = true;
-        changed = true;
-      }
-    } else if (delta.acceptanceGates !== void 0) {
-      const additions = normalizedExplicitGates(delta.acceptanceGates);
-      const merged = [
-        ...next.validationGates.filter((gate) => gate.source === "explicit-user-command"),
-        ...additions
-      ].filter((gate, index, all) => all.findIndex((candidate) => candidate.key === gate.key) === index).slice(0, TASK_RUNTIME_BOUNDS.validationGates);
-      if (!equalGates(next.validationGates, merged)) {
-        next.validationGates = merged;
-        acceptanceGatesChanged = true;
-        changed = true;
-      }
-    }
-    next.lastProcessedUserEntryId = delta.id;
-    changed = true;
-  }
-  return {
-    runtime: boundTaskRuntime(next, steeringBudgetBytes),
-    changed,
-    materialDeltaCount,
-    acceptanceGatesChanged
-  };
-}
-function previewTaskContract(runtime, text, classifyAcceptanceGates) {
-  const next = cloneTaskRuntime(runtime);
-  let changed = false;
-  let materialDeltaCount = 0;
-  let acceptanceGatesChanged = false;
-  if (isMaterialSteering(text)) {
-    next.requirementsRevision += 1;
-    next.steeringDeltas.push(text);
-    changed = true;
-    materialDeltaCount = 1;
-  }
-  if (isRequirementsLockDeclaration(text) && !next.requirementsLocked) {
-    next.requirementsLocked = true;
-    changed = true;
-  }
-  const classified = classifyAcceptanceGates?.(
-    text,
-    next.validationGates.filter((gate) => gate.source === "explicit-user-command")
-  );
-  if (classified !== void 0) {
-    const replacement = normalizedExplicitGates(classified);
-    if (!equalGates(next.validationGates, replacement)) {
-      next.validationGates = replacement;
-      acceptanceGatesChanged = true;
-      changed = true;
-    }
-  }
-  return {
-    runtime: boundTaskRuntime(next),
-    changed,
-    materialDeltaCount,
-    acceptanceGatesChanged
-  };
-}
-function updateTaskContract(runtime, update, classifyAcceptanceGates) {
-  let next = cloneTaskRuntime(runtime);
-  let changed = false;
-  let materialDeltaCount = 0;
-  let acceptanceGatesChanged = false;
-  if (update.objective !== void 0 && update.objective !== next.objective) {
-    next.objective = update.objective;
-    next.objectiveVersion += 1;
-    next.requirementsRevision += 1;
-    changed = true;
-    materialDeltaCount += 1;
-  }
-  const entries = update.userEntries ?? [];
-  let start = 0;
-  if (next.lastProcessedUserEntryId !== void 0) {
-    const cursor = entries.findIndex((entry) => entry.id === next.lastProcessedUserEntryId);
-    if (cursor >= 0) start = cursor + 1;
-  }
-  const deltas = [];
-  for (const entry of entries.slice(start)) {
-    const classified = classifyAcceptanceGates?.(
-      entry.text,
-      next.validationGates.filter((gate) => gate.source === "explicit-user-command")
-    );
-    deltas.push({
-      ...entry,
-      ...classified === void 0 ? {} : {
-        acceptanceGates: classified,
-        replaceExplicitGates: true
-      }
-    });
-  }
-  if (deltas.length > 0) {
-    const result = applyRequirementDeltas(next, deltas, update.steeringBudgetBytes);
-    next = result.runtime;
-    changed ||= result.changed;
-    materialDeltaCount += result.materialDeltaCount;
-    acceptanceGatesChanged ||= result.acceptanceGatesChanged;
-  }
-  return {
-    runtime: boundTaskRuntime(next, update.steeringBudgetBytes),
-    changed,
-    materialDeltaCount,
-    acceptanceGatesChanged
-  };
-}
-
-// src/workflow.ts
-var SCOPE_RANK = {
-  focused: 0,
-  package: 1,
-  broad: 2
-};
-function sameSuite(left, right) {
-  return left.family === right.family && left.target === right.target && left.scope === right.scope;
-}
-function validationMatchesGate(validation, gate) {
-  if (gate.suiteFamily !== void 0 && validation.suite.family !== gate.suiteFamily) return false;
-  if (gate.target !== void 0 && validation.suite.target !== gate.target) return false;
-  if (gate.suiteFamily !== void 0 || gate.target !== void 0) return true;
-  return gate.key === suiteGateKey(validation.suite);
-}
-function currentValidation(runtime, validation) {
-  return validation.requirementsRevision === runtime.requirementsRevision && validation.workspaceRevision === runtime.workspaceRevision;
-}
-function gateIsClean(runtime, gate) {
-  const matching = runtime.validations.filter((validation) => currentValidation(runtime, validation) && validationMatchesGate(validation, gate)).sort((left, right) => right.turnSequence - left.turnSequence);
-  const success = matching.find((validation) => validation.status === "success");
-  if (!success) return false;
-  return !matching.some((validation) => validation.status === "failure" && validation.turnSequence > success.turnSequence);
-}
-function deriveReadiness(runtime) {
-  const gatesClean = runtime.validationGates.length > 0 && runtime.validationGates.every((gate) => gateIsClean(runtime, gate));
-  if (gatesClean) return runtime.requirementsLocked ? "GOAL_READY" : "STAGE_CLEAN";
-  const latestCurrentCommand = runtime.validations.filter((validation) => currentValidation(runtime, validation)).sort((left, right) => right.turnSequence - left.turnSequence)[0];
-  return latestCurrentCommand?.status === "success" ? "COMMAND_CLEAN" : "NOT_READY";
-}
-function defaultValidation(exchange) {
-  const intent = exchange.intent;
-  if (!intent) return void 0;
-  if (intent.suite) return { ...intent.suite };
-  if (intent.kind === "build" || intent.kind === "lint") {
-    return {
-      family: intent.kind,
-      target: intent.subjectKey,
-      scope: "broad"
-    };
-  }
-  return void 0;
-}
-function validationSummary(suite2, outcome) {
-  return outcome.testSummary ?? outcome.commandFailures[0] ?? outcome.exitStatuses[0] ?? outcome.signature ?? `${suite2.family} ${outcome.status}`;
-}
-function upsertValidation(validations, validation) {
-  return [
-    validation,
-    ...validations.filter((current) => !sameSuite(current.suite, validation.suite))
-  ].slice(0, TASK_RUNTIME_BOUNDS.validations);
-}
-function gateSuite(runtime, gate) {
-  return runtime.validations.find((validation) => validationMatchesGate(validation, gate))?.suite;
-}
-function shouldReplaceDefaultGate(runtime, candidate) {
-  const currentGate = runtime.validationGates.find((gate) => gate.source === "default-cumulative");
-  if (!currentGate) return true;
-  const currentSuite = gateSuite(runtime, currentGate);
-  if (!currentSuite) return true;
-  const current = runtime.validations.find((validation) => sameSuite(validation.suite, currentSuite));
-  if (!current) return true;
-  if (candidate.requirementsRevision !== current.requirementsRevision) {
-    return candidate.requirementsRevision > current.requirementsRevision;
-  }
-  if (candidate.workspaceRevision !== current.workspaceRevision) {
-    return candidate.workspaceRevision > current.workspaceRevision;
-  }
-  const scopeDifference = SCOPE_RANK[candidate.suite.scope] - SCOPE_RANK[currentSuite.scope];
-  if (scopeDifference !== 0) return scopeDifference > 0;
-  if (candidate.suite.family === currentSuite.family && candidate.suite.target === currentSuite.target && candidate.total !== void 0 && current.total !== void 0 && candidate.total !== current.total) {
-    return candidate.total > current.total;
-  }
-  return candidate.turnSequence >= current.turnSequence;
-}
-function updateDefaultGate(runtime, validation, intent) {
-  if (intent.kind !== "test" || runtime.validationGates.some((gate) => gate.source === "explicit-user-command")) return;
-  if (!shouldReplaceDefaultGate(runtime, validation)) return;
-  runtime.validationGates = [{
-    key: suiteGateKey(validation.suite),
-    suiteFamily: validation.suite.family,
-    target: validation.suite.target,
-    source: "default-cumulative"
-  }];
-}
-function diagnosticSource(suite2) {
-  return `suite:${suite2.family}:${suite2.scope}:${suite2.target}`;
-}
-function diagnosticId(suite2, kind, summary) {
-  return `${suite2.family}:${kind}:${summary}`.slice(0, 320);
-}
-function failureDiagnostics(exchange, suite2, workspaceRevision) {
-  const outcome = exchange.outcome?.outcome;
-  if (!outcome) return [];
-  const source = diagnosticSource(suite2);
-  const locations = outcome.sourceLocations.map((location) => location.trim().replace(/:\d+(?::\d+)?(?:\s.*)?$/, "")).filter((location) => location.length > 0);
-  const common = {
-    suiteFamily: suite2.family,
-    subjectKey: exchange.intent?.subjectKey,
-    source,
-    resources: [.../* @__PURE__ */ new Set([...locations, ...exchange.intent?.resources ?? []])],
-    ...exchange.id === void 0 ? {} : { exchangeId: exchange.id },
-    workspaceRevision,
-    state: "active"
-  };
-  const diagnostics = [
-    ...outcome.failingTests.map((summary) => ({
-      id: diagnosticId(suite2, "test", summary),
-      summary,
-      ...common
-    })),
-    ...outcome.exceptions.map((summary) => ({
-      id: diagnosticId(suite2, "exception", summary),
-      summary,
-      ...common
-    })),
-    ...outcome.sourceLocations.map((summary) => ({
-      id: diagnosticId(suite2, "location", summary),
-      summary,
-      ...common
-    }))
-  ];
-  if (diagnostics.length === 0) {
-    const summary = validationSummary(suite2, outcome);
-    diagnostics.push({ id: diagnosticId(suite2, "failure", summary), summary, ...common });
-  }
-  return diagnostics;
-}
-function addDiagnostics(current, additions) {
-  const next = [...current];
-  for (const diagnostic of additions) {
-    const existing = next.findIndex((candidate) => candidate.id === diagnostic.id);
-    if (existing >= 0) next.splice(existing, 1);
-    next.unshift(diagnostic);
-  }
-  return next.slice(0, TASK_RUNTIME_BOUNDS.activeDiagnostics);
-}
-function diagnosticSuite(source) {
-  if (!source?.startsWith("suite:")) return void 0;
-  const [, family, scope, ...target] = source.split(":");
-  if (!family || !["focused", "package", "broad"].includes(scope) || target.length === 0) return void 0;
-  return { family, scope, target: target.join(":") };
-}
-function suiteCovers(success, failed) {
-  if (success.family !== failed.family) return false;
-  if (success.scope === "broad") return true;
-  if (SCOPE_RANK[success.scope] < SCOPE_RANK[failed.scope]) return false;
-  if (success.target === "all" || success.target === failed.target) return true;
-  return failed.target.split("|").some(
-    (target) => target === success.target || target.startsWith(`${success.target}/`)
-  );
-}
-function clearDiagnosticsForSuccess(current, suite2) {
-  return current.filter((diagnostic) => {
-    const failedSuite = diagnosticSuite(diagnostic.source);
-    return !failedSuite || !suiteCovers(suite2, failedSuite);
-  });
-}
-function awaitRerun(diagnostics) {
-  return diagnostics.map((diagnostic) => ({ ...diagnostic, state: "awaiting-rerun" }));
-}
-function upsertModifiedResource(resources, path, revision) {
-  return [
-    { path, revision },
-    ...resources.filter((resource) => resource.path !== path)
-  ].slice(0, TASK_RUNTIME_BOUNDS.modifiedResources);
-}
-function mutationResources(exchange) {
-  const resources = [...exchange.intent?.resources ?? []];
-  if (resources.length > 0) return [...new Set(resources)];
-  return [`(workspace changed by ${exchange.toolName ?? exchange.intent?.kind ?? "tool"})`];
-}
-function intentKey(intent) {
-  return `${intent.kind}:${intent.subjectKey}`;
-}
-function updateSubject(runtime, exchange, workspaceRevision, turnSequence) {
-  const intent = exchange.intent;
-  const outcome = exchange.outcome?.outcome;
-  if (!intent || !outcome) return;
-  const key = intentKey(intent);
-  const subject = {
-    subjectKey: intent.subjectKey,
-    intentKind: intent.kind,
-    intentKey: key,
-    resources: [...intent.resources],
-    ...exchange.id === void 0 ? {} : { exchangeId: exchange.id },
-    outcomeStatus: outcome.status,
-    workspaceRevision,
-    turnSequence
-  };
-  runtime.recentSubjects = [
-    subject,
-    ...runtime.recentSubjects.filter((current) => current.subjectKey !== subject.subjectKey)
-  ].slice(0, TASK_RUNTIME_BOUNDS.recentSubjects);
-  runtime.recentIntentKeys = [
-    key,
-    ...runtime.recentIntentKeys.filter((current) => current !== key)
-  ].slice(0, TASK_RUNTIME_BOUNDS.recentIntentKeys);
-}
-function successfulMutation(exchange) {
-  return Boolean(exchange.intent?.mutatesWorkspace && exchange.outcome && !exchange.outcome.isError && exchange.outcome.outcome.status !== "failure");
-}
-function reduceValidation(runtime, exchange, suite2, workspaceRevision, turnSequence) {
-  const outcome = exchange.outcome?.outcome;
-  if (!outcome || outcome.status === "unknown") return;
-  const status = exchange.outcome?.isError ? "failure" : outcome.status;
-  const validation = {
-    suite: { ...suite2 },
-    status,
-    summary: validationSummary(suite2, outcome),
-    ...outcome.testTotal === null ? {} : { total: outcome.testTotal },
-    requirementsRevision: runtime.requirementsRevision,
-    workspaceRevision,
-    turnSequence
-  };
-  runtime.validations = upsertValidation(runtime.validations, validation);
-  updateDefaultGate(runtime, validation, exchange.intent);
-  if (status === "success") {
-    runtime.activeDiagnostics = clearDiagnosticsForSuccess(runtime.activeDiagnostics, suite2);
-  } else {
-    runtime.activeDiagnostics = addDiagnostics(
-      runtime.activeDiagnostics,
-      failureDiagnostics(exchange, suite2, workspaceRevision)
-    );
-  }
-}
-function reduceTurn(runtime, exchanges, options) {
-  const next = cloneTaskRuntime(runtime);
-  const turnSequence = runtime.turnSequence + 1;
-  next.turnSequence = turnSequence;
-  const ordered = exchanges.map((exchange, index) => ({ exchange, index })).filter(({ exchange }) => exchange.completed !== false && exchange.intent && exchange.outcome).sort((left, right) => (left.exchange.sourceOrder ?? left.index) - (right.exchange.sourceOrder ?? right.index)).map(({ exchange }) => exchange);
-  const classify = options.classifyValidation ?? defaultValidation;
-  const exchangeRevisions = [];
-  if (options.toolExecution === "parallel") {
-    const baseRevision = runtime.workspaceRevision;
-    let mutated = false;
-    const mutations = [];
-    for (const exchange of ordered) {
-      updateSubject(next, exchange, successfulMutation(exchange) ? baseRevision + 1 : baseRevision, turnSequence);
-      const suite2 = classify(exchange);
-      if (suite2) reduceValidation(next, exchange, suite2, baseRevision, turnSequence);
-      if (successfulMutation(exchange)) {
-        mutated = true;
-        mutations.push(exchange);
-      }
-      if (exchange.toolCallId) {
-        exchangeRevisions.push({
-          toolCallId: exchange.toolCallId,
-          workspaceRevisionAtStart: baseRevision,
-          workspaceRevisionAtResult: baseRevision
-        });
-      }
-    }
-    if (mutated) {
-      next.workspaceRevision = baseRevision + 1;
-      next.activeDiagnostics = awaitRerun(next.activeDiagnostics);
-      for (const exchange of mutations) {
-        for (const path of mutationResources(exchange)) {
-          next.modifiedResources = upsertModifiedResource(next.modifiedResources, path, next.workspaceRevision);
-        }
-      }
-    }
-  } else {
-    let workspaceRevision = runtime.workspaceRevision;
-    for (const exchange of ordered) {
-      const workspaceRevisionAtStart = workspaceRevision;
-      if (successfulMutation(exchange)) {
-        workspaceRevision += 1;
-        next.workspaceRevision = workspaceRevision;
-        next.activeDiagnostics = awaitRerun(next.activeDiagnostics);
-        for (const path of mutationResources(exchange)) {
-          next.modifiedResources = upsertModifiedResource(next.modifiedResources, path, workspaceRevision);
-        }
-      }
-      updateSubject(next, exchange, workspaceRevision, turnSequence);
-      const suite2 = classify(exchange);
-      if (suite2) reduceValidation(next, exchange, suite2, workspaceRevision, turnSequence);
-      if (exchange.toolCallId) {
-        exchangeRevisions.push({
-          toolCallId: exchange.toolCallId,
-          workspaceRevisionAtStart,
-          workspaceRevisionAtResult: workspaceRevision
-        });
-      }
-    }
-  }
-  const bounded = boundTaskRuntime(next);
-  return {
-    runtime: bounded,
-    readiness: deriveReadiness(bounded),
-    changed: true,
-    exchangeRevisions
-  };
-}
-
 // src/state.ts
 import { randomUUID } from "crypto";
 import { readFileSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
 var SNAPSHOT_ENTRY_TYPE = "prime-context.task-snapshot";
-var RUNTIME_STATE_ENTRY_TYPE = "prime-context.runtime-state";
 var PRIME_CONTEXT_ANCHOR_TYPE = "prime_context_anchor";
-var PRIME_CONTEXT_STATE_TYPE = "prime_context_state";
-var PRIME_CONTEXT_FOLD_TYPE = "prime_context_fold";
+var PRIME_CONTEXT_UPDATE_TYPE = "prime_context_update";
 var PRIME_CONTEXT_ANCHOR_SCHEMA = "prime_context_anchor/v1";
-var PRIME_CONTEXT_STATE_SCHEMA = "prime_context_state/v1";
-var PRIME_CONTEXT_FOLD_SCHEMA = "prime_context_fold/v1";
 var DEFAULT_CONFIG = {
   enabled: true,
   minTextBytes: 24576,
   capsuleMaxBytes: 6144,
-  readMaxBytes: 65536
+  readMaxBytes: 65536,
+  auxiliaryMode: "utility-gated",
+  auxiliaryModel: null,
+  libraryPath: ".prime/agent/prime-context/knowledge",
+  skillBudgetTokens: 800,
+  learningModel: null,
+  autoLearn: "utility-gated"
 };
+var TASK_STATE_BOUNDS = Object.freeze({
+  constraints: 12,
+  openItems: 12,
+  pins: 8,
+  actionableObservations: 6,
+  artifacts: 12,
+  renderedTokens: 700
+});
 function asRecord(value) {
   return value !== null && typeof value === "object" ? value : void 0;
 }
@@ -3683,7 +3084,7 @@ function controlMessage(entry) {
   const raw = entry.type === "custom_message" ? asRecord(entry) : entry.type === "message" ? asRecord(entry.message) : void 0;
   if (!raw || raw.role !== void 0 && raw.role !== "custom") return void 0;
   const customType = raw.customType;
-  if (customType !== PRIME_CONTEXT_ANCHOR_TYPE && customType !== PRIME_CONTEXT_STATE_TYPE && customType !== PRIME_CONTEXT_FOLD_TYPE) return void 0;
+  if (customType !== PRIME_CONTEXT_ANCHOR_TYPE) return void 0;
   if (typeof raw.content !== "string") return void 0;
   return {
     customType,
@@ -3722,78 +3123,131 @@ function latestProviderVisibleControlMessage(branch, customType, taskKey, unscop
   }
   return void 0;
 }
-function isSnapshot(value) {
-  if (!value || typeof value !== "object") return false;
-  const candidate = value;
-  return candidate.schema === "prime-context.task-snapshot/v1" && Array.isArray(candidate.openItems) && Array.isArray(candidate.pinnedObservationIds) && typeof candidate.updatedAt === "string";
+var TASK_TEXT_BYTES = {
+  taskKey: 1024,
+  objective: 4096,
+  constraint: 2048,
+  focus: 2048,
+  openItem: 2048,
+  observation: 2048,
+  artifact: 2048
+};
+function boundedTaskText(value, maxBytes) {
+  if (typeof value !== "string") return void 0;
+  const text = value.trim();
+  if (!text) return void 0;
+  const bytes = Buffer.from(text, "utf8");
+  if (bytes.byteLength <= maxBytes) return text;
+  let end = maxBytes;
+  while (end > 0 && end < bytes.length && (bytes[end] & 192) === 128) end -= 1;
+  return bytes.subarray(0, end).toString("utf8").trim() || void 0;
 }
-function emptySnapshot(now = (/* @__PURE__ */ new Date()).toISOString()) {
+function keepLastByKey(values, limit, key) {
+  const seen = /* @__PURE__ */ new Set();
+  const kept = [];
+  for (let index = values.length - 1; index >= 0 && kept.length < limit; index -= 1) {
+    const id = key(values[index]);
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    kept.unshift(values[index]);
+  }
+  return kept;
+}
+function boundTaskSnapshotV2(snapshot) {
+  const taskKey = boundedTaskText(snapshot.taskKey, TASK_TEXT_BYTES.taskKey) ?? "";
+  const constraints = keepLastByKey(snapshot.explicitConstraints.flatMap((item) => {
+    const id = boundedTaskText(item.id, 512);
+    const text = boundedTaskText(item.text, TASK_TEXT_BYTES.constraint);
+    const sourceEntryId = boundedTaskText(item.sourceEntryId, 1024);
+    if (!id || !text || !sourceEntryId) return [];
+    const supersededBy = boundedTaskText(item.supersededBy, 512);
+    return [{ id, text, sourceEntryId, ...supersededBy ? { supersededBy } : {} }];
+  }), TASK_STATE_BOUNDS.constraints, (item) => item.id);
+  const openItems2 = keepLastByKey(snapshot.openItems.flatMap((item) => {
+    const id = boundedTaskText(item.id, 512);
+    const text = boundedTaskText(item.text, TASK_TEXT_BYTES.openItem);
+    return id && text ? [{ id, text }] : [];
+  }), TASK_STATE_BOUNDS.openItems, (item) => item.id);
+  const observations2 = keepLastByKey(snapshot.actionableObservations.flatMap((item) => {
+    const text = boundedTaskText(item.text, TASK_TEXT_BYTES.observation);
+    if (!text) return [];
+    const observationRef = boundedTaskText(item.observationRef, 1024);
+    const resource = boundedTaskText(item.resource, 1024);
+    const sourceToolCallId = boundedTaskText(item.sourceToolCallId, 1024);
+    return [{
+      text,
+      ...observationRef ? { observationRef } : {},
+      ...resource ? { resource } : {},
+      ...sourceToolCallId ? { sourceToolCallId } : {}
+    }];
+  }), TASK_STATE_BOUNDS.actionableObservations, (item) => item.observationRef ? `ref:${item.observationRef}` : item.resource ? `resource:${item.resource}` : `text:${item.text}`);
+  const artifacts2 = keepLastByKey(snapshot.artifacts.flatMap((item) => {
+    const pathOrId = boundedTaskText(item.pathOrId, TASK_TEXT_BYTES.artifact);
+    if (!pathOrId) return [];
+    const description = boundedTaskText(item.description, 2048);
+    const sourceToolCallId = boundedTaskText(item.sourceToolCallId, 1024);
+    return [{
+      pathOrId,
+      ...description ? { description } : {},
+      ...sourceToolCallId ? { sourceToolCallId } : {}
+    }];
+  }), TASK_STATE_BOUNDS.artifacts, (item) => item.pathOrId);
+  const objective = boundedTaskText(snapshot.objective, TASK_TEXT_BYTES.objective);
+  const objectiveSourceEntryId = objective ? boundedTaskText(snapshot.objectiveSourceEntryId, 1024) : void 0;
+  const focus = boundedTaskText(snapshot.focus, TASK_TEXT_BYTES.focus);
   return {
-    schema: "prime-context.task-snapshot/v1",
+    schema: "prime-context.task-snapshot/v2",
+    taskKey,
+    ...objective ? { objective } : {},
+    ...objectiveSourceEntryId ? { objectiveSourceEntryId } : {},
+    explicitConstraints: constraints,
+    ...focus ? { focus } : {},
+    openItems: openItems2,
+    pinnedObservationIds: [...new Set(snapshot.pinnedObservationIds.flatMap((id) => boundedTaskText(id, 1024) ?? []))].slice(-TASK_STATE_BOUNDS.pins),
+    actionableObservations: observations2,
+    artifacts: artifacts2
+  };
+}
+function createTaskSnapshotV2(taskKey, objective, objectiveSourceEntryId) {
+  return boundTaskSnapshotV2({
+    schema: "prime-context.task-snapshot/v2",
+    taskKey,
+    ...objective ? { objective } : {},
+    ...objectiveSourceEntryId ? { objectiveSourceEntryId } : {},
+    explicitConstraints: [],
     openItems: [],
     pinnedObservationIds: [],
-    updatedAt: now
-  };
+    actionableObservations: [],
+    artifacts: []
+  });
 }
-function cloneSnapshot(snapshot) {
-  return {
-    schema: "prime-context.task-snapshot/v1",
-    ...snapshot.focus === void 0 ? {} : { focus: snapshot.focus },
-    openItems: snapshot.openItems.map((item) => ({ ...item })),
-    pinnedObservationIds: [...snapshot.pinnedObservationIds],
-    updatedAt: snapshot.updatedAt
-  };
+function cloneTaskSnapshotV2(snapshot) {
+  return boundTaskSnapshotV2(structuredClone(snapshot));
 }
-function loadLatestSnapshot(branch) {
-  for (let index = branch.length - 1; index >= 0; index -= 1) {
-    const entry = branch[index];
-    if (entry.type === "custom" && entry.customType === SNAPSHOT_ENTRY_TYPE && isSnapshot(entry.data)) {
-      return cloneSnapshot(entry.data);
-    }
-  }
-  return emptySnapshot();
+function isTaskSnapshotV2(value) {
+  const candidate = asRecord(value);
+  return candidate?.schema === "prime-context.task-snapshot/v2" && typeof candidate.taskKey === "string" && candidate.taskKey.length > 0 && Array.isArray(candidate.explicitConstraints) && Array.isArray(candidate.openItems) && Array.isArray(candidate.pinnedObservationIds) && Array.isArray(candidate.actionableObservations) && Array.isArray(candidate.artifacts);
 }
-function isTaskRuntimeV2(value) {
-  if (!value || typeof value !== "object") return false;
-  const runtime = value;
-  return runtime.schema === "prime-context.runtime/v2" && typeof runtime.taskKey === "string" && runtime.taskKey.length > 0 && typeof runtime.objectiveVersion === "number" && typeof runtime.requirementsRevision === "number" && typeof runtime.requirementsLocked === "boolean" && typeof runtime.workspaceRevision === "number" && typeof runtime.turnSequence === "number" && Array.isArray(runtime.validationGates) && Array.isArray(runtime.validations) && Array.isArray(runtime.activeDiagnostics) && Array.isArray(runtime.modifiedResources) && Array.isArray(runtime.recentSubjects) && Array.isArray(runtime.recentIntentKeys) && Array.isArray(runtime.steeringDeltas);
-}
-function cloneTaskRuntime2(runtime) {
-  return structuredClone(runtime);
-}
-function normalizedLoadedRuntime(runtime) {
-  const cloned = cloneTaskRuntime2(runtime);
-  const steeringCandidates = Array.isArray(cloned.steeringResources) ? cloned.steeringResources : [];
-  cloned.steeringResources = [];
-  let steeringBytes = 0;
-  for (const resource of steeringCandidates) {
-    if (!resource || typeof resource.path !== "string" || typeof resource.userEntryId !== "string" || typeof resource.requirementsRevision !== "number") continue;
-    const size = Buffer.byteLength(resource.path, "utf8");
-    if (size === 0 || size > TASK_RUNTIME_BOUNDS.steeringResourcePathBytes || steeringBytes + size > TASK_RUNTIME_BOUNDS.steeringResourcesBytes) continue;
-    cloned.steeringResources.push({ ...resource });
-    steeringBytes += size;
-    if (cloned.steeringResources.length >= TASK_RUNTIME_BOUNDS.steeringResources) break;
-  }
-  cloned.activeDiagnostics = cloned.activeDiagnostics.map((diagnostic) => ({
-    ...diagnostic,
-    resources: Array.isArray(diagnostic.resources) ? diagnostic.resources.filter((resource) => typeof resource === "string") : []
-  }));
-  const fold = cloned.fold;
-  if (fold && (!Number.isSafeInteger(fold.generation) || fold.generation < 1 || typeof fold.throughEntryId !== "string" || !fold.throughEntryId || !Array.isArray(fold.retainedEntryIds) || fold.retainedEntryIds.length > TASK_RUNTIME_BOUNDS.foldRetainedEntryIds || !fold.retainedEntryIds.every((id) => typeof id === "string" && id.length > 0) || typeof fold.renderedMessage !== "string" || Buffer.byteLength(fold.renderedMessage, "utf8") > TASK_RUNTIME_BOUNDS.foldRenderedBytes)) delete cloned.fold;
-  return cloned;
-}
-function loadLatestRuntime(branch, taskKey) {
-  for (let index = branch.length - 1; index >= 0; index -= 1) {
-    const entry = branch[index];
-    if (entry.type !== "custom" || entry.customType !== RUNTIME_STATE_ENTRY_TYPE || !isTaskRuntimeV2(entry.data)) {
-      continue;
-    }
-    if (entry.data.taskKey === taskKey) return normalizedLoadedRuntime(entry.data);
+function loadLatestTaskSnapshotV2(branch, taskKey) {
+  const visible = providerVisibleBranchEntries(branch);
+  for (let index = visible.length - 1; index >= 0; index -= 1) {
+    const entry = visible[index];
+    if (entry.type !== "custom" || entry.customType !== SNAPSHOT_ENTRY_TYPE || !isTaskSnapshotV2(entry.data)) continue;
+    if (taskKey === void 0 || entry.data.taskKey === taskKey) return cloneTaskSnapshotV2(entry.data);
   }
   return void 0;
 }
-function applySnapshotChanges(current, changes, now = (/* @__PURE__ */ new Date()).toISOString()) {
-  const next = cloneSnapshot(current);
+function addActionableObservations(snapshot, observations2) {
+  return boundTaskSnapshotV2({
+    ...snapshot,
+    actionableObservations: [...snapshot.actionableObservations, ...observations2]
+  });
+}
+function addTaskArtifacts(snapshot, artifacts2) {
+  return boundTaskSnapshotV2({ ...snapshot, artifacts: [...snapshot.artifacts, ...artifacts2] });
+}
+function applySnapshotChanges(current, changes) {
+  const next = cloneTaskSnapshotV2(current);
   let changed = false;
   const requestedCompletions = [...new Set(changes.completeItemIds ?? [])];
   for (const id of requestedCompletions) {
@@ -3832,14 +3286,13 @@ function applySnapshotChanges(current, changes, now = (/* @__PURE__ */ new Date(
     }
   }
   next.pinnedObservationIds = [...pins];
-  if (next.openItems.length > 32) {
-    return { ok: false, error: "A task snapshot can contain at most 32 open items." };
+  if (next.openItems.length > TASK_STATE_BOUNDS.openItems) {
+    return { ok: false, error: `A task snapshot can contain at most ${TASK_STATE_BOUNDS.openItems} open items.` };
   }
-  if (next.pinnedObservationIds.length > 16) {
-    return { ok: false, error: "A task snapshot can contain at most 16 pinned observations." };
+  if (next.pinnedObservationIds.length > TASK_STATE_BOUNDS.pins) {
+    return { ok: false, error: `A task snapshot can contain at most ${TASK_STATE_BOUNDS.pins} pinned observations.` };
   }
-  if (changed) next.updatedAt = now;
-  return { ok: true, changed, snapshot: next };
+  return { ok: true, changed, snapshot: changed ? boundTaskSnapshotV2(next) : current };
 }
 function readConfigFile(path, label, warnings) {
   try {
@@ -3859,12 +3312,12 @@ function resolveField(key, globalConfig, projectConfig, warnings) {
   const source = Object.hasOwn(projectConfig, key) ? projectConfig : globalConfig;
   if (!Object.hasOwn(source, key)) return DEFAULT_CONFIG[key];
   const value = source[key];
-  const valid = key === "enabled" ? typeof value === "boolean" : typeof value === "number" && Number.isSafeInteger(value) && (key === "minTextBytes" ? value >= 0 : key === "capsuleMaxBytes" ? value >= 512 : value > 0);
+  const valid = key === "enabled" ? typeof value === "boolean" : key === "auxiliaryMode" ? value === "off" || value === "utility-gated" : key === "autoLearn" ? value === "off" || value === "utility-gated" : key === "auxiliaryModel" || key === "learningModel" ? value === null || typeof value === "string" && value.trim().length > 0 && !value.includes("\0") : key === "libraryPath" ? typeof value === "string" && value.trim().length > 0 && !value.includes("\0") : typeof value === "number" && Number.isSafeInteger(value) && (key === "minTextBytes" ? value >= 0 : key === "capsuleMaxBytes" ? value >= 512 : value > 0);
   if (!valid) {
     warnings.push(`Invalid ${key} configuration value; default ${DEFAULT_CONFIG[key]} was used.`);
     return DEFAULT_CONFIG[key];
   }
-  return value;
+  return key === "libraryPath" || key === "auxiliaryModel" || key === "learningModel" ? typeof value === "string" ? value.trim() : value : value;
 }
 function loadPrimeContextConfig(cwd) {
   const warnings = [];
@@ -3875,7 +3328,13 @@ function loadPrimeContextConfig(cwd) {
       enabled: resolveField("enabled", globalConfig, projectConfig, warnings),
       minTextBytes: resolveField("minTextBytes", globalConfig, projectConfig, warnings),
       capsuleMaxBytes: resolveField("capsuleMaxBytes", globalConfig, projectConfig, warnings),
-      readMaxBytes: resolveField("readMaxBytes", globalConfig, projectConfig, warnings)
+      readMaxBytes: resolveField("readMaxBytes", globalConfig, projectConfig, warnings),
+      auxiliaryMode: resolveField("auxiliaryMode", globalConfig, projectConfig, warnings),
+      auxiliaryModel: resolveField("auxiliaryModel", globalConfig, projectConfig, warnings),
+      libraryPath: resolveField("libraryPath", globalConfig, projectConfig, warnings),
+      skillBudgetTokens: resolveField("skillBudgetTokens", globalConfig, projectConfig, warnings),
+      learningModel: resolveField("learningModel", globalConfig, projectConfig, warnings),
+      autoLearn: resolveField("autoLearn", globalConfig, projectConfig, warnings)
     },
     warnings
   };
@@ -3887,14 +3346,14 @@ function storageRoot() {
 // src/context.ts
 var GOAL_CONTEXT_TYPE = "goal_context";
 var IPYTHON_STATE_TYPES = /* @__PURE__ */ new Set(["ipython_state", "ipython_state_restored"]);
-function record2(value) {
+function record(value) {
   return value !== null && typeof value === "object" ? value : void 0;
 }
 function contentText(content) {
   if (typeof content === "string") return content;
   if (!Array.isArray(content)) return "";
   return content.flatMap((part) => {
-    const value = record2(part);
+    const value = record(part);
     return value?.type === "text" && typeof value.text === "string" ? [value.text] : [];
   }).join("\n");
 }
@@ -3902,7 +3361,7 @@ function replaceTextContent(content, text) {
   if (!Array.isArray(content)) return text;
   let replaced = false;
   const next = content.flatMap((part) => {
-    const value = record2(part);
+    const value = record(part);
     if (value?.type !== "text") return [part];
     if (replaced) return [];
     replaced = true;
@@ -3927,9 +3386,6 @@ function unique2(values) {
   }
   return result;
 }
-function durableSnapshot(snapshot) {
-  return Boolean(snapshot.focus) || snapshot.openItems.length > 0 || snapshot.pinnedObservationIds.length > 0;
-}
 function explicitProtectedPaths(values) {
   const paths = [];
   for (const value of values) {
@@ -3945,239 +3401,206 @@ function explicitProtectedPaths(values) {
   }
   return unique2(paths);
 }
-function normalizedGate(gate) {
-  if (gate.suiteFamily && gate.target) return `${gate.suiteFamily}:${gate.target}`;
-  return gate.key;
-}
 function renderPrimeContextAnchor(input) {
-  const objective = input.objective.trim();
-  const constraints = unique2(input.runtime.steeringDeltas).filter((value) => normalizedText(value) !== normalizedText(objective));
+  const objective = input.task.objective?.trim() ?? "";
+  const constraints = activeConstraintTexts(input.task).filter((value) => normalizedText(value) !== normalizedText(objective));
   const protectedPaths = explicitProtectedPaths([objective, ...constraints]);
-  const lines = [
-    "<prime_context_anchor>",
-    `objective: ${quoted(objective)}`,
-    `requirements_revision: r${input.runtime.requirementsRevision}`
-  ];
+  const lines = ["<prime_context_anchor>", `objective: ${quoted(objective)}`];
   if (constraints.length > 0) {
     lines.push("constraints:", ...constraints.map((value) => `- ${quoted(value)}`));
-  }
-  if (input.runtime.validationGates.length > 0) {
-    lines.push("required_gates:", ...input.runtime.validationGates.map((gate) => `- ${escapeXml(boundedDisplay(normalizedGate(gate)))}`));
   }
   if (protectedPaths.length > 0) {
     lines.push("protected_paths:", ...protectedPaths.map((path) => `- ${escapeXml(boundedDisplay(path))}`));
   }
-  if (input.snapshot.focus) lines.push(`durable_focus: ${quoted(boundedDisplay(input.snapshot.focus, 256))}`);
-  if (input.snapshot.openItems.length > 0) {
-    lines.push("open_items:", ...input.snapshot.openItems.map((item) => `- [${escapeXml(boundedDisplay(item.id, 96))}] ${escapeXml(boundedDisplay(item.text, 256))}`));
+  if (input.task.focus) lines.push(`durable_focus: ${quoted(boundedDisplay(input.task.focus, 256))}`);
+  if (input.task.openItems.length > 0) {
+    lines.push("open_items:", ...input.task.openItems.map((item) => `- [${escapeXml(boundedDisplay(item.id, 96))}] ${escapeXml(boundedDisplay(item.text, 256))}`));
   }
-  if (input.snapshot.pinnedObservationIds.length > 0) {
-    lines.push("pinned_outputs:", ...input.snapshot.pinnedObservationIds.map((id) => `- ${escapeXml(boundedDisplay(id, 128))}`));
+  if (input.task.pinnedObservationIds.length > 0) {
+    lines.push("pinned_outputs:", ...input.task.pinnedObservationIds.map((id) => `- ${escapeXml(boundedDisplay(id, 128))}`));
   }
   if (input.child) {
     const parentRefs = unique2(input.child.parentRefs).slice(0, 8);
     const relevantPaths = unique2(input.child.relevantPaths).slice(0, 8);
     const childConstraints = unique2(input.child.constraints).slice(0, 6);
     lines.push("child_context:", `- parent_session: ${escapeXml(boundedDisplay(input.child.parentSessionId, 128))}`);
-    if (parentRefs.length > 0) {
-      lines.push("- parent_refs:", ...parentRefs.map((ref) => `  - ${escapeXml(boundedDisplay(ref, 128))}`));
-    }
-    if (relevantPaths.length > 0) {
-      lines.push("- relevant_paths:", ...relevantPaths.map((path) => `  - ${escapeXml(boundedDisplay(path, 192))}`));
-    }
-    if (childConstraints.length > 0) {
-      lines.push("- inherited_constraints:", ...childConstraints.map((value) => `  - ${quoted(boundedDisplay(value, 256))}`));
-    }
+    if (parentRefs.length > 0) lines.push("- parent_refs:", ...parentRefs.map((ref) => `  - ${escapeXml(boundedDisplay(ref, 128))}`));
+    if (relevantPaths.length > 0) lines.push("- relevant_paths:", ...relevantPaths.map((path) => `  - ${escapeXml(boundedDisplay(path, 192))}`));
+    if (childConstraints.length > 0) lines.push("- inherited_constraints:", ...childConstraints.map((value) => `  - ${quoted(boundedDisplay(value, 256))}`));
     lines.push('- parent_lookup: "prime_context action=recall scope=parent id=<parent_ref>"');
     lines.push('- reply_contract: "Return touched paths, current validation facts, and child refs; do not copy large diagnostics."');
   }
   lines.push("</prime_context_anchor>");
   return {
     content: lines.join("\n"),
-    details: {
-      schema: PRIME_CONTEXT_ANCHOR_SCHEMA,
-      ...input.taskKey === void 0 ? {} : { taskKey: input.taskKey },
-      objectiveVersion: input.runtime.objectiveVersion,
-      requirementsRevision: input.runtime.requirementsRevision
-    }
+    details: { schema: PRIME_CONTEXT_ANCHOR_SCHEMA, taskKey: input.task.taskKey }
   };
-}
-function taskAnchorHasDurableState(input, visiblePrompt) {
-  if (input.child || input.runtime.goalId || durableSnapshot(input.snapshot)) return true;
-  if (input.runtime.validations.length > 0 || input.runtime.activeDiagnostics.length > 0 || input.runtime.modifiedResources.length > 0) return true;
-  const prompt = normalizedText(visiblePrompt);
-  const otherSteering = input.runtime.steeringDeltas.some((value) => normalizedText(value) !== prompt);
-  if (otherSteering) return true;
-  const objectiveVisible = normalizedText(input.objective) === prompt;
-  return !objectiveVisible;
-}
-function latestGateValidation(runtime, gate) {
-  return runtime.validations.find((validation) => {
-    if (gate.suiteFamily && validation.suite.family !== gate.suiteFamily) return false;
-    if (gate.target && validation.suite.target !== gate.target) return false;
-    return gate.suiteFamily !== void 0 || gate.target !== void 0 || `suite:${validation.suite.family}:${validation.suite.target}` === gate.key;
-  });
 }
 function boundedDisplay(value, maxBytes = 160) {
   const display = value.trim().replace(/[\r\n\t]+/g, " ");
   if (utf8Bytes(display) <= maxBytes) return display;
   return `${truncateUtf8(display, Math.max(0, maxBytes - 3))}\u2026`;
 }
-function short(value, maxBytes = 88) {
-  return boundedDisplay(value, maxBytes);
+var TASK_PACKET_MAX_BYTES = TASK_STATE_BOUNDS.renderedTokens * 4;
+var TASK_PACKET_VALUE_MAX_BYTES = 384;
+function visibleValue(value) {
+  if (value === void 0) return void 0;
+  const normalized = normalizedText(value);
+  return normalized || void 0;
 }
-function boundedList(values, limit = 4, itemBytes = 160) {
-  const shown = values.slice(0, limit).map((value) => boundedDisplay(value, itemBytes));
-  const omitted = values.length - shown.length;
-  return `${shown.join(", ")}${omitted > 0 ? `, +${omitted}` : ""}`;
-}
-function modifiedResourcesSinceGate(runtime, gate) {
-  const validation = latestGateValidation(runtime, gate);
-  const revision = validation?.workspaceRevision ?? -1;
-  return runtime.modifiedResources.filter((resource) => resource.revision > revision).map((resource) => resource.path);
-}
-function subjectPath(subject) {
-  return subject.startsWith("path:") ? subject.slice(5) : void 0;
-}
-function rankWorkingSet(runtime, snapshot, limit = 12) {
-  const ranked = [];
-  const add = (value) => {
-    const normalized = value?.trim();
-    if (normalized && !ranked.includes(normalized)) ranked.push(normalized);
-  };
-  for (const diagnostic of runtime.activeDiagnostics) {
-    for (const resource of diagnostic.resources ?? []) add(resource);
-    add(subjectPath(diagnostic.subjectKey ?? ""));
-  }
-  for (const resource of runtime.modifiedResources) add(resource.path);
-  const latestSteeringRevision = runtime.steeringResources.reduce(
-    (latest, resource) => Math.max(latest, resource.requirementsRevision),
-    -1
-  );
-  for (const resource of runtime.steeringResources) {
-    if (resource.requirementsRevision === latestSteeringRevision) add(resource.path);
-  }
-  for (const gate of runtime.validationGates) {
-    const subjects = runtime.recentSubjects.filter((subject) => subject.intentKind === "test" || subject.intentKind === "build" || subject.intentKind === "lint");
-    for (const subject of subjects) {
-      if (gate.target && subject.subjectKey.includes(gate.target) || gate.suiteFamily && subject.subjectKey.includes(gate.suiteFamily)) {
-        for (const resource of subject.resources) add(resource);
-      }
+function escapedValueWithin(value, maxBytes) {
+  const normalized = normalizedText(value);
+  if (!normalized || maxBytes <= 0) return "";
+  const escaped = escapeXml(normalized);
+  if (utf8Bytes(escaped) <= maxBytes) return escaped;
+  let low = 0;
+  let high = utf8Bytes(normalized);
+  let best = "";
+  while (low <= high) {
+    const middle = Math.floor((low + high) / 2);
+    const prefix = truncateUtf8(normalized, middle).trimEnd();
+    const candidate = prefix ? escapeXml(`${prefix}\u2026`) : "";
+    if (candidate && utf8Bytes(candidate) <= maxBytes) {
+      best = candidate;
+      low = middle + 1;
+    } else {
+      high = middle - 1;
     }
-    if (gate.target?.includes("/") || gate.target?.includes(".")) add(gate.target);
   }
-  for (const subject of runtime.recentSubjects) {
-    if (subject.intentKind !== "read" && subject.intentKind !== "search") continue;
-    for (const resource of subject.resources) add(resource);
-    add(subjectPath(subject.subjectKey));
-  }
-  const bounded = ranked.slice(0, Math.max(0, limit));
-  const override = (value) => {
-    if (value && !bounded.includes(value)) bounded.push(value);
-  };
-  override(snapshot?.focus ? `focus:${short(snapshot.focus, 120)}` : void 0);
-  for (const pin of snapshot?.pinnedObservationIds ?? []) override(`pin:${pin}`);
-  return bounded;
+  return best;
 }
-function renderPrimeContextState(runtime, snapshot) {
-  const gateFacts = runtime.validationGates.map((gate) => {
-    const validation = latestGateValidation(runtime, gate);
-    const modified = modifiedResourcesSinceGate(runtime, gate);
-    const modifiedFact = boundedList(modified.length > 0 ? modified : ["none"]);
-    if (!validation) return `${boundedDisplay(normalizedGate(gate))}=not-run modified=${modifiedFact}`;
-    const current = validation.requirementsRevision === runtime.requirementsRevision && validation.workspaceRevision === runtime.workspaceRevision;
-    const status = validation.status === "success" ? "pass" : "fail";
-    return `${boundedDisplay(normalizedGate(gate))}=${status}${current ? "" : "-stale"}@r${validation.requirementsRevision}/w${validation.workspaceRevision} modified=${modifiedFact}`;
-  });
-  const diagnostics = runtime.activeDiagnostics.map((diagnostic) => {
-    const resources = diagnostic.resources?.length ? ` resources=${boundedList(diagnostic.resources)}` : "";
-    const ref = diagnostic.exchangeId ? ` ref=${boundedDisplay(diagnostic.exchangeId, 96)}:result` : "";
-    return `${boundedDisplay(diagnostic.summary, 160)} [${diagnostic.state}]${resources}${ref}`;
-  });
-  const actions = runtime.recentSubjects.slice(0, 6).map((subject) => {
-    const resources = subject.resources.length > 0 ? ` ${boundedList(subject.resources)}` : "";
-    const ref = subject.exchangeId ? ` ref=${boundedDisplay(subject.exchangeId, 96)}` : "";
-    return `${subject.intentKind} ${boundedDisplay(subject.subjectKey, 160)}${resources}${ref}`;
-  });
-  const firstUnmetGate = runtime.validationGates.find((gate) => {
-    const validation = latestGateValidation(runtime, gate);
-    return !validation || validation.status !== "success" || validation.requirementsRevision !== runtime.requirementsRevision || validation.workspaceRevision !== runtime.workspaceRevision;
-  });
-  const firstDiagnostic = runtime.activeDiagnostics[0];
-  const nextObligation = firstDiagnostic?.state === "active" ? `resolve ${short(firstDiagnostic.summary)}` : firstDiagnostic ? `rerun current ${boundedDisplay(firstDiagnostic.suiteFamily ?? "validation")} gate` : firstUnmetGate ? `run current gate ${boundedDisplay(normalizedGate(firstUnmetGate))}` : snapshot?.openItems[0] ? `complete open item ${boundedDisplay(snapshot.openItems[0].id, 96)}` : "none";
-  const lines = [
-    "<prime_context_state>",
-    `objective: ${quoted(runtime.objective ?? runtime.taskKey)} v${runtime.objectiveVersion}`,
-    `requirements: r${runtime.requirementsRevision} ${runtime.requirementsLocked ? "locked" : "open"}`,
-    `workspace: w${runtime.workspaceRevision}`,
-    `readiness: ${deriveReadiness(runtime)}`
+function packetBytes(lines, closingTag) {
+  return utf8Bytes([...lines, closingTag].join("\n"));
+}
+function appendBoundedPacketLine(lines, closingTag, prefix, value) {
+  const remaining = TASK_PACKET_MAX_BYTES - packetBytes([...lines, prefix], closingTag);
+  const escaped = escapedValueWithin(value, Math.min(TASK_PACKET_VALUE_MAX_BYTES, remaining));
+  if (!escaped) return false;
+  const next = `${prefix}${escaped}`;
+  if (packetBytes([...lines, next], closingTag) > TASK_PACKET_MAX_BYTES) return false;
+  lines.push(next);
+  return true;
+}
+function renderTaskPacket(tag, fields) {
+  const closingTag = `</${tag}>`;
+  const lines = [`<${tag}>`];
+  for (const field of fields) {
+    if ("value" in field) {
+      const value = visibleValue(field.value);
+      if (value) appendBoundedPacketLine(lines, closingTag, `${field.label}: `, value);
+      continue;
+    }
+    const values = unique2(field.values).map(visibleValue).filter((value) => value !== void 0);
+    if (values.length === 0) continue;
+    const headingIndex = lines.length;
+    lines.push(`${field.label}:`);
+    let added = false;
+    for (const value of values) {
+      added = appendBoundedPacketLine(lines, closingTag, "- ", value) || added;
+    }
+    if (!added) lines.splice(headingIndex, 1);
+  }
+  if (lines.length === 1) return "";
+  lines.push(closingTag);
+  return lines.join("\n");
+}
+function activeConstraintTexts(snapshot) {
+  return snapshot.explicitConstraints.filter((constraint) => constraint.supersededBy === void 0).slice(0, TASK_STATE_BOUNDS.constraints).map((constraint) => constraint.text);
+}
+function openItems(snapshot) {
+  return snapshot.openItems.slice(0, TASK_STATE_BOUNDS.openItems);
+}
+function formatOpenItem(item) {
+  const id = visibleValue(item.id);
+  const text = visibleValue(item.text);
+  return id && text ? `[${id}] ${text}` : text ?? id ?? "";
+}
+function observations(snapshot) {
+  return snapshot.actionableObservations.slice(0, TASK_STATE_BOUNDS.actionableObservations);
+}
+function observationKey(observation) {
+  return [observation.text, observation.resource ?? ""].map(normalizedText).join("\0");
+}
+function formatObservation(observation) {
+  const text = visibleValue(observation.text) ?? "";
+  const resource = visibleValue(observation.resource);
+  return resource ? `${text} (${resource})` : text;
+}
+function artifacts(snapshot) {
+  return snapshot.artifacts.slice(0, TASK_STATE_BOUNDS.artifacts);
+}
+function artifactKey(artifact) {
+  return [artifact.pathOrId, artifact.description ?? ""].map(normalizedText).join("\0");
+}
+function formatArtifact(artifact) {
+  const pathOrId = visibleValue(artifact.pathOrId) ?? "";
+  const description = visibleValue(artifact.description);
+  return description ? `${pathOrId} \u2014 ${description}` : pathOrId;
+}
+function visibleSet(values) {
+  return new Set(values.map(normalizedText).filter(Boolean));
+}
+function renderPrimeContextTask(snapshot, options = {}) {
+  return renderTaskPacket("prime_context_task", [
+    { label: "objective", value: options.objectiveVisible ? void 0 : snapshot.objective },
+    { label: "constraints", values: activeConstraintTexts(snapshot) },
+    { label: "focus", value: snapshot.focus },
+    { label: "open_items", values: openItems(snapshot).map(formatOpenItem) },
+    { label: "new_facts", values: observations(snapshot).map(formatObservation) },
+    { label: "artifacts", values: artifacts(snapshot).map(formatArtifact) },
+    { label: "pinned_observations", values: snapshot.pinnedObservationIds.slice(0, TASK_STATE_BOUNDS.pins) }
+  ]);
+}
+function renderPrimeContextUpdate(previous, current) {
+  const previousConstraints = visibleSet(activeConstraintTexts(previous));
+  const currentConstraints = visibleSet(activeConstraintTexts(current));
+  const constraintAdded = activeConstraintTexts(current).filter((text) => !previousConstraints.has(normalizedText(text)));
+  const constraintRemoved = activeConstraintTexts(previous).filter((text) => !currentConstraints.has(normalizedText(text)));
+  const previousItems = new Map(openItems(previous).map((item) => [normalizedText(item.id), item]));
+  const currentItems = new Map(openItems(current).map((item) => [normalizedText(item.id), item]));
+  const openItemAdded = openItems(current).filter((item) => !previousItems.has(normalizedText(item.id))).map(formatOpenItem);
+  const openItemRemoved = openItems(previous).filter((item) => !currentItems.has(normalizedText(item.id))).map(formatOpenItem);
+  const openItemUpdated = openItems(current).filter((item) => {
+    const before = previousItems.get(normalizedText(item.id));
+    return before !== void 0 && normalizedText(before.text) !== normalizedText(item.text);
+  }).map(formatOpenItem);
+  const previousPins = visibleSet(previous.pinnedObservationIds.slice(0, TASK_STATE_BOUNDS.pins));
+  const currentPins = visibleSet(current.pinnedObservationIds.slice(0, TASK_STATE_BOUNDS.pins));
+  const pinsAdded = current.pinnedObservationIds.slice(0, TASK_STATE_BOUNDS.pins).filter((id) => !previousPins.has(normalizedText(id)));
+  const pinsRemoved = previous.pinnedObservationIds.slice(0, TASK_STATE_BOUNDS.pins).filter((id) => !currentPins.has(normalizedText(id)));
+  const previousObservations = new Set(observations(previous).map(observationKey));
+  const newFacts = observations(current).filter((observation) => !previousObservations.has(observationKey(observation))).map(formatObservation);
+  const previousArtifacts = new Set(artifacts(previous).map(artifactKey));
+  const newArtifacts = artifacts(current).filter((artifact) => !previousArtifacts.has(artifactKey(artifact))).map(formatArtifact);
+  const objectiveChanged = normalizedText(previous.objective ?? "") !== normalizedText(current.objective ?? "");
+  const focusChanged = normalizedText(previous.focus ?? "") !== normalizedText(current.focus ?? "");
+  const fields = [
+    { label: "objective", value: objectiveChanged ? current.objective : void 0 },
+    { label: "objective_removed", value: objectiveChanged && !visibleValue(current.objective) ? previous.objective : void 0 },
+    { label: "constraint_added", values: constraintAdded },
+    { label: "constraint_removed", values: constraintRemoved },
+    { label: "focus", value: focusChanged ? current.focus : void 0 },
+    { label: "focus_removed", value: focusChanged && !visibleValue(current.focus) ? previous.focus : void 0 },
+    { label: "open_item_added", values: openItemAdded },
+    { label: "open_item_updated", values: openItemUpdated },
+    { label: "open_item_removed", values: openItemRemoved },
+    { label: "pin_added", values: pinsAdded },
+    { label: "pin_removed", values: pinsRemoved },
+    { label: "new_fact", values: newFacts },
+    { label: "artifact", values: newArtifacts }
   ];
-  if (gateFacts.length > 0) lines.push("validation_gates:", ...gateFacts.map((fact) => `- ${escapeXml(fact)}`));
-  if (diagnostics.length > 0) lines.push("active_diagnostics:", ...diagnostics.map((fact) => `- ${escapeXml(fact)}`));
-  if (actions.length > 0) lines.push("recent_actions:", ...actions.map((fact) => `- ${escapeXml(fact)}`));
-  const hot = rankWorkingSet(runtime, snapshot);
-  if (hot.length > 0) lines.push("hot:", ...hot.map((value) => `- ${escapeXml(boundedDisplay(value))}`));
-  if (snapshot?.openItems.length) lines.push(`open_items: ${snapshot.openItems.length}`);
-  lines.push(`next_obligation: ${escapeXml(nextObligation)}`, "</prime_context_state>");
-  return {
-    content: lines.join("\n"),
-    details: {
-      schema: PRIME_CONTEXT_STATE_SCHEMA,
-      taskKey: runtime.taskKey,
-      requirementsRevision: runtime.requirementsRevision,
-      workspaceRevision: runtime.workspaceRevision
-    }
-  };
-}
-function renderPrimeContextFold(runtime, snapshot, generation, throughEntryId) {
-  const lines = [`<prime_context_fold generation="${generation}">`];
-  const subjects = rankWorkingSet(runtime, void 0, 8).slice(0, 8);
-  if (subjects.length > 0) {
-    lines.push("current_subjects:");
-    for (const value of subjects) {
-      const subject = runtime.recentSubjects.find((candidate) => candidate.resources.includes(value) || subjectPath(candidate.subjectKey) === value);
-      lines.push(`- ${escapeXml(boundedDisplay(value, 160))}${subject?.exchangeId ? ` last_action=${escapeXml(boundedDisplay(subject.exchangeId, 96))}` : ""}`);
-    }
-  }
-  if (runtime.activeDiagnostics.length > 0) {
-    lines.push("unresolved:");
-    for (const diagnostic of runtime.activeDiagnostics.slice(0, 8)) {
-      lines.push(`- ${escapeXml(boundedDisplay(diagnostic.summary, 160))}${diagnostic.exchangeId ? ` ref=${escapeXml(boundedDisplay(diagnostic.exchangeId, 96))}:result` : ""}`);
-    }
-  }
-  if (runtime.validationGates.length > 0) {
-    lines.push("validation:");
-    for (const gate of runtime.validationGates) {
-      const validation = latestGateValidation(runtime, gate);
-      const current = validation && validation.requirementsRevision === runtime.requirementsRevision && validation.workspaceRevision === runtime.workspaceRevision;
-      const status = validation ? `${validation.status === "success" ? "pass" : "fail"}${current ? "" : "-stale"}@w${validation.workspaceRevision}` : "not-run";
-      const modified = modifiedResourcesSinceGate(runtime, gate);
-      lines.push(`- ${escapeXml(boundedDisplay(normalizedGate(gate)))} ${status} modified=${escapeXml(boundedList(modified.length ? modified : ["none"]))}`);
-    }
-  }
-  if (snapshot.pinnedObservationIds.length > 0) {
-    lines.push("pinned:", ...snapshot.pinnedObservationIds.map((id) => `- ${escapeXml(boundedDisplay(id, 128))}`));
-  }
-  lines.push("</prime_context_fold>");
-  return {
-    content: lines.join("\n"),
-    details: {
-      schema: PRIME_CONTEXT_FOLD_SCHEMA,
-      taskKey: runtime.taskKey,
-      generation,
-      throughEntryId
-    }
-  };
+  const hasVisibleChange = fields.some((field) => "value" in field ? visibleValue(field.value) !== void 0 : field.values.some((value) => visibleValue(value) !== void 0));
+  return hasVisibleChange ? renderTaskPacket("prime_context_update", fields) : void 0;
 }
 function goalObjective(message) {
-  const details = record2(message.details);
+  const details = record(message.details);
   if (typeof details?.objective === "string" && details.objective.trim()) return details.objective;
   const text = contentText(message.content);
   const match = text.match(/<(?:untrusted_)?objective>\s*([\s\S]*?)\s*<\/(?:untrusted_)?objective>/i);
   return match?.[1]?.trim();
 }
 function goalRemaining(message) {
-  const details = record2(message.details);
+  const details = record(message.details);
   const direct = details?.remainingTokens ?? details?.remaining_tokens;
   if (typeof direct === "number" || direct === "string") return String(direct);
   if (typeof details?.tokenBudget === "number" && typeof details.tokensUsed === "number") {
@@ -4190,7 +3613,7 @@ function attribute(name, value) {
   return value === void 0 ? "" : ` ${name}="${escapeXml(String(value))}"`;
 }
 function mapGoalMessage(message, states) {
-  const details = record2(message.details);
+  const details = record(message.details);
   const objective = goalObjective(message);
   if (!objective) return message;
   const goalId = typeof details?.goalId === "string" ? details.goalId : "goal";
@@ -4542,7 +3965,7 @@ function projectResultContent(content, text) {
 function viewMap(views) {
   return Array.isArray(views) ? new Map(views.map((view) => [view.toolCallId, view])) : views;
 }
-function projectFixedExchangeViews(messages, viewsInput, activeModelKey) {
+function projectFixedExchangeViews(messages, viewsInput, activeModelKey, contextEpoch) {
   const views = viewMap(viewsInput);
   if (views.size === 0) return messages;
   const callIds = /* @__PURE__ */ new Set();
@@ -4555,7 +3978,13 @@ function projectFixedExchangeViews(messages, viewsInput, activeModelKey) {
       resultIds.add(message.toolCallId);
     }
   }
-  const complete = new Set([...callIds].filter((id) => resultIds.has(id) && views.has(id)));
+  const complete = new Set([...callIds].filter((id) => {
+    if (!resultIds.has(id)) return false;
+    const view = views.get(id);
+    if (!view) return false;
+    const dependency = view.deltaDependency;
+    return dependency === void 0 || contextEpoch !== void 0 && dependency.contextEpoch === contextEpoch && resultIds.has(dependency.baselineToolCallId);
+  }));
   if (complete.size === 0) return messages;
   let anyChanged = false;
   const projected = messages.map((message) => {
@@ -4585,36 +4014,6 @@ function projectFixedExchangeViews(messages, viewsInput, activeModelKey) {
   });
   return anyChanged ? projected : messages;
 }
-function foldProjection(messages, entryRefs, fold, foldMessageEntryId, foldPrefixEntryIds) {
-  if (!fold || !entryRefs || !foldMessageEntryId || !foldPrefixEntryIds || !foldPrefixEntryIds.has(fold.throughEntryId) || foldPrefixEntryIds.has(foldMessageEntryId) || new Set(fold.retainedEntryIds).size !== fold.retainedEntryIds.length || fold.retainedEntryIds.some((id) => !foldPrefixEntryIds.has(id))) {
-    return { messages, ...entryRefs === void 0 ? {} : { entryRefs: entryRefs.map((ref) => ({ ...ref })) } };
-  }
-  const indices = /* @__PURE__ */ new Set();
-  const ids = /* @__PURE__ */ new Set();
-  for (const ref of entryRefs) {
-    if (ref.messageIndex < 0 || ref.messageIndex >= messages.length || indices.has(ref.messageIndex) || ids.has(ref.entryId)) {
-      return { messages, entryRefs: entryRefs.map((item) => ({ ...item })) };
-    }
-    indices.add(ref.messageIndex);
-    ids.add(ref.entryId);
-  }
-  const retained = new Set(fold.retainedEntryIds);
-  const refByIndex = new Map(entryRefs.map((ref) => [ref.messageIndex, ref.entryId]));
-  const keptIndices = [];
-  for (let index = 0; index < messages.length; index += 1) {
-    const id = refByIndex.get(index);
-    if (id === void 0 || !foldPrefixEntryIds.has(id) || retained.has(id)) keptIndices.push(index);
-  }
-  if (keptIndices.length === messages.length) return { messages, entryRefs: entryRefs.map((ref) => ({ ...ref })) };
-  const rebased = new Map(keptIndices.map((source, target) => [source, target]));
-  return {
-    messages: keptIndices.map((index) => messages[index]),
-    entryRefs: entryRefs.flatMap((ref) => {
-      const messageIndex = rebased.get(ref.messageIndex);
-      return messageIndex === void 0 ? [] : [{ messageIndex, entryId: ref.entryId }];
-    })
-  };
-}
 function stripModelDetails(messages) {
   let changed = false;
   const projected = messages.map((message) => {
@@ -4643,13 +4042,6 @@ function stableModelControls(messages, entryRefs, sources) {
   });
   return changed ? projected : messages;
 }
-function appendProviderTextMessage(messages, text) {
-  return [...messages, {
-    role: "user",
-    content: [{ type: "text", text }],
-    timestamp: 0
-  }];
-}
 function imagePlaceholder(image) {
   const dimensions = image.width && image.height ? `${image.width}x${image.height}` : "unknown";
   return {
@@ -4664,28 +4056,20 @@ var PROVIDER_IMAGE_MAX_BYTES = 8 * 1024 * 1024;
 var PROVIDER_IMAGE_TOTAL_BYTES = 16 * 1024 * 1024;
 function projectLeasedContent(messages, input) {
   const shownRecoveryToolCallIds = [];
-  const shownImageRefs = [];
-  let projectedImageBytes = 0;
-  const provider = input.purpose === "provider";
+  const shownImageRefs = [...input.initialShownImageRefs ?? []];
+  let projectedImageBytes2 = input.initialProjectedImageBytes ?? 0;
+  const provider = input.purpose === "provider" || input.purpose === "budget";
   const images = /* @__PURE__ */ new Map();
-  const freshImageRefs = /* @__PURE__ */ new Set();
   for (const [toolCallId, view] of viewMap(input.fixedViews)) {
     if (view.images?.length) images.set(toolCallId, view.images);
   }
   for (const [toolCallId, refs] of input.pendingImages ?? []) {
     if (!images.has(toolCallId)) images.set(toolCallId, refs);
-    for (const image of refs) freshImageRefs.add(image.ref);
   }
   let changed = false;
   const projected = messages.map((message) => {
     if (message.role !== "toolResult" || typeof message.toolCallId !== "string" || !Array.isArray(message.content)) {
       return message;
-    }
-    const lease = provider ? input.recoveryLeases?.get(message.toolCallId) : void 0;
-    if (lease) {
-      shownRecoveryToolCallIds.push(message.toolCallId);
-      changed = true;
-      return { ...message, content: lease.content.map((block) => ({ ...block })) };
     }
     const descriptors = images.get(message.toolCallId);
     if (descriptors === void 0) return message;
@@ -4706,12 +4090,12 @@ Image descriptor omitted by the bounded pending-media budget. Inspect the archiv
         };
       }
       if (opaque) {
-        if (provider && !input.consumedImageRefs?.has(descriptor.ref)) shownImageRefs.push(descriptor.ref);
+        if (provider) shownImageRefs.push(descriptor.ref);
         return block;
       }
-      if (provider && PROVIDER_IMAGE_MIME_TYPES.has(descriptor.mimeType.toLowerCase()) && descriptor.bytes <= PROVIDER_IMAGE_MAX_BYTES && projectedImageBytes + descriptor.bytes <= PROVIDER_IMAGE_TOTAL_BYTES && freshImageRefs.has(descriptor.ref) && !input.consumedImageRefs?.has(descriptor.ref)) {
+      if (provider && PROVIDER_IMAGE_MIME_TYPES.has(descriptor.mimeType.toLowerCase()) && descriptor.bytes <= PROVIDER_IMAGE_MAX_BYTES && projectedImageBytes2 + descriptor.bytes <= PROVIDER_IMAGE_TOTAL_BYTES) {
         shownImageRefs.push(descriptor.ref);
-        projectedImageBytes += descriptor.bytes;
+        projectedImageBytes2 += descriptor.bytes;
         return block;
       }
       contentChanged = true;
@@ -4736,7 +4120,7 @@ function projectBashExecutionViews(messages, entryRefs, sourceMessages, views) {
     const entryId2 = byIndex.get(messageIndex);
     const source = entryId2 ? sourceMessages.get(entryId2) : void 0;
     const view = entryId2 ? fixed.get(entryId2) : void 0;
-    if (source?.role !== "bashExecution" || !view) return message;
+    if (source?.role !== "bashExecution" || !view || view.deltaDependency !== void 0) return message;
     const compactCommand = typeof view.callArguments?.command === "string" ? view.callArguments.command : source.command;
     const compactOutput = view.result.kind === "capsule" ? view.result.text : source.output;
     if (compactCommand === source.command && compactOutput === source.output) return message;
@@ -4753,21 +4137,15 @@ function projectBashExecutionViews(messages, entryRefs, sourceMessages, views) {
 }
 function projectModelContext(input) {
   const stable = stableModelControls(input.messages, input.entryRefs, input.sourceMessages);
-  const folded = foldProjection(
-    stable,
-    input.entryRefs,
-    input.fold,
-    input.foldMessageEntryId,
-    input.foldPrefixEntryIds
-  );
   let messages = projectFixedExchangeViews(
-    folded.messages,
+    stable,
     input.fixedViews,
-    input.activeModelKey
+    input.activeModelKey,
+    input.contextEpoch
   );
   messages = projectBashExecutionViews(
     messages,
-    folded.entryRefs,
+    input.entryRefs,
     input.sourceMessages,
     input.fixedViews
   );
@@ -4775,12 +4153,136 @@ function projectModelContext(input) {
   messages = stripModelDetails(leased.messages);
   return {
     messages,
-    ...folded.entryRefs === void 0 ? {} : { entryRefs: folded.entryRefs },
+    ...input.entryRefs === void 0 ? {} : { entryRefs: input.entryRefs },
     ...leased.shownRecoveryToolCallIds.length === 0 ? {} : {
       shownRecoveryToolCallIds: leased.shownRecoveryToolCallIds
     },
     ...leased.shownImageRefs.length === 0 ? {} : { shownImageRefs: leased.shownImageRefs }
   };
+}
+function completeOrderedEntryIds(messages, refs) {
+  if (!refs || refs.length !== messages.length || refs.some((ref, index) => ref.messageIndex !== index)) {
+    return void 0;
+  }
+  return refs.map((ref) => ref.entryId);
+}
+function estimatedMessageBytes(message) {
+  try {
+    return utf8Bytes(JSON.stringify(message));
+  } catch {
+    return 0;
+  }
+}
+function projectionSpans(inputEntryIds, outputMessages, outputRefs, initialCursor = 0, initialRefIndex = 0) {
+  const outputs = /* @__PURE__ */ new Map();
+  for (let refIndex = initialRefIndex; refIndex < outputRefs.length; refIndex += 1) {
+    const ref = outputRefs[refIndex];
+    const indices = outputs.get(ref.entryId) ?? [];
+    indices.push(ref.messageIndex);
+    outputs.set(ref.entryId, indices);
+  }
+  let cursor = initialCursor;
+  return inputEntryIds.map((entryId2) => {
+    const indices = outputs.get(entryId2) ?? [];
+    const outputStart = indices.length === 0 ? cursor : Math.min(...indices);
+    const outputEnd = indices.length === 0 ? outputStart : Math.max(...indices) + 1;
+    cursor = outputEnd;
+    let estimatedBytes = 0;
+    for (const index of indices) {
+      const message = outputMessages[index];
+      if (message) estimatedBytes += estimatedMessageBytes(message);
+    }
+    return { entryId: entryId2, outputStart, outputEnd, estimatedBytes };
+  });
+}
+function projectedImageBytes(input, refs) {
+  if (refs.length === 0) return 0;
+  const bytes = /* @__PURE__ */ new Map();
+  for (const view of viewMap(input.fixedViews).values()) {
+    for (const image of view.images ?? []) bytes.set(image.ref, image.bytes);
+  }
+  for (const images of input.pendingImages?.values() ?? []) {
+    for (const image of images) if (!bytes.has(image.ref)) bytes.set(image.ref, image.bytes);
+  }
+  return refs.reduce((total, ref) => total + (bytes.get(ref) ?? 0), 0);
+}
+function cacheProjection(input, inputEntryIds, result, reusablePrefix) {
+  const outputRefs = result.entryRefs ?? [];
+  const sourceSpans = reusablePrefix ? [
+    ...reusablePrefix.sourceSpans,
+    ...projectionSpans(
+      inputEntryIds.slice(reusablePrefix.inputEntryIds.length),
+      result.messages,
+      outputRefs,
+      reusablePrefix.outputMessages.length,
+      reusablePrefix.outputRefs.length
+    )
+  ] : projectionSpans(inputEntryIds, result.messages, outputRefs);
+  return {
+    id: input.epochId,
+    modelKey: input.modelKey,
+    toolSetRevision: input.toolSetRevision,
+    inputEntryIds,
+    outputMessages: result.messages,
+    outputRefs,
+    sourceSpans,
+    shownRecoveryToolCallIds: result.shownRecoveryToolCallIds ?? [],
+    shownImageRefs: result.shownImageRefs ?? []
+  };
+}
+function buildProviderRepresentation(input) {
+  const inputEntryIds = completeOrderedEntryIds(input.messages, input.entryRefs);
+  const previous = input.cache.epoch;
+  const compatible = inputEntryIds !== void 0 && previous !== void 0 && previous.id === input.epochId && previous.modelKey === input.modelKey && previous.toolSetRevision === input.toolSetRevision && previous.inputEntryIds.length <= inputEntryIds.length && previous.inputEntryIds.every((entryId2, index) => inputEntryIds[index] === entryId2);
+  let result;
+  if (compatible && previous.inputEntryIds.length === inputEntryIds.length) {
+    result = {
+      messages: previous.outputMessages,
+      entryRefs: previous.outputRefs,
+      ...previous.shownRecoveryToolCallIds.length === 0 ? {} : {
+        shownRecoveryToolCallIds: [...previous.shownRecoveryToolCallIds]
+      },
+      ...previous.shownImageRefs.length === 0 ? {} : { shownImageRefs: [...previous.shownImageRefs] }
+    };
+  } else if (compatible) {
+    const prefixLength = previous.inputEntryIds.length;
+    const prefixOutputLength = previous.outputMessages.length;
+    const suffixIds = inputEntryIds.slice(prefixLength);
+    const suffixSources = input.sourceMessages === void 0 ? void 0 : new Map(suffixIds.flatMap((entryId2) => {
+      const source = input.sourceMessages?.get(entryId2);
+      return source ? [[entryId2, source]] : [];
+    }));
+    const suffix = projectModelContext({
+      ...input,
+      messages: input.messages.slice(prefixLength),
+      entryRefs: suffixIds.map((entryId2, messageIndex) => ({ entryId: entryId2, messageIndex })),
+      sourceMessages: suffixSources,
+      initialShownImageRefs: previous.shownImageRefs,
+      initialProjectedImageBytes: projectedImageBytes(input, previous.shownImageRefs)
+    });
+    const suffixRefs = (suffix.entryRefs ?? []).map((ref) => ({
+      ...ref,
+      messageIndex: ref.messageIndex + prefixOutputLength
+    }));
+    result = {
+      messages: [...previous.outputMessages, ...suffix.messages],
+      entryRefs: [...previous.outputRefs, ...suffixRefs],
+      ...suffix.shownRecoveryToolCallIds?.length ? {
+        shownRecoveryToolCallIds: suffix.shownRecoveryToolCallIds
+      } : {},
+      ...suffix.shownImageRefs?.length ? { shownImageRefs: suffix.shownImageRefs } : {}
+    };
+  } else {
+    result = projectModelContext(input);
+  }
+  result = {
+    ...result,
+    projectionIdentity: JSON.stringify([input.epochId, input.modelKey, input.toolSetRevision])
+  };
+  if (input.purpose === "provider") {
+    input.cache.epoch = inputEntryIds === void 0 ? void 0 : cacheProjection(input, inputEntryIds, result, compatible ? previous : void 0);
+  }
+  return result;
 }
 function bashExecutionText(message) {
   const output = typeof message.output === "string" ? message.output : "";
@@ -4824,238 +4326,22 @@ function providerMessageFromSource(message) {
   }
   return message;
 }
-function projectFoldCandidateMessages(entries, views, purpose = "provider", fold, foldMessageEntryId, foldPrefixEntryIds) {
-  const sourceMessages = new Map(entries.map((entry) => [entry.entryId, entry.message]));
-  const entryRefs = entries.map((entry, messageIndex) => ({ messageIndex, entryId: entry.entryId }));
+function projectBranchCandidateMessages(entries, views, purpose = "provider") {
   const messages = entries.map((entry) => providerMessageFromSource(entry.message));
+  const entryRefs = entries.map((entry, messageIndex) => ({ messageIndex, entryId: entry.entryId }));
+  const sourceMessages = new Map(entries.map((entry) => [entry.entryId, entry.message]));
   const projected = projectModelContext({
     purpose,
     messages,
     entryRefs,
     fixedViews: views,
-    fold,
-    foldMessageEntryId,
-    foldPrefixEntryIds,
     sourceMessages
   });
   return {
     messages: projected.messages,
-    entryRefs: projected.entryRefs ?? entryRefs,
-    sourceMessages,
-    shownImageRefs: projected.shownImageRefs
+    entryIds: projected.entryRefs?.map((ref) => ref.entryId) ?? [],
+    shownImageRefs: projected.shownImageRefs ?? []
   };
-}
-function messageBlocks(message) {
-  return Array.isArray(message.content) ? message.content.filter((part) => Boolean(part) && typeof part === "object") : [];
-}
-function hasMedia(message) {
-  return messageBlocks(message).some((part) => part.type === "image" || part.type === "audio" || part.type === "file");
-}
-function safeFoldIndices(entries, eligibleEntryIds, views) {
-  const safe = /* @__PURE__ */ new Set();
-  const resultIndex = /* @__PURE__ */ new Map();
-  const duplicateResults = /* @__PURE__ */ new Set();
-  const callCounts = /* @__PURE__ */ new Map();
-  const allResultIds = /* @__PURE__ */ new Set();
-  for (let index = 0; index < entries.length; index += 1) {
-    const message = entries[index].message;
-    if (message.role === "toolResult" && typeof message.toolCallId === "string") {
-      if (allResultIds.has(message.toolCallId)) duplicateResults.add(message.toolCallId);
-      allResultIds.add(message.toolCallId);
-      if (eligibleEntryIds.has(entries[index].entryId)) resultIndex.set(message.toolCallId, index);
-    }
-    if (message.role === "assistant") {
-      for (const call of messageBlocks(message).filter(toolCall)) {
-        callCounts.set(call.id, (callCounts.get(call.id) ?? 0) + 1);
-      }
-    }
-  }
-  const latestControl = /* @__PURE__ */ new Map();
-  for (let index = 0; index < entries.length; index += 1) {
-    const type = entries[index].message.customType;
-    if (type === PRIME_CONTEXT_ANCHOR_TYPE || type === PRIME_CONTEXT_STATE_TYPE || type === PRIME_CONTEXT_FOLD_TYPE) {
-      latestControl.set(type, index);
-    }
-  }
-  for (let index = 0; index < entries.length; index += 1) {
-    if (!eligibleEntryIds.has(entries[index].entryId)) continue;
-    const message = entries[index].message;
-    if (message.role === "assistant") {
-      const blocks = messageBlocks(message);
-      const calls = blocks.filter(toolCall);
-      if (calls.length === 0 || calls.length !== blocks.length || calls.some(hasOpaqueReplayMetadata) || calls.some((call) => callCounts.get(call.id) !== 1 || duplicateResults.has(call.id))) continue;
-      const results = calls.map((call) => resultIndex.get(call.id));
-      if (results.some((result) => result === void 0) || calls.some((call) => !views.has(call.id))) continue;
-      if (results.some((result) => hasOpaqueResultContent(entries[result].message.content) || hasMedia(entries[result].message))) continue;
-      safe.add(index);
-      for (const result of results) safe.add(result);
-      continue;
-    }
-    if (message.role === "custom") {
-      if (hasMedia(message)) continue;
-      const type = message.customType ?? "";
-      const supersededControl = type === PRIME_CONTEXT_FOLD_TYPE || (type === PRIME_CONTEXT_ANCHOR_TYPE || type === PRIME_CONTEXT_STATE_TYPE) && (latestControl.get(type) ?? index) > index;
-      const fixedControl = /(?:capsule|delta|receipt|compact_tick|goal_tick|ipython_(?:state|state_restored))/i.test(type);
-      if (supersededControl || fixedControl) safe.add(index);
-    }
-  }
-  return safe;
-}
-function asViewMap(views) {
-  return Array.isArray(views) ? new Map(views.map((view) => [view.toolCallId, view])) : views;
-}
-function selectFoldGeneration(entries, viewsInput, pressure, current, render, rawOrder) {
-  if (!pressure || pressure.tokens === null || pressure.contextWindow <= 0 || pressure.tokens / pressure.contextWindow <= 0.65) return void 0;
-  const turnStarts = entries.flatMap((entry, index) => entry.message.role === "user" || entry.message.role === "assistant" || entry.message.role === "bashExecution" ? [index] : []);
-  if (turnStarts.length <= 4) return void 0;
-  const cutoffExclusive = turnStarts[turnStarts.length - 4];
-  if (cutoffExclusive <= 0) return void 0;
-  const throughEntryId = entries[cutoffExclusive - 1]?.entryId;
-  if (!throughEntryId) return void 0;
-  const rawEntryIds = rawOrder?.entryIds ?? entries.map((entry) => entry.entryId);
-  const rawIndex = new Map(rawEntryIds.map((id, index) => [id, index]));
-  const entryIndex = new Map(entries.map((entry, index) => [entry.entryId, index]));
-  if (rawEntryIds.some((id) => !id) || rawIndex.size !== rawEntryIds.length || entries.some((entry) => !rawIndex.has(entry.entryId)) || entryIndex.size !== entries.length) {
-    return void 0;
-  }
-  const candidateRawCutoff = rawIndex.get(throughEntryId);
-  if (candidateRawCutoff === void 0) return void 0;
-  const candidateRawIds = rawEntryIds.slice(0, candidateRawCutoff + 1);
-  const candidatePrefix = new Set(candidateRawIds);
-  const previousRetained = new Set(current?.retainedEntryIds ?? []);
-  if (current && (previousRetained.size !== current.retainedEntryIds.length || previousRetained.size > 256)) {
-    return void 0;
-  }
-  const currentPrefix = /* @__PURE__ */ new Set();
-  let currentRawCutoff = -1;
-  if (current) {
-    currentRawCutoff = rawIndex.get(current.throughEntryId) ?? -1;
-    const foldMessageIndex = rawOrder?.currentFoldMessageEntryId ? rawIndex.get(rawOrder.currentFoldMessageEntryId) ?? -1 : -1;
-    if (currentRawCutoff < 0 || candidateRawCutoff <= currentRawCutoff || foldMessageIndex <= currentRawCutoff || candidateRawCutoff <= foldMessageIndex) {
-      return void 0;
-    }
-    for (let index = 0; index <= currentRawCutoff; index += 1) currentPrefix.add(rawEntryIds[index]);
-    if ([...previousRetained].some((id) => !currentPrefix.has(id))) return void 0;
-  }
-  const oldHidden = /* @__PURE__ */ new Set();
-  for (const id of currentPrefix) {
-    if (!previousRetained.has(id)) oldHidden.add(id);
-  }
-  const views = asViewMap(viewsInput);
-  const safe = safeFoldIndices(entries, candidatePrefix, views);
-  const unsafeVisible = new Set(entries.flatMap((entry, index) => candidatePrefix.has(entry.entryId) && !oldHidden.has(entry.entryId) && !safe.has(index) ? [entry.entryId] : []));
-  const retainedEntryIds = candidateRawIds.filter((id) => unsafeVisible.has(id));
-  if (retainedEntryIds.length > 256) return void 0;
-  const retained = new Set(retainedEntryIds);
-  const projected = projectFoldCandidateMessages(entries, views).messages;
-  let incrementalBytes = 0;
-  let hiddenCount = 0;
-  for (let raw = currentRawCutoff + 1; raw <= candidateRawCutoff; raw += 1) {
-    const id = rawEntryIds[raw];
-    const modelIndex = entryIndex.get(id);
-    if (modelIndex === void 0 || retained.has(id)) continue;
-    incrementalBytes += utf8Bytes(JSON.stringify(projected[modelIndex]));
-    hiddenCount += 1;
-  }
-  const savedTokens = Math.floor(incrementalBytes / 4);
-  if (hiddenCount === 0 || savedTokens < 8e3 && savedTokens < pressure.tokens * 0.15) return void 0;
-  const generation = (current?.generation ?? 0) + 1;
-  const renderedMessage = render(generation, throughEntryId);
-  if (utf8Bytes(renderedMessage) > 4096) return void 0;
-  return { generation, throughEntryId, retainedEntryIds, renderedMessage };
-}
-function smallVisibleText(message, maxBytes = 2048) {
-  if (hasMedia(message)) return void 0;
-  if (typeof message.content === "string") return utf8Bytes(message.content) <= maxBytes ? message.content : void 0;
-  if (!Array.isArray(message.content)) return "";
-  const blocks = messageBlocks(message);
-  if (blocks.some((part) => part.type === "thinking" || part.type === "toolCall")) return void 0;
-  if (blocks.some((part) => part.type !== "text")) return void 0;
-  const text = blocks.map((part) => typeof part.text === "string" ? part.text : "").join("\n");
-  return utf8Bytes(text) <= maxBytes ? text : void 0;
-}
-function deterministicFastSummary(input) {
-  const refs = new Map(input.entryRefs.map((ref) => [ref.messageIndex, ref.entryId]));
-  if (input.messages.some((_message, index) => !refs.has(index))) return void 0;
-  const views = asViewMap(input.fixedViews);
-  const resultIndex = /* @__PURE__ */ new Map();
-  const duplicateResults = /* @__PURE__ */ new Set();
-  for (let index = 0; index < input.messages.length; index += 1) {
-    const message = input.messages[index];
-    if (message.role !== "toolResult" || typeof message.toolCallId !== "string") continue;
-    if (resultIndex.has(message.toolCallId)) duplicateResults.add(message.toolCallId);
-    resultIndex.set(message.toolCallId, index);
-  }
-  if (duplicateResults.size > 0) return void 0;
-  const consumed = /* @__PURE__ */ new Set();
-  const tape = [];
-  for (let index = 0; index < input.messages.length; index += 1) {
-    if (consumed.has(index)) continue;
-    const message = input.messages[index];
-    const ref = refs.get(index);
-    const source = input.sourceMessages?.get(ref);
-    if (source?.role === "custom") {
-      if (hasMedia(source) || !/(?:capsule|delta|fold|receipt|compact_tick|goal_(?:context|tick)|ipython_(?:state|state_restored)|prime_context_(?:anchor|state))/i.test(source.customType ?? "")) {
-        return void 0;
-      }
-      const text = smallVisibleText(message, 8192);
-      if (text === void 0) return void 0;
-      tape.push(`- ref=${escapeXml(ref)} control=${escapeXml(source.customType ?? "custom")} content=${escapeXml(JSON.stringify(text))}`);
-      continue;
-    }
-    if (message.role === "assistant") {
-      const blocks = messageBlocks(message);
-      const calls = blocks.filter(toolCall);
-      if (calls.length > 0) {
-        if (calls.length !== blocks.length || calls.some(hasOpaqueReplayMetadata) || new Set(calls.map((call) => call.id)).size !== calls.length) return void 0;
-        const results = calls.map((call) => resultIndex.get(call.id));
-        if (results.some((result) => result === void 0) || calls.some((call) => !views.has(call.id))) return void 0;
-        for (let offset = 0; offset < calls.length; offset += 1) {
-          const result = results[offset];
-          if (result < index || consumed.has(result) || hasMedia(input.messages[result]) || hasOpaqueResultContent(input.messages[result].content)) return void 0;
-          const view = views.get(calls[offset].id);
-          tape.push(`- ref=${escapeXml(ref)} exchange=${escapeXml(view.exchangeId)} tool=${escapeXml(String(calls[offset].name ?? "tool"))}`);
-          consumed.add(result);
-        }
-        consumed.add(index);
-        continue;
-      }
-      const text = smallVisibleText(message);
-      if (text === void 0) return void 0;
-      tape.push(`- ref=${escapeXml(ref)} assistant=${escapeXml(JSON.stringify(text))}`);
-      continue;
-    }
-    if (message.role === "toolResult") return void 0;
-    if (message.role === "user" || message.role === "bashExecution") {
-      const text = smallVisibleText(message);
-      if (text === void 0) return void 0;
-      tape.push(`- ref=${escapeXml(ref)} user=${escapeXml(JSON.stringify(text))}`);
-      continue;
-    }
-    if (message.role === "custom") {
-      if (hasMedia(message)) return void 0;
-      const type = message.customType ?? "";
-      if (!/(?:capsule|delta|fold|receipt|compact_tick|goal_(?:context|tick)|ipython_(?:state|state_restored)|prime_context_(?:anchor|state))/i.test(type)) return void 0;
-      const text = smallVisibleText(message, 8192);
-      if (text === void 0) return void 0;
-      tape.push(`- ref=${escapeXml(ref)} control=${escapeXml(type)} content=${escapeXml(JSON.stringify(text))}`);
-      continue;
-    }
-    return void 0;
-  }
-  const read = input.fileOps?.readFiles ?? input.fileOps?.read ?? [];
-  const modified = input.fileOps?.modifiedFiles ?? input.fileOps?.modified ?? [];
-  const lines = ["<prime_context_compaction>"];
-  if (input.previousSummary !== void 0) lines.push("previous_summary:", input.previousSummary);
-  if (input.anchor) lines.push("current_anchor:", input.anchor);
-  if (input.state) lines.push("current_state:", input.state);
-  if (input.hiddenSteering?.length) {
-    lines.push("hidden_steering:", ...input.hiddenSteering.map((text) => `- ${escapeXml(JSON.stringify(text))}`));
-  }
-  lines.push("file_operations:", `- read: ${escapeXml(read.join(", ") || "none")}`, `- modified: ${escapeXml(modified.join(", ") || "none")}`);
-  if (tape.length) lines.push("chronological:", ...tape);
-  lines.push("</prime_context_compaction>");
-  return lines.join("\n");
 }
 
 // src/exchange.ts
@@ -5161,7 +4447,212 @@ function boundedResultTextStats(content, maxBytes = Number.POSITIVE_INFINITY) {
   };
 }
 var joinedResultText = boundedResultTextStats;
-var AGGREGATE_CALL_BYTES = 8 * 1024;
+function objectValue(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value) ? value : void 0;
+}
+function typedTextPart(name, kind, text, mediaType = "text/plain; charset=utf-8") {
+  return typeof text === "string" && text.length > 0 ? { name, kind, text, mediaType } : void 0;
+}
+function safeJson(value) {
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return void 0;
+  }
+}
+function extractFinalTypedParts(result) {
+  const parts = [];
+  const details = objectValue(result.details);
+  const add = (part) => {
+    if (part) parts.push(part);
+  };
+  add(typedTextPart("diff", "diff", details?.diff));
+  add(typedTextPart("stdout", "stdout", details?.stdout));
+  add(typedTextPart("stderr", "stderr", details?.stderr));
+  add(typedTextPart("result-value", "result", details?.result));
+  const error = objectValue(details?.error);
+  const traceback = Array.isArray(error?.traceback) ? error.traceback.filter((line) => typeof line === "string").join("\n") : typeof error?.traceback === "string" ? error.traceback : typeof details?.traceback === "string" ? details.traceback : void 0;
+  add(typedTextPart("traceback", "traceback", traceback));
+  if (error) add(typedTextPart("error", "traceback", safeJson(error), "application/json"));
+  if (Array.isArray(details?.diffs) && details.diffs.length > 0) {
+    add(typedTextPart("diffs", "diff", safeJson(details.diffs), "application/json"));
+  }
+  if (Array.isArray(details?.sentAgentMessages) && details.sentAgentMessages.length > 0) {
+    add(typedTextPart(
+      "sent-agent-messages",
+      "result",
+      safeJson(details.sentAgentMessages),
+      "application/json"
+    ));
+  }
+  if (Array.isArray(details?.attachments)) {
+    for (const [index, raw] of details.attachments.entries()) {
+      const attachment = objectValue(raw);
+      if (!attachment || typeof attachment.data !== "string") continue;
+      parts.push({
+        name: `attachment:${index + 1}`,
+        kind: "attachment",
+        ...typeof attachment.mimeType === "string" ? { mediaType: attachment.mimeType } : {},
+        binaryBase64: attachment.data
+      });
+    }
+  }
+  if (Array.isArray(result.content)) {
+    let imageIndex = 0;
+    for (const raw of result.content) {
+      const block = objectValue(raw);
+      if (block?.type !== "image" || typeof block.data !== "string") continue;
+      imageIndex += 1;
+      parts.push({
+        name: `image:${imageIndex}`,
+        kind: "image",
+        ...typeof block.mimeType === "string" ? { mediaType: block.mimeType } : {},
+        binaryBase64: block.data,
+        ...typeof block.width === "number" ? { width: block.width } : {},
+        ...typeof block.height === "number" ? { height: block.height } : {}
+      });
+    }
+  }
+  return parts;
+}
+function capturesByToolCall(captures) {
+  if (!captures) return /* @__PURE__ */ new Map();
+  if (Array.isArray(captures)) {
+    return new Map(captures.map((capture) => [capture.toolCallId, capture]));
+  }
+  return captures;
+}
+function boundedFactText(value, maxBytes = 2048) {
+  if (Buffer.byteLength(value, "utf8") <= maxBytes) return value;
+  let low = 0;
+  let high = value.length;
+  while (low < high) {
+    const middle = Math.ceil((low + high) / 2);
+    if (Buffer.byteLength(value.slice(0, middle), "utf8") <= maxBytes) low = middle;
+    else high = middle - 1;
+  }
+  if (low > 0 && /[\uD800-\uDBFF]/.test(value[low - 1])) low -= 1;
+  return value.slice(0, low);
+}
+function progressObservationText(outcome) {
+  const candidates = [
+    outcome.testSummary,
+    ...outcome.commandFailures,
+    ...outcome.exceptions,
+    ...outcome.failingTests,
+    ...outcome.sourceLocations,
+    ...outcome.status === "failure" ? outcome.exitStatuses : []
+  ].filter((value) => typeof value === "string" && value.trim().length > 0);
+  return boundedFactText([...new Set(candidates)].slice(0, 3).join("; "));
+}
+function exchangeArtifacts(details, toolCallId) {
+  const native = objectValue(details);
+  if (!native) return [];
+  const artifacts2 = [];
+  const seen = /* @__PURE__ */ new Set();
+  const add = (pathOrId, description) => {
+    if (typeof pathOrId !== "string" || pathOrId.length === 0 || seen.has(pathOrId) || artifacts2.length >= 12) return;
+    seen.add(pathOrId);
+    artifacts2.push({
+      pathOrId,
+      ...typeof description === "string" && description.length > 0 ? { description } : {},
+      sourceToolCallId: toolCallId
+    });
+  };
+  for (const key of ["artifactPath", "outputPath", "createdPath", "downloadPath", "artifactId"]) {
+    add(native[key]);
+  }
+  if (Array.isArray(native.artifacts)) {
+    for (const value of native.artifacts) {
+      if (typeof value === "string") add(value);
+      else {
+        const artifact = objectValue(value);
+        add(artifact?.pathOrId ?? artifact?.path ?? artifact?.id, artifact?.description);
+      }
+    }
+  }
+  return artifacts2;
+}
+function deriveProgressEffect(toolCallId, intent, outcome, isError, text, details) {
+  const observation = {
+    text: progressObservationText(outcome),
+    ...intent.resources[0] ? { resource: intent.resources[0] } : {},
+    sourceToolCallId: toolCallId
+  };
+  if (isError || outcome.status === "failure") {
+    return {
+      kind: "failure",
+      observation: observation.text ? observation : { ...observation, text: "Tool execution failed." }
+    };
+  }
+  const artifacts2 = exchangeArtifacts(details, toolCallId);
+  if (intent.mutatesWorkspace || artifacts2.length > 0) {
+    return { kind: "mutation", ...artifacts2.length > 0 ? { artifacts: artifacts2 } : {} };
+  }
+  return observation.text ? { kind: "information", observations: [observation] } : { kind: "none" };
+}
+function captureMatchesFinalResult(capture, visible, result) {
+  if (!capture || capture.isError !== (result.isError === true) || capture.visibleBytes !== visible.textBytes || capture.visibleTruncated !== visible.truncated || capture.visibleTail !== visible.tail || capture.publicFullOutputPath !== fullOutputPath(result.details) || capture.visibleSamples?.length !== visible.samples.length || !capture.visibleSamples.every((sample, index) => sample === visible.samples[index])) return false;
+  if (!visible.truncated && capture.visibleText !== visible.text) return false;
+  try {
+    return JSON.stringify(capture.semanticDetails) === JSON.stringify(semanticDetailsSnapshot(result.details));
+  } catch {
+    return false;
+  }
+}
+function buildExchangeFacts(input) {
+  const captures = capturesByToolCall(input.pendingFullOutputs);
+  return input.exchanges.map((exchange, inputOrder) => ({ exchange, inputOrder })).sort(
+    (left, right) => left.exchange.sourceOrder - right.exchange.sourceOrder || left.inputOrder - right.inputOrder
+  ).map(({ exchange }) => {
+    const originalInput = exchange.originalInput;
+    const executedInput = exchange.executedInput;
+    const finalResult = exchange.result;
+    const normalizedContent = typeof finalResult.content === "string" ? [{ type: "text", text: finalResult.content }] : finalResult.content;
+    const visible = joinedResultText(normalizedContent);
+    const typedParts = (input.extractTypedParts ? input.extractTypedParts(exchange) : extractFinalTypedParts(finalResult)).map((part) => ({ ...part }));
+    const intent = parseToolIntent({
+      toolName: exchange.toolName,
+      originalInput,
+      ...executedInput === void 0 ? {} : { executedInput },
+      nativeDetails: finalResult.details,
+      exchangeId: `exchange:${exchange.toolCallId}`,
+      toolCallId: exchange.toolCallId,
+      cwd: input.cwd,
+      toolSchema: input.toolSchemas?.get(exchange.toolName)
+    });
+    const isError = finalResult.isError === true;
+    const capture = captures.get(exchange.toolCallId);
+    const authoritativeCapture = captureMatchesFinalResult(capture, visible, finalResult) ? capture : void 0;
+    const factualText = authoritativeCapture?.text ?? visible.text;
+    const outcome = collectFactualOutcome(intent, factualText, isError, finalResult.details);
+    const progress = deriveProgressEffect(
+      exchange.toolCallId,
+      intent,
+      outcome,
+      isError,
+      factualText,
+      finalResult.details
+    );
+    return {
+      sourceOrder: exchange.sourceOrder,
+      toolCallId: exchange.toolCallId,
+      toolName: exchange.toolName,
+      originalInput,
+      ...executedInput === void 0 ? {} : { executedInput },
+      executionMode: input.executionMode,
+      finalResult,
+      text: factualText,
+      textBytes: Buffer.byteLength(factualText, "utf8"),
+      typedParts,
+      intent,
+      outcome,
+      progress,
+      ...authoritativeCapture?.path ? { fullOutputSnapshotPath: authoritativeCapture.path } : {}
+    };
+  });
+}
+var AGGREGATE_CALL_BYTES = 24 * 1024;
 var AGGREGATE_FIELD_MARKER_BYTES = 768;
 function jsonPointerToken(value) {
   return value.replaceAll("~", "~0").replaceAll("/", "~1");
@@ -5357,23 +4848,6 @@ var ExchangeTracker = class {
     });
     exchange.executedInput = cloneRecord(event.input);
     exchange.cwd = cwd;
-    exchange.intent = adaptToolIntent({
-      exchangeId: exchange.id,
-      toolCallId: exchange.toolCallId,
-      toolName: event.toolName,
-      input: exchange.executedInput,
-      cwd,
-      modelInputBytes: jsonBytes(exchange.modelInput),
-      toolSchema: exchange.toolSchema,
-      details: event.details,
-      resultText: archive?.outcomeText ?? resultText,
-      isError: event.isError
-    });
-    restorePersistedCommand(exchange);
-    exchange.outcome = {
-      isError: event.isError,
-      outcome: collectFactualOutcome(exchange.intent, archive?.outcomeText ?? resultText, event.isError, event.details)
-    };
     exchange.archiveSource = archive?.source;
     exchange.largeResult = archive?.large === true;
     exchange.resultSummary = archive?.resultSummary;
@@ -5401,69 +4875,65 @@ var ExchangeTracker = class {
     exchange.completed = true;
     return exchange;
   }
-  noteFinalDetails(exchange, isError, details) {
-    if (!exchange.intent) return;
-    const outcomeText = exchange.resultSummary?.outcomeText ?? exchange.resultText ?? "";
-    exchange.intent = adaptToolIntent({
-      exchangeId: exchange.id,
-      toolCallId: exchange.toolCallId,
-      toolName: exchange.toolName,
-      input: exchange.executedInput ?? exchange.modelInput,
-      cwd: exchange.cwd ?? exchange.intent.effectiveCwd ?? "",
-      modelInputBytes: jsonBytes(exchange.modelInput),
-      toolSchema: exchange.toolSchema,
-      details,
-      resultText: outcomeText,
-      isError
-    });
+  noteCanonicalFacts(exchange, facts) {
+    exchange.intent = structuredClone(facts.intent);
     restorePersistedCommand(exchange);
     exchange.outcome = {
-      isError,
-      outcome: collectFactualOutcome(exchange.intent, outcomeText, isError, details)
+      isError: facts.finalResult.isError ?? false,
+      outcome: structuredClone(facts.outcome)
     };
   }
-  noteCanonicalResult(exchange, resolved, isError, details, parts) {
+  noteCanonicalResult(exchange, resolved, parts, facts) {
     exchange.archiveSource = resolved.source;
     exchange.archiveParts = parts.map((part) => ({ ...part }));
     exchange.resultText = resolved.text;
     exchange.largeResult = resolved.large === true;
     exchange.resultSummary = resolved;
     delete exchange.admittedCapsule;
-    if (!exchange.intent) return;
-    exchange.intent = adaptToolIntent({
-      exchangeId: exchange.id,
-      toolCallId: exchange.toolCallId,
-      toolName: exchange.toolName,
-      input: exchange.executedInput ?? exchange.modelInput,
-      cwd: exchange.cwd ?? exchange.intent.effectiveCwd ?? "",
-      modelInputBytes: jsonBytes(exchange.modelInput),
-      toolSchema: exchange.toolSchema,
-      details,
-      resultText: resolved.outcomeText ?? resolved.text,
-      isError
-    });
-    restorePersistedCommand(exchange);
-    exchange.outcome = {
-      isError,
-      outcome: collectFactualOutcome(
-        exchange.intent,
-        resolved.outcomeText ?? resolved.text,
-        isError,
-        details
-      )
-    };
+    this.noteCanonicalFacts(exchange, facts);
   }
   get(toolCallId) {
     return this.pending.get(toolCallId);
+  }
+  pendingFullOutputSources() {
+    return [...this.pending.values()].flatMap(
+      (exchange) => exchange.frozenResultPath && !exchange.resultSummary ? [{ toolCallId: exchange.toolCallId, path: exchange.frozenResultPath }] : []
+    );
+  }
+  noteResolvedFullOutput(toolCallId, resolved) {
+    const exchange = this.pending.get(toolCallId);
+    if (!exchange) return;
+    exchange.archiveSource = resolved.source;
+    exchange.resultSummary = resolved;
+    exchange.largeResult = resolved.large === true;
+  }
+  pendingFullOutputCaptures() {
+    return [...this.pending.values()].flatMap(
+      (exchange) => exchange.frozenResultPath && exchange.resultSummary ? [{
+        toolCallId: exchange.toolCallId,
+        path: exchange.frozenResultPath,
+        text: exchange.resultSummary.text,
+        visibleText: exchange.observedResultText,
+        visibleBytes: exchange.observedResultBytes,
+        visibleTruncated: exchange.observedResultTruncated,
+        visibleTail: exchange.observedResultTail,
+        visibleSamples: exchange.observedResultSamples,
+        publicFullOutputPath: exchange.observedFullOutputPath,
+        semanticDetails: exchange.observedSemanticDetails,
+        isError: exchange.observedResultIsError
+      }] : []
+    );
   }
   noteAdmittedCapsule(toolCallId, capsule) {
     const exchange = this.pending.get(toolCallId);
     if (exchange && capsule) exchange.admittedCapsule = capsule;
   }
-  finishTurn(message, toolResults) {
+  finishTurn(message, toolResults, finalizedExchanges) {
     const order = /* @__PURE__ */ new Map();
+    const calls = /* @__PURE__ */ new Map();
     for (const [index, call] of persistedToolCalls(message).entries()) {
       order.set(call.id, index);
+      calls.set(call.id, call);
       const exchange = this.pending.get(call.id);
       if (exchange) {
         exchange.sourceOrder = index;
@@ -5479,8 +4949,30 @@ var ExchangeTracker = class {
         }
       }
     }
-    const exactResults = toolResults === void 0 ? void 0 : new Map(toolResults.map((result) => [result.toolCallId, result]));
-    const completed = [...this.pending.values()].filter((exchange) => exchange.completed && (exactResults === void 0 || exchange.persistedCall && exactResults.has(exchange.toolCallId))).sort((left, right) => {
+    if (finalizedExchanges) {
+      for (const finalized of finalizedExchanges) {
+        const originalInput = finalized.originalInput && typeof finalized.originalInput === "object" ? cloneRecord(finalized.originalInput) : {};
+        let exchange = this.pending.get(finalized.toolCallId);
+        if (!exchange) {
+          exchange = this.start({
+            toolCallId: finalized.toolCallId,
+            toolName: finalized.toolName,
+            args: originalInput
+          });
+        }
+        exchange.sourceOrder = finalized.sourceOrder;
+        exchange.toolName = finalized.toolName;
+        exchange.modelInput = originalInput;
+        exchange.executedInput = finalized.executedInput && typeof finalized.executedInput === "object" ? cloneRecord(finalized.executedInput) : void 0;
+        exchange.rawResult = finalized.result;
+        exchange.rawCall = calls.get(finalized.toolCallId);
+        exchange.persistedCall = exchange.rawCall !== void 0;
+        exchange.completed = true;
+      }
+    }
+    const exactResults = finalizedExchanges ? new Map(finalizedExchanges.map((exchange) => [exchange.toolCallId, exchange.result])) : toolResults === void 0 ? void 0 : new Map(toolResults.map((result) => [result.toolCallId, result]));
+    const finalizedIds = finalizedExchanges && new Set(finalizedExchanges.map((exchange) => exchange.toolCallId));
+    const completed = [...this.pending.values()].filter((exchange) => finalizedIds ? finalizedIds.has(exchange.toolCallId) : exchange.completed && (exactResults === void 0 || exchange.persistedCall && exactResults.has(exchange.toolCallId))).sort((left, right) => {
       const leftOrder = order.get(left.toolCallId) ?? left.sourceOrder;
       const rightOrder = order.get(right.toolCallId) ?? right.sourceOrder;
       return leftOrder - rightOrder;
@@ -5489,6 +4981,13 @@ var ExchangeTracker = class {
       const rawResult = exactResults?.get(exchange.toolCallId);
       exchange.rawResult = rawResult;
       if (!rawResult) continue;
+      if (exchange.observedResultBytes === void 0) {
+        exchange.persistedResultChanged = false;
+        exchange.persistedTextChanged = false;
+        exchange.persistedPathChanged = false;
+        exchange.persistedCanonicalResultChanged = false;
+        continue;
+      }
       const persisted = joinedResultText(rawResult.content, exchange.largeResult ? 64 * 1024 : Number.POSITIVE_INFINITY);
       const persistedText = persisted.text;
       const persistedIsError = rawResult.isError ?? exchange.observedResultIsError ?? exchange.outcome?.isError ?? false;
@@ -5525,9 +5024,7 @@ var ExchangeTracker = class {
         };
       }
     }
-    for (const exchange of [...this.pending.values()].filter((candidate) => candidate.completed)) {
-      this.pending.delete(exchange.toolCallId);
-    }
+    for (const exchange of completed) this.pending.delete(exchange.toolCallId);
     return completed;
   }
   toObservationMetadata(exchange, semantic = {}) {
@@ -5939,6 +5436,9 @@ function capsuleFactualLines(exchange, outcome) {
     ...typeof facts?.durationMs === "number" ? [`Kernel duration: ${facts.durationMs} ms.`] : []
   ];
 }
+function isDeltaView(view) {
+  return view.result.kind === "capsule" && view.result.text.includes("<prime_context_delta ");
+}
 function emptyIndex() {
   return { schema: "prime-context.observation-index/v1", observations: [] };
 }
@@ -5984,15 +5484,15 @@ function isEnvelopeIndexRef(entry) {
   return "schema" in entry && entry.schema === "prime-context.exchange/v2";
 }
 function parseObservationRef(ref) {
-  const short2 = /^([^:]+)(?::(.+))?$/.exec(ref);
-  if (!short2) return { id: ref };
-  if (!short2[2]) return { id: short2[1], partName: "result" };
-  if (short2[2].startsWith("call#")) {
-    const pointer = short2[2].slice("call#".length);
+  const short = /^([^:]+)(?::(.+))?$/.exec(ref);
+  if (!short) return { id: ref };
+  if (!short[2]) return { id: short[1], partName: "result" };
+  if (short[2].startsWith("call#")) {
+    const pointer = short[2].slice("call#".length);
     if (pointer !== "" && !pointer.startsWith("/")) return { id: ref };
-    return { id: short2[1], partName: "call", pointer };
+    return { id: short[1], partName: "call", pointer };
   }
-  return { id: short2[1], partName: short2[2] };
+  return { id: short[1], partName: short[2] };
 }
 function normalizeObservationRef(ref) {
   return parseObservationRef(ref).id;
@@ -6061,7 +5561,7 @@ function deterministicJson(value) {
 function callField(pointer, text, mediaType = "text/plain; charset=utf-8") {
   return { name: "call", kind: "call-field", pointer, mediaType, text };
 }
-function collectOversizedCallFields(toolName, input) {
+function collectOversizedCallFields(toolName, input, archiveAdmissionBytes = 24 * 1024) {
   if (toolName === "edit") {
     const edits = Array.isArray(input.edits) ? input.edits : [];
     const fields = [];
@@ -6076,20 +5576,20 @@ function collectOversizedCallFields(toolName, input) {
         fields.push({ pointer: `/edits/${index}/${key}`, text });
       }
     }
-    return total > 4096 ? fields.map(({ pointer, text }) => callField(pointer, text)) : [];
+    return total > archiveAdmissionBytes ? fields.map(({ pointer, text }) => callField(pointer, text)) : [];
   }
   if (toolName === "ipython") {
-    return typeof input.code === "string" && utf8Bytes(input.code) > 8192 ? [callField("/code", input.code)] : [];
+    return typeof input.code === "string" && utf8Bytes(input.code) > archiveAdmissionBytes ? [callField("/code", input.code)] : [];
   }
   if (toolName === "bash") {
-    return typeof input.command === "string" && utf8Bytes(input.command) > 8192 ? [callField("/command", input.command)] : [];
+    return typeof input.command === "string" && utf8Bytes(input.command) > archiveAdmissionBytes ? [callField("/command", input.command)] : [];
   }
   const rootJson = deterministicJson(input);
-  if (utf8Bytes(rootJson) <= 8192) return [];
+  if (utf8Bytes(rootJson) <= archiveAdmissionBytes) return [];
   const parts = [];
   const visit = (value, pointer) => {
     if (typeof value === "string") {
-      if (utf8Bytes(value) > 8192) parts.push(callField(pointer, value));
+      if (utf8Bytes(value) > archiveAdmissionBytes) parts.push(callField(pointer, value));
       return;
     }
     if (!value || typeof value !== "object") return;
@@ -6102,7 +5602,7 @@ function collectOversizedCallFields(toolName, input) {
       }
     }
     const json = deterministicJson(value);
-    if (pointer && parts.length === before && utf8Bytes(json) > 8192) {
+    if (pointer && parts.length === before && utf8Bytes(json) > archiveAdmissionBytes) {
       parts.push(callField(pointer, json, "application/json"));
     }
   };
@@ -6258,14 +5758,8 @@ var ObservationArchive = class {
   recordRecovery(useful, subjectKeys, exposedBytes = 0, inspectRecallHit = false) {
     this.broker.recordRecovery({ recovered: true, useful, subjectKeys, exposedBytes, inspectRecallHit });
   }
-  recordProviderProjection(bytes, extendedStableGeneration) {
-    this.broker.recordProviderProjection(bytes, extendedStableGeneration);
-  }
   recordTypedMediaProjection(bytes) {
     this.broker.recordProjection({ typedMediaBytesProjectedOut: bytes });
-  }
-  recordFoldGeneration() {
-    this.broker.recordFoldGeneration();
   }
   recordBranchRuntimeReload() {
     this.broker.recordBranchRuntimeReload();
@@ -6660,8 +6154,13 @@ var ObservationArchive = class {
     });
     const forceDelta = decision.kind === "delta";
     const belowConfiguredThreshold = !large && textBytes < minTextBytes;
+    const genuineContextPressure = contextUsage !== void 0 && contextUsage.contextWindow > 0 && contextUsage.tokens !== null && contextUsage.tokens / contextUsage.contextWindow >= 0.4;
     let repeatedMedium = false;
     if (!forceMedia && !forceDelta && belowConfiguredThreshold) {
+      if (textBytes > 8192 && !genuineContextPressure) {
+        this.broker.recordPassThrough();
+        return null;
+      }
       const sampledTerminal = textBytes >= 1024 && hasTerminalOutcome(archiveText.text) && isRepetitiveOutput(archiveText.text);
       const visibleLines = splitVisibleLines(archiveText.text);
       const sampledCommandUsage = textBytes >= 4096 && visibleLines.some((line) => /^usage:/i.test(line.trim())) && visibleLines.filter((line) => /^\s{2,}-{1,2}\S/.test(line)).length >= 10;
@@ -7658,15 +7157,15 @@ ${label}`, remaining);
     validateContextLines(contextLines);
     validateMatchOffset(matchOffset);
     validateMaxMatches(maxMatches);
-    const observations = await this.list(observationLimit, signal);
-    if (observations.length === 0) return "No archived observations in this session.";
+    const observations2 = await this.list(observationLimit, signal);
+    if (observations2.length === 0) return "No archived observations in this session.";
     const sections = [];
     let shownCount = 0;
     let skip = matchOffset;
     let sawAnyMatch = false;
     let hasMore = false;
     let scanTruncated = false;
-    for (const observation of observations) {
+    for (const observation of observations2) {
       signal?.throwIfAborted();
       const remaining = maxMatches - shownCount;
       const result = await this.scanRecordMatches(
@@ -7694,7 +7193,7 @@ ${label}`, remaining);
         shownCount += result.shown.length;
       }
       if (shownCount >= maxMatches) {
-        scanTruncated = result.scanTruncated || observation !== observations.at(-1);
+        scanTruncated = result.scanTruncated || observation !== observations2.at(-1);
         hasMore ||= result.hasMore;
         break;
       }
@@ -7710,9 +7209,9 @@ ${label}`, remaining);
       else skip = 0;
     }
     if (shownCount === 0) {
-      return sawAnyMatch ? `No matches for "${query}" at match offset ${matchOffset} in the ${observations.length} most recent observations. Earlier matches exist.` : `No matches for "${query}" in the ${observations.length} most recent observations.`;
+      return sawAnyMatch ? `No matches for "${query}" at match offset ${matchOffset} in the ${observations2.length} most recent observations. Earlier matches exist.` : `No matches for "${query}" in the ${observations2.length} most recent observations.`;
     }
-    const header = `Search the ${observations.length} most recent observations for "${query}" at match offset ${matchOffset}: ${shownCount} match${shownCount === 1 ? "" : "es"} in ${sections.length} observation part${sections.length === 1 ? "" : "s"}.` + (matchOffset > 0 ? " Earlier matches exist." : "") + (hasMore ? " More matches exist.\n" : scanTruncated ? ` Search stopped at the requested match limit; continue at match offset ${matchOffset + shownCount}.
+    const header = `Search the ${observations2.length} most recent observations for "${query}" at match offset ${matchOffset}: ${shownCount} match${shownCount === 1 ? "" : "es"} in ${sections.length} observation part${sections.length === 1 ? "" : "s"}.` + (matchOffset > 0 ? " Earlier matches exist." : "") + (hasMore ? " More matches exist.\n" : scanTruncated ? ` Search stopped at the requested match limit; continue at match offset ${matchOffset + shownCount}.
 ` : "\n");
     return boundedResponse(header, sections.join("\n\n"), maxBytes);
   }
@@ -7840,11 +7339,21 @@ ${label}`, remaining);
     return views;
   }
   async finalizeExchanges(exchanges, signal, fixedViewOptions) {
-    if (exchanges.length === 0) return 0;
+    if (exchanges.length === 0) return [];
     return this.withIndexLock(async () => {
       const records = await this.readCatalog(signal);
       const brokerStateBefore = this.broker.persistentState();
       const viewOptions = fixedViewOptions ?? { budgetBytes: 24 * 1024, capsuleMaxBytes: 6144 };
+      const archiveAdmissionBytes = Math.min(
+        viewOptions.archiveAdmissionBytes ?? 24 * 1024,
+        viewOptions.budgetBytes
+      );
+      const baselineBySubject = /* @__PURE__ */ new Map();
+      for (const record4 of records) {
+        const envelope = record4.envelope;
+        const view = envelope?.fixedView;
+        if (envelope && view && !isDeltaView(view)) baselineBySubject.set(envelope.subjectKey, view);
+      }
       const ordered = exchanges.map((completed, inputOrder) => ({ completed, inputOrder })).sort(
         (left, right) => (left.completed.sourceOrder ?? left.inputOrder) - (right.completed.sourceOrder ?? right.inputOrder) || left.inputOrder - right.inputOrder
       ).map(({ completed }) => completed);
@@ -7924,11 +7433,17 @@ ${label}`, remaining);
             );
             const oversizedCallParts = collectOversizedCallFields(
               completed.toolName,
-              completed.persistedModelInput
+              completed.persistedModelInput,
+              archiveAdmissionBytes
             );
             const callParts = [
               ...oversizedCallParts,
-              ...aggregateGenericCallParts(completed.toolName, completed.persistedModelInput, void 0, oversizedCallParts)
+              ...aggregateGenericCallParts(
+                completed.toolName,
+                completed.persistedModelInput,
+                archiveAdmissionBytes,
+                oversizedCallParts
+              )
             ];
             for (const part of callParts) {
               if (!existingPointers.has(part.pointer)) {
@@ -7994,7 +7509,7 @@ ${label}`, remaining);
               fields,
               callContext
             );
-            if (compact && utf8Bytes(JSON.stringify(compact)) > 8192 && !fields.some((field) => field.pointer === "")) {
+            if (compact && utf8Bytes(JSON.stringify(compact)) > archiveAdmissionBytes && !fields.some((field) => field.pointer === "")) {
               const rootPart = aggregateGenericCallParts(completed.toolName, completed.persistedModelInput, 1)[0];
               if (rootPart?.pointer === "") {
                 await appendPreparedPart(item, rootPart);
@@ -8069,11 +7584,33 @@ ${label}`, remaining);
           const selectedById = new Map(selections.map((selection) => [selection.view.exchangeId, selection]));
           for (const item of prepared) {
             const { completed, envelope } = item;
-            const selection = selectedById.get(envelope.id);
+            let selection = selectedById.get(envelope.id);
             if (!selection) {
               if (envelope.fixedView) completed.fixedView = envelope.fixedView;
               continue;
             }
+            if (isDeltaView(selection.view)) {
+              const baseline = baselineBySubject.get(envelope.subjectKey);
+              if (baseline === void 0) {
+                selection = {
+                  view: { ...selection.view, result: { kind: "literal" } },
+                  foldedResult: false
+                };
+                envelope.resultCapsule = "";
+              } else {
+                selection = {
+                  ...selection,
+                  view: {
+                    ...selection.view,
+                    deltaDependency: {
+                      baselineToolCallId: baseline.toolCallId,
+                      contextEpoch: viewOptions.contextEpoch ?? 0
+                    }
+                  }
+                };
+              }
+            }
+            if (!isDeltaView(selection.view)) baselineBySubject.set(envelope.subjectKey, selection.view);
             const persistedResultText = persistedResultTexts.get(envelope.id);
             if (selection.foldedResult && persistedResultText !== void 0) {
               const hasCanonicalResult = envelope.parts.some(
@@ -8146,7 +7683,12 @@ ${label}`, remaining);
         await Promise.all(prepared.flatMap((item) => [...item.obsoleteChunks]).map(
           (relativeFile) => rm2(join2(this.sessionPath, relativeFile), { force: true }).catch(() => void 0)
         ));
-        return prepared.length;
+        return prepared.flatMap(({ envelope }) => {
+          const view = envelope.fixedView;
+          if (!view || envelope.toolName === "prime_context") return [];
+          const images = imageRefsForEnvelope(envelope);
+          return [images.length === 0 ? view : { ...view, images }];
+        });
       } catch (error) {
         this.broker.restorePersistentState(brokerStateBefore);
         for (const item of [...committed].reverse()) {
@@ -8284,38 +7826,12 @@ var MODEL_LIST_MAX_OBSERVATIONS = 20;
 function textResult(text) {
   return { content: [{ type: "text", text }], details: {} };
 }
-function recoveryContentBytes(content) {
-  return content.reduce((total, block) => total + (block.type === "text" ? Buffer.byteLength(block.text, "utf8") : Buffer.byteLength(block.data, "base64")), 0);
-}
-function transientDirectRecoveryBytes(content) {
-  return recoveryContentBytes(content);
-}
-function transientDirectTextBytes(text) {
-  return Buffer.byteLength(text, "utf8");
-}
-function recordRecoveryCandidate(actions, _archive, toolCallId, evidence, subjectKeys, exposedBytes, inspectRecallHit = false) {
-  if (evidence) {
-    actions.registerRecoveryUtility(toolCallId, subjectKeys, exposedBytes, inspectRecallHit);
-  }
-}
-function recoverySubjectKeys(details) {
-  if (!details || typeof details !== "object") return [];
-  const object = details;
-  const direct = typeof object.subjectKey === "string" ? [object.subjectKey] : [];
-  const matches = Array.isArray(object.matches) ? object.matches.flatMap(
-    (match) => match && typeof match === "object" && typeof match.subjectKey === "string" ? [match.subjectKey] : []
-  ) : [];
-  return [.../* @__PURE__ */ new Set([...direct, ...matches])];
-}
 async function formatStatus(actions, signal) {
   const archive = actions.getArchive();
   if (!archive) return "Prime Context session is not ready.";
   const snapshot = actions.getSnapshot();
   const archiveCount = await archive.count(signal);
   const broker = archive.brokerStatistics();
-  const runtime = actions.getTaskRuntime();
-  const readiness = actions.getReadiness();
-  const latestValidation = runtime?.validations[0];
   const metrics = broker.metrics;
   const lines = [
     `Mode: ${actions.getMode()}`,
@@ -8325,11 +7841,6 @@ async function formatStatus(actions, signal) {
     "Pinned observations:",
     ...snapshot.pinnedObservationIds.length === 0 ? ["- (none)"] : snapshot.pinnedObservationIds.map((id) => `- ${id}`),
     `Archive count: ${archiveCount}`,
-    `Task: ${runtime?.taskKey ?? "(none)"}`,
-    `Workflow: revision ${runtime?.requirementsRevision ?? 0} | locked ${runtime?.requirementsLocked ? "yes" : "no"} | workspace revision ${runtime?.workspaceRevision ?? 0} | readiness ${readiness}`,
-    `Latest validation: ${latestValidation?.summary ?? "(none)"}`,
-    `Validation gates: ${runtime?.validationGates.map((gate) => gate.key).join(", ") || "(none)"}`,
-    `Active diagnostics: ${runtime?.activeDiagnostics.length ?? 0}`,
     `Broker decisions: ${broker.passedThrough} pass-through | ${broker.structuredCapsules} structured | ${broker.deltaCapsules} delta`,
     `Utility buckets: ${broker.utilityBucketCount}`,
     `Source bytes archived: ${metrics.sourceBytesArchived}`,
@@ -8337,13 +7848,10 @@ async function formatStatus(actions, signal) {
     `Result bytes projected out: ${metrics.resultBytesProjectedOut}`,
     `Typed/media bytes projected out: ${metrics.typedMediaBytesProjectedOut}`,
     `Recovery bytes exposed: ${metrics.recoveryBytesExposed}`,
-    `Current projected model-view bytes: ${metrics.currentProjectedModelViewBytes}`,
     `Streaming bytes processed: ${metrics.streamingBytesProcessed}`,
     `Inspect/recall hits: ${metrics.inspectRecallHits}`,
-    `Fold generations: ${metrics.foldGenerationCount}`,
     `Branch runtime reloads: ${metrics.branchRuntimeReloadCount}`,
     `Usage tokens: uncached input ${metrics.uncachedInputTokens} | cache read ${metrics.cacheReadTokens} | cache write ${metrics.cacheWriteTokens}`,
-    `Stable projection extension turns: ${metrics.stableProjectionExtensionTurns}`,
     `Storage path: ${archive.sessionPath}`
   ];
   return lines.join("\n");
@@ -8351,11 +7859,11 @@ async function formatStatus(actions, signal) {
 async function formatObservationList(actions, limit = 20, signal) {
   const archive = actions.getArchive();
   if (!archive) return "Prime Context session is not ready.";
-  const observations = await archive.list(limit, signal);
-  if (observations.length === 0) return "No archived observations in this session.";
+  const observations2 = await archive.list(limit, signal);
+  if (observations2.length === 0) return "No archived observations in this session.";
   return [
-    `Recent archived observations (${observations.length}):`,
-    ...observations.map(
+    `Recent archived observations (${observations2.length}):`,
+    ...observations2.map(
       (observation) => `- ${observation.id} | ${observation.toolName} | ${observation.textBytes} bytes | ${observation.lineCount} lines | ${observation.source ?? "visible-tool-result"} | ${observation.isError ? "error | " : ""}${observation.createdAt}`
     )
   ].join("\n");
@@ -8387,22 +7895,8 @@ function recoveryReceipt(details) {
   const range = details.startLine === void 0 ? "" : ` lines ${details.startLine}-${details.endLine ?? details.startLine}`;
   return `Recovered ${ref}${range} for the preceding model turn. Reinspect the same ref for exact text.`;
 }
-function currentRevisions(runtime) {
-  return runtime ? {
-    taskKey: runtime.taskKey,
-    workspaceRevision: runtime.workspaceRevision,
-    requirementsRevision: runtime.requirementsRevision,
-    activeDiagnosticExchangeIds: (runtime.activeDiagnostics ?? []).flatMap(
-      (diagnostic) => diagnostic.exchangeId ? [diagnostic.exchangeId] : []
-    ),
-    activeDiagnosticSignals: (runtime.activeDiagnostics ?? []).flatMap((diagnostic) => [
-      diagnostic.id,
-      diagnostic.summary,
-      diagnostic.subjectKey,
-      diagnostic.suiteFamily,
-      ...diagnostic.resources
-    ].filter((value) => typeof value === "string"))
-  } : void 0;
+function currentTaskContext(snapshot) {
+  return snapshot.taskKey === "session" ? void 0 : { taskKey: snapshot.taskKey };
 }
 async function resolveDirectRecoveryTarget(currentArchive, actions, scope, rawRef, signal) {
   if (scope === "task" || scope === "session") {
@@ -8442,12 +7936,11 @@ function directRecoveryDetails(details, target, recordDate) {
     }
   };
 }
-function directRecoveryResult(actions, toolCallId, content, details, receipt) {
-  actions.registerRecoveryLease(toolCallId, [
-    ...content,
-    { type: "text", text: receipt }
-  ]);
-  return { content: [{ type: "text", text: receipt }], details };
+function directRecoveryResult(_actions, _toolCallId, content, details, receipt) {
+  return {
+    content: [...content, { type: "text", text: receipt }],
+    details
+  };
 }
 function registerPrimeContextTool(pi, actions) {
   pi.registerTool({
@@ -8494,8 +7987,9 @@ function registerPrimeContextTool(pi, actions) {
       if (!archive) return textResult("Prime Context session is not ready.");
       const recoveryMaxBytes = Math.min(actions.getReadMaxBytes(), MODEL_RECOVERY_MAX_BYTES);
       const maxMatches = Math.min(params.maxMatches ?? MODEL_SEARCH_DEFAULT_MATCHES, MODEL_SEARCH_DEFAULT_MATCHES);
+      const externalSearch = params.action === "search" && (params.scope === "parent" || params.scope === "project");
       try {
-        switch (params.action) {
+        switch (externalSearch ? "recall" : params.action) {
           case "read": {
             if (!params.id) return textResult("prime_context read requires an observation id.");
             const scope = params.scope ?? "task";
@@ -8513,19 +8007,12 @@ function registerPrimeContextTool(pi, actions) {
                 startLine,
                 endLine,
                 maxBytes: recoveryMaxBytes,
-                current: currentRevisions(actions.getTaskRuntime())
+                current: currentTaskContext(actions.getSnapshot())
               }, signal, target.includeOutsideTask);
               const details2 = directRecoveryDetails(inspected.details, target, record4.createdAt);
               const result2 = inspected.content[0].text;
               const evidence2 = recoveryReturnedEvidence(result2);
-              recordRecoveryCandidate(
-                actions,
-                archive,
-                toolCallId,
-                evidence2,
-                recoverySubjectKeys(details2),
-                evidence2 ? transientDirectRecoveryBytes(inspected.content) : 0
-              );
+              archive.recordRecovery(evidence2);
               if (!evidence2) return { content: inspected.content, details: details2 };
               return directRecoveryResult(
                 actions,
@@ -8544,14 +8031,7 @@ function registerPrimeContextTool(pi, actions) {
               target.includeOutsideTask
             );
             const evidence = recoveryReturnedEvidence(result);
-            recordRecoveryCandidate(
-              actions,
-              archive,
-              toolCallId,
-              evidence,
-              record4.exchange?.subjectKey ? [record4.exchange.subjectKey] : [],
-              evidence ? transientDirectTextBytes(result) : 0
-            );
+            archive.recordRecovery(evidence);
             const returnedLines = [...result.matchAll(/^(\d+):/gm)].map((match) => Number(match[1]));
             const actualStartLine = returnedLines[0] ?? startLine;
             const actualEndLine = returnedLines.at(-1) ?? actualStartLine;
@@ -8582,9 +8062,6 @@ function registerPrimeContextTool(pi, actions) {
           case "search": {
             if (!params.query) return textResult("prime_context search requires a non-empty fixed string query.");
             const scope = params.scope ?? "task";
-            if (!params.id && scope !== "task") {
-              return textResult(`prime_context search without id supports task scope; use recall scope=${scope}.`);
-            }
             if (params.id) {
               const target = await resolveDirectRecoveryTarget(archive, actions, scope, params.id, signal);
               const record4 = await target.archive.findObservation(
@@ -8599,19 +8076,12 @@ function registerPrimeContextTool(pi, actions) {
                   matchOffset: params.matchOffset ?? 0,
                   maxMatches,
                   maxBytes: recoveryMaxBytes,
-                  current: currentRevisions(actions.getTaskRuntime())
+                  current: currentTaskContext(actions.getSnapshot())
                 }, signal, target.includeOutsideTask);
                 const details3 = directRecoveryDetails(inspected.details, target, record4.createdAt);
                 const result3 = inspected.content[0].text;
                 const evidence3 = recoveryReturnedEvidence(result3);
-                recordRecoveryCandidate(
-                  actions,
-                  archive,
-                  toolCallId,
-                  evidence3,
-                  recoverySubjectKeys(details3),
-                  evidence3 ? transientDirectRecoveryBytes(inspected.content) : 0
-                );
+                archive.recordRecovery(evidence3);
                 if (!evidence3) return { content: inspected.content, details: details3 };
                 return directRecoveryResult(
                   actions,
@@ -8632,14 +8102,7 @@ function registerPrimeContextTool(pi, actions) {
                 target.includeOutsideTask
               );
               const evidence2 = recoveryReturnedEvidence(result2);
-              recordRecoveryCandidate(
-                actions,
-                archive,
-                toolCallId,
-                evidence2,
-                record4.exchange?.subjectKey ? [record4.exchange.subjectKey] : [],
-                evidence2 ? transientDirectTextBytes(result2) : 0
-              );
+              archive.recordRecovery(evidence2);
               const details2 = {
                 observationId: record4.id,
                 ref: `${record4.id}:result`,
@@ -8672,14 +8135,7 @@ function registerPrimeContextTool(pi, actions) {
               signal
             );
             const evidence = recoveryReturnedEvidence(result);
-            recordRecoveryCandidate(
-              actions,
-              archive,
-              toolCallId,
-              evidence,
-              [],
-              evidence ? transientDirectTextBytes(result) : 0
-            );
+            archive.recordRecovery(evidence);
             const details = {
               query: params.query,
               matchOffset: params.matchOffset ?? 0,
@@ -8711,31 +8167,19 @@ function registerPrimeContextTool(pi, actions) {
               ...params.query === void 0 ? {} : { query: params.query },
               contextLines: params.contextLines ?? 1,
               maxBytes: recoveryMaxBytes,
-              current: currentRevisions(actions.getTaskRuntime())
+              current: currentTaskContext(actions.getSnapshot())
             }, signal, target.includeOutsideTask);
             const details = directRecoveryDetails(inspected.details, target, record4.createdAt);
             const evidence = inspected.content.some(
               (block) => block.type === "image" || recoveryReturnedEvidence(block.text)
             );
-            recordRecoveryCandidate(
-              actions,
-              archive,
-              toolCallId,
-              evidence,
-              recoverySubjectKeys(details),
-              evidence ? recoveryContentBytes(inspected.content) : 0,
-              true
-            );
+            archive.recordRecovery(evidence);
             if (!evidence) {
               return { content: inspected.content, details };
             }
             const receipt = recoveryReceipt(details);
-            actions.registerRecoveryLease(toolCallId, [
-              ...inspected.content,
-              { type: "text", text: receipt }
-            ]);
             return {
-              content: [{ type: "text", text: receipt }],
+              content: [...inspected.content, { type: "text", text: receipt }],
               details
             };
           }
@@ -8751,31 +8195,16 @@ function registerPrimeContextTool(pi, actions) {
               ...params.status === void 0 ? {} : { status: params.status },
               scope,
               contextLines: params.contextLines ?? 1
-            }, recoveryMaxBytes, currentRevisions(actions.getTaskRuntime()), signal, externalSources);
+            }, recoveryMaxBytes, currentTaskContext(actions.getSnapshot()), signal, externalSources);
             const evidence = recalled.matches.length > 0;
-            recordRecoveryCandidate(
-              actions,
-              archive,
-              toolCallId,
-              evidence,
-              recalled.matches.flatMap((match) => match.subjectKey ? [match.subjectKey] : []),
-              evidence ? recoveryContentBytes(recalled.content) : 0,
-              true
-            );
+            archive.recordRecovery(evidence);
             if (!evidence) return { content: recalled.content, details: { matches: [] } };
             const refs = recalled.matches.map(
               (match) => match.sessionId ? `${match.sessionId}:${match.ref}` : match.ref
             ).join(", ");
-            const receipt = `Recovered ${refs} for the preceding model turn. Recall the same evidence again for exact text.`;
-            actions.registerRecoveryLease(toolCallId, [
-              ...recalled.content,
-              { type: "text", text: receipt }
-            ]);
+            const receipt = `[prime-context: sources=${refs}]`;
             return {
-              content: [{
-                type: "text",
-                text: receipt
-              }],
+              content: [...recalled.content, { type: "text", text: receipt }],
               details: { matches: recalled.matches }
             };
           }
@@ -8813,6 +8242,7 @@ var USAGE = [
   "/pc unpin <observation-id>",
   "/pc mode on|off",
   "/pc cleanup current",
+  "/pc learn --topic <text> [--from <session-file>]...",
   "/pc doctor"
 ].join("\n");
 function versionFromPath(start) {
@@ -8851,7 +8281,42 @@ function parseRange(value) {
   }
   return { startLine, endLine };
 }
-function registerPrimeContextCommands(pi, actions) {
+function tokenizeLearnArgs(raw) {
+  const tokens = [];
+  const pattern = /"((?:\\.|[^"\\])*)"|'((?:\\.|[^'\\])*)'|([^\s]+)/gu;
+  let match;
+  let consumed = 0;
+  while ((match = pattern.exec(raw)) !== null) {
+    if (raw.slice(consumed, match.index).trim()) throw new Error("Usage: /pc learn --topic <text> [--from <session-file>]...");
+    const token = match[1] ?? match[2] ?? match[3] ?? "";
+    tokens.push(token.replace(/\\([\\"'])/gu, "$1"));
+    consumed = pattern.lastIndex;
+  }
+  if (raw.slice(consumed).trim()) throw new Error("Usage: /pc learn --topic <text> [--from <session-file>]...");
+  return tokens;
+}
+function parseLearnCommand(raw) {
+  const tokens = tokenizeLearnArgs(raw);
+  let topic;
+  const from = [];
+  for (let index = 0; index < tokens.length; index += 1) {
+    const flag = tokens[index];
+    const value = tokens[index + 1];
+    if (flag !== "--topic" && flag !== "--from" || !value || value.startsWith("--")) {
+      throw new Error("Usage: /pc learn --topic <text> [--from <session-file>]...");
+    }
+    if (flag === "--topic") {
+      if (topic !== void 0) throw new Error("/pc learn accepts exactly one --topic value.");
+      topic = value.trim();
+    } else {
+      from.push(value);
+    }
+    index += 1;
+  }
+  if (!topic) throw new Error("Usage: /pc learn --topic <text> [--from <session-file>]...");
+  return { topic, from };
+}
+function registerPrimeContextCommands(pi, actions, options = {}) {
   pi.registerCommand("pc", {
     description: "Page archived output and maintain the Prime Context task snapshot",
     handler: async (rawArgs, ctx) => {
@@ -8943,6 +8408,12 @@ function registerPrimeContextCommands(pi, actions) {
             );
             return;
           }
+          case "learn": {
+            if (!options.learn) throw new Error("Knowledge compilation is not available.");
+            const learnArgs = args.slice(command.length).trim();
+            ctx.ui.notify(await options.learn(parseLearnCommand(learnArgs), ctx), "info");
+            return;
+          }
           case "doctor": {
             const writable = await archive.checkIndex(ctx.signal);
             const lines = [
@@ -8964,6 +8435,1468 @@ function registerPrimeContextCommands(pi, actions) {
       }
     }
   });
+}
+
+// src/auxiliary.ts
+import { completeSimple } from "@earendil-works/pi-ai";
+var AUXILIARY_BOUNDS = {
+  minBenefitRatio: 1.5,
+  maxBlockingCallsPerTurn: 1,
+  maxBlockingCallsPerTask: 3,
+  maxScoutCallsPerTask: 1,
+  maxStallCallsPerTask: 1,
+  maxDistillCallsPerTurn: 1,
+  maxDistillCallsPerTask: 3,
+  maxInputTokens: 12e3,
+  scoutOutputTokens: 350,
+  distillOutputTokens: 700,
+  stallOutputTokens: 220,
+  learnOutputTokens: 2e3
+};
+var DEFAULT_AUXILIARY_TIMEOUT_MS = 45e3;
+var SEMANTIC_SYSTEM_PROMPT = `You distill one bounded tool result for direct reuse by a solving model.
+Return exactly one JSON object with fields in this order:
+{"decisiveFacts":string[],"relationships":string[],"unresolvedOrAmbiguous":string[],"sourceAnchors":string[]}
+Limits: at most 6 facts, 4 relationships, 3 ambiguities, and 6 anchors. Each item is one short sentence. Copy exact values, labels, units, paths, errors, and locations. Keep uncertainty explicit. Anchors must map to supplied content or recovery coordinates. Do not give general advice or narrative.`;
+var SCOUT_SYSTEM_PREFIX = `You provide one bounded initial task orientation and skill selection.
+Return exactly one JSON object with fields in this order:
+{"selectedSkillNames":string[],"initialStrategy":string[],"attentionPoints":string[]}
+Select 0..2 names only from the eligible catalog. Give 0..3 concise strategy moves and 0..4 easy-to-miss details. Each item is one short line. Strategy is advisory, not a completion gate or persistent plan.`;
+var STALL_SYSTEM_PROMPT = `You provide one bounded recovery hint after deterministic evidence of repeated unproductive work.
+Return exactly one JSON object with fields in this order:
+{"diagnosis":string,"nextAction":string,"assumptionToDrop":string?}
+Use only the supplied task and at most four recent attempts. Recommend one concrete next action. Do not review the eventual answer, add completion gates, or claim the task is complete.`;
+function emptyKindAccounting() {
+  return {
+    callsAttempted: 0,
+    callsCompleted: 0,
+    callsFailed: 0,
+    malformedOutputs: 0,
+    timedOut: 0,
+    inputTokens: 0,
+    outputTokens: 0,
+    cacheReadTokens: 0,
+    cacheWriteTokens: 0,
+    cost: 0,
+    latencyMs: 0
+  };
+}
+function createAuxiliaryAccounting() {
+  return {
+    byKind: {
+      "semantic-distill": emptyKindAccounting(),
+      "task-scout": emptyKindAccounting(),
+      "stall-recovery": emptyKindAccounting(),
+      "knowledge-compile": emptyKindAccounting()
+    },
+    zeroCallTasks: 0
+  };
+}
+function createAuxiliaryTaskState(taskKey) {
+  return {
+    ...taskKey === void 0 ? {} : { taskKey },
+    scoutCalls: 0,
+    stallCalls: 0,
+    distillCalls: 0,
+    knowledgeCalls: 0,
+    blockingCalls: 0,
+    turnBlockingCalls: 0,
+    turnDistillCalls: 0,
+    callsAttempted: 0,
+    taskFinalized: false
+  };
+}
+function createAuxiliaryRuntime(input = {}) {
+  return {
+    enabled: input.enabled ?? true,
+    task: createAuxiliaryTaskState(input.taskKey),
+    economics: { ...input.economics },
+    accounting: createAuxiliaryAccounting()
+  };
+}
+function resetTaskState(state, taskKey) {
+  const next = createAuxiliaryTaskState(taskKey);
+  for (const key of Object.keys(state)) {
+    delete state[key];
+  }
+  Object.assign(state, next);
+}
+function beginAuxiliaryTask(runtime, taskKey) {
+  if (runtime.task.taskKey === taskKey && !runtime.task.taskFinalized) return;
+  if (runtime.task.taskKey !== void 0 || runtime.task.callsAttempted > 0) {
+    finalizeAuxiliaryTask(runtime);
+  }
+  resetTaskState(runtime.task, taskKey);
+}
+function beginAuxiliaryTurn(runtime, turnKey) {
+  if (runtime.task.turnKey === turnKey && turnKey !== void 0) return;
+  runtime.task.turnKey = turnKey;
+  runtime.task.turnBlockingCalls = 0;
+  runtime.task.turnDistillCalls = 0;
+}
+function finalizeAuxiliaryTask(runtime) {
+  if (runtime.task.taskFinalized) return;
+  if (runtime.task.callsAttempted === 0) runtime.accounting.zeroCallTasks += 1;
+  runtime.task.taskFinalized = true;
+}
+function finiteNonNegative(value) {
+  return value !== void 0 && Number.isFinite(value) && value >= 0 ? value : void 0;
+}
+function perMillion(tokens, rate) {
+  return Math.max(0, tokens) * Math.max(0, rate) / 1e6;
+}
+function estimateAuxiliaryCost(plan) {
+  const override = finiteNonNegative(plan.estimatedAuxiliaryCost);
+  if (override !== void 0) return override;
+  const inputRate = finiteNonNegative(plan.model.cost?.input);
+  const outputRate = finiteNonNegative(plan.model.cost?.output);
+  if (inputRate === void 0 || outputRate === void 0) return void 0;
+  return perMillion(plan.estimatedInputTokens, inputRate) + perMillion(plan.maxOutputTokens, outputRate);
+}
+function scheduleBlockReason(kind, blocking, runtime) {
+  const state = runtime.task;
+  if (!runtime.enabled) return "auxiliary mode is off";
+  if (state.taskFinalized) return "task is already finalized";
+  if (state.inFlight !== void 0) return `auxiliary call already in flight: ${state.inFlight}`;
+  if (blocking && state.turnBlockingCalls >= AUXILIARY_BOUNDS.maxBlockingCallsPerTurn) {
+    return "blocking call limit reached for turn";
+  }
+  if (blocking && state.blockingCalls >= AUXILIARY_BOUNDS.maxBlockingCallsPerTask) {
+    return "blocking call limit reached for task";
+  }
+  if (kind === "task-scout" && state.scoutCalls >= AUXILIARY_BOUNDS.maxScoutCallsPerTask) {
+    return "task scout limit reached";
+  }
+  if (kind === "stall-recovery" && state.stallCalls >= AUXILIARY_BOUNDS.maxStallCallsPerTask) {
+    return "stall recovery limit reached";
+  }
+  if (kind === "semantic-distill" && state.turnDistillCalls >= AUXILIARY_BOUNDS.maxDistillCallsPerTurn) {
+    return "semantic distill limit reached for turn";
+  }
+  if (kind === "semantic-distill" && state.distillCalls >= AUXILIARY_BOUNDS.maxDistillCallsPerTask) {
+    return "semantic distill limit reached for task";
+  }
+  if (kind === "knowledge-compile" && state.knowledgeCalls >= 1) {
+    return "knowledge compile limit reached for task";
+  }
+  return void 0;
+}
+function canScheduleAuxiliary(kind, blocking, runtime) {
+  const reason = scheduleBlockReason(kind, blocking, runtime);
+  return reason ? { run: false, reason } : { run: true, reason: "hard bounds available" };
+}
+function ordinaryTurnTokenEstimate(economics) {
+  const input = finiteNonNegative(economics.latestProviderInputTokens);
+  if (input === void 0) return void 0;
+  return input + (finiteNonNegative(economics.conservativeMainOutputTokens) ?? 512);
+}
+function decideAuxiliaryCall(plan, runtime) {
+  const bounded = canScheduleAuxiliary(plan.kind, plan.blocking, runtime);
+  if (!bounded.run) return bounded;
+  if (!Number.isFinite(plan.estimatedInputTokens) || plan.estimatedInputTokens < 0 || plan.estimatedInputTokens > AUXILIARY_BOUNDS.maxInputTokens) {
+    return { run: false, reason: "auxiliary input exceeds fixed bound" };
+  }
+  if (!Number.isFinite(plan.maxOutputTokens) || plan.maxOutputTokens <= 0) {
+    return { run: false, reason: "invalid auxiliary output bound" };
+  }
+  const economics = runtime.economics;
+  const estimatedCost = estimateAuxiliaryCost(plan);
+  const inputUnitCost = finiteNonNegative(economics.currentMainInputUnitCost);
+  const recentSolverCost = finiteNonNegative(economics.recentMeanSolverCallCost);
+  const recentToolCost = finiteNonNegative(economics.recentMeanToolCost);
+  const ordinaryTokens = ordinaryTurnTokenEstimate(economics);
+  let estimatedBenefit = 0;
+  let monetaryBenefitCredible = false;
+  let ordinaryTurnCost = recentSolverCost;
+  if (inputUnitCost !== void 0) {
+    estimatedBenefit += perMillion(plan.estimatedPromptTokensSaved, inputUnitCost);
+    monetaryBenefitCredible ||= plan.estimatedPromptTokensSaved > 0 && inputUnitCost > 0;
+  }
+  if (recentSolverCost !== void 0) {
+    estimatedBenefit += Math.max(0, plan.estimatedMainTurnsAvoided) * recentSolverCost;
+    monetaryBenefitCredible ||= plan.estimatedMainTurnsAvoided > 0 && recentSolverCost > 0;
+  } else if (ordinaryTokens !== void 0 && inputUnitCost !== void 0) {
+    const outputRate = finiteNonNegative(economics.currentMainOutputUnitCost) ?? inputUnitCost;
+    const outputTokens = finiteNonNegative(economics.conservativeMainOutputTokens) ?? 512;
+    const estimatedTurnCost = perMillion(Math.max(0, ordinaryTokens - outputTokens), inputUnitCost) + perMillion(outputTokens, outputRate);
+    ordinaryTurnCost = estimatedTurnCost;
+    estimatedBenefit += Math.max(0, plan.estimatedMainTurnsAvoided) * estimatedTurnCost;
+    monetaryBenefitCredible ||= plan.estimatedMainTurnsAvoided > 0 && estimatedTurnCost > 0;
+  }
+  if (recentToolCost !== void 0) {
+    estimatedBenefit += Math.max(0, plan.estimatedToolCallsAvoided) * recentToolCost;
+    monetaryBenefitCredible ||= plan.estimatedToolCallsAvoided > 0 && recentToolCost > 0;
+  }
+  const latencyPass = !plan.blocking || plan.estimatedCriticalPathMsSaved >= plan.estimatedAuxiliaryLatencyMs * 1.2;
+  const monetaryCostCredible = estimatedCost !== void 0 && estimatedCost > 0;
+  const normalMonetaryPass = monetaryCostCredible && monetaryBenefitCredible && estimatedBenefit >= estimatedCost * AUXILIARY_BOUNDS.minBenefitRatio && latencyPass;
+  const tokenBenefit = Math.max(0, plan.estimatedPromptTokensSaved) + Math.max(0, plan.estimatedMainTurnsAvoided) * (ordinaryTokens ?? 0);
+  const tokenCost = Math.max(0, plan.estimatedInputTokens) + Math.max(0, plan.maxOutputTokens);
+  const tokenEstimateCredible = tokenBenefit > 0 && tokenCost > 0 && ordinaryTokens !== void 0;
+  const normalTokenPass = !monetaryCostCredible && tokenEstimateCredible && tokenBenefit >= tokenCost * AUXILIARY_BOUNDS.minBenefitRatio && latencyPass;
+  const rescueCostPass = plan.completionRisk === "high" && (monetaryCostCredible && ordinaryTurnCost !== void 0 ? estimatedCost <= ordinaryTurnCost : tokenEstimateCredible && tokenCost <= (ordinaryTokens ?? 0));
+  if (normalMonetaryPass || normalTokenPass) {
+    return {
+      run: true,
+      reason: normalMonetaryPass ? "estimated benefit clears monetary utility gate" : "token-equivalent benefit clears utility gate",
+      ...estimatedCost === void 0 ? {} : { estimatedCost },
+      ...monetaryBenefitCredible ? { estimatedBenefit } : {}
+    };
+  }
+  if (rescueCostPass) {
+    return {
+      run: true,
+      reason: "high completion risk clears bounded rescue exception",
+      ...estimatedCost === void 0 ? {} : { estimatedCost },
+      ...monetaryBenefitCredible ? { estimatedBenefit } : {}
+    };
+  }
+  if (!monetaryCostCredible && !tokenEstimateCredible) {
+    return { run: false, reason: "no credible cost or token-equivalent estimate" };
+  }
+  if (!latencyPass) {
+    return {
+      run: false,
+      reason: "blocking call is not expected to save critical-path time",
+      ...estimatedCost === void 0 ? {} : { estimatedCost },
+      ...monetaryBenefitCredible ? { estimatedBenefit } : {}
+    };
+  }
+  return {
+    run: false,
+    reason: "estimated benefit does not clear utility gate",
+    ...estimatedCost === void 0 ? {} : { estimatedCost },
+    ...monetaryBenefitCredible ? { estimatedBenefit } : {}
+  };
+}
+function reserveAuxiliaryCall(plan, runtime) {
+  if (!canScheduleAuxiliary(plan.kind, plan.blocking, runtime).run) return false;
+  const state = runtime.task;
+  state.inFlight = plan.kind;
+  state.callsAttempted += 1;
+  if (plan.blocking) {
+    state.blockingCalls += 1;
+    state.turnBlockingCalls += 1;
+  }
+  if (plan.kind === "task-scout") state.scoutCalls += 1;
+  if (plan.kind === "stall-recovery") state.stallCalls += 1;
+  if (plan.kind === "semantic-distill") {
+    state.distillCalls += 1;
+    state.turnDistillCalls += 1;
+  }
+  if (plan.kind === "knowledge-compile") state.knowledgeCalls += 1;
+  runtime.accounting.byKind[plan.kind].callsAttempted += 1;
+  return true;
+}
+function releaseAuxiliaryCall(kind, runtime) {
+  if (runtime.task.inFlight === kind) delete runtime.task.inFlight;
+}
+function stableJson(value) {
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map((item) => stableJson(item)).join(",")}]`;
+  const record4 = value;
+  return `{${Object.keys(record4).sort().map((key) => `${JSON.stringify(key)}:${stableJson(record4[key])}`).join(",")}}`;
+}
+function estimateAuxiliaryTokens(text) {
+  return Math.ceil(utf8Bytes(text) / 4);
+}
+function boundedText(value, maxBytes) {
+  return truncateUtf8(value, maxBytes);
+}
+function tailUtf8(value, maxBytes) {
+  if (maxBytes <= 0 || utf8Bytes(value) <= maxBytes) return maxBytes <= 0 ? "" : value;
+  const bytes = Buffer.from(value, "utf8");
+  let start = Math.max(0, bytes.length - maxBytes);
+  while (start < bytes.length && (bytes[start] & 192) === 128) start += 1;
+  return bytes.subarray(start).toString("utf8");
+}
+function boundedHeadTail(value, maxBytes) {
+  if (utf8Bytes(value) <= maxBytes) return value;
+  const marker = "\n...[middle omitted at fixed auxiliary bound]...\n";
+  const available = Math.max(0, maxBytes - utf8Bytes(marker));
+  const headBytes = Math.ceil(available / 2);
+  return `${truncateUtf8(value, headBytes)}${marker}${tailUtf8(value, available - headBytes)}`;
+}
+function boundedPrompt(kind, systemPrompt, variablePacket, maxOutputTokens) {
+  const separator = "\n--- variable suffix ---\n";
+  const serialized = stableJson(variablePacket);
+  const maxBytes = AUXILIARY_BOUNDS.maxInputTokens * 3;
+  const fixedBytes = utf8Bytes(systemPrompt) + utf8Bytes(separator);
+  const marker = "\n[packet truncated at fixed auxiliary input bound]";
+  const available = Math.max(0, maxBytes - fixedBytes);
+  const userPrompt = utf8Bytes(serialized) <= available ? serialized : `${truncateUtf8(serialized, Math.max(0, available - utf8Bytes(marker)))}${marker}`;
+  const context = {
+    systemPrompt,
+    messages: [{ role: "user", content: `${separator}${userPrompt}`, timestamp: 0 }]
+  };
+  return {
+    kind,
+    systemPrompt,
+    userPrompt,
+    context,
+    maxOutputTokens,
+    estimatedInputTokens: Math.ceil((utf8Bytes(systemPrompt) + utf8Bytes(separator) + utf8Bytes(userPrompt)) / 3)
+  };
+}
+function compactTask(task) {
+  const boundedItems = (items) => items.slice(0, 12).map((item) => boundedText(item, 768));
+  return {
+    ...task.objective === void 0 ? {} : { objective: boundedText(task.objective, 2048) },
+    explicitConstraints: boundedItems(task.explicitConstraints),
+    ...task.focus === void 0 ? {} : { focus: boundedText(task.focus, 1024) },
+    openItems: boundedItems(task.openItems),
+    decisiveObservations: boundedItems(task.decisiveObservations)
+  };
+}
+function buildSemanticDistillPrompt(input) {
+  return boundedPrompt("semantic-distill", SEMANTIC_SYSTEM_PROMPT, {
+    task: compactTask(input.task),
+    tool: boundedText(input.tool, 512),
+    subject: boundedText(input.subject, 1024),
+    deterministicCapsule: boundedHeadTail(input.deterministicCapsule, 4096),
+    rawResult: boundedHeadTail(input.rawResult, 24e3),
+    availableRecovery: input.availableRecovery.slice(0, 12).map((coordinate) => ({
+      ref: boundedText(coordinate.ref, 256),
+      part: boundedText(coordinate.part, 128),
+      ...coordinate.range === void 0 ? {} : { range: boundedText(coordinate.range, 128) }
+    }))
+  }, AUXILIARY_BOUNDS.distillOutputTokens);
+}
+function buildTaskScoutPrompt(input) {
+  const catalog = input.skillCatalog.slice(0, 24).map((entry) => ({
+    name: boundedText(entry.name, 256),
+    description: boundedText(entry.description, 768),
+    triggers: entry.triggers.slice(0, 12).map((trigger) => boundedText(trigger, 256)),
+    requiredTools: entry.requiredTools.slice(0, 12).map((tool) => boundedText(tool, 128))
+  }));
+  const serializedCatalog = stableJson({
+    libraryRevision: input.libraryRevision ?? "current",
+    skillCatalog: catalog
+  });
+  const catalogMaxBytes = 16e3;
+  const catalogMarker = "\n[catalog truncated at fixed scout prefix bound]";
+  const stableCatalog = utf8Bytes(serializedCatalog) <= catalogMaxBytes ? serializedCatalog : `${truncateUtf8(serializedCatalog, catalogMaxBytes - utf8Bytes(catalogMarker))}${catalogMarker}`;
+  return boundedPrompt("task-scout", `${SCOUT_SYSTEM_PREFIX}
+--- frozen eligible catalog ---
+${stableCatalog}`, {
+    task: compactTask(input.task),
+    availableTools: input.availableTools.slice(0, 64).map((tool) => boundedText(tool, 128))
+  }, AUXILIARY_BOUNDS.scoutOutputTokens);
+}
+function buildStallRecoveryPrompt(input) {
+  return boundedPrompt("stall-recovery", STALL_SYSTEM_PROMPT, {
+    task: compactTask(input.task),
+    selectedSkills: input.selectedSkills.slice(0, 2).map((skill) => boundedText(skill, 256)),
+    availableTools: input.availableTools.slice(0, 64).map((tool) => boundedText(tool, 128)),
+    recentAttempts: input.recentAttempts.slice(-4).map((attempt) => ({
+      action: boundedText(attempt.action, 768),
+      decisiveObservation: boundedText(attempt.decisiveObservation, 1024)
+    }))
+  }, AUXILIARY_BOUNDS.stallOutputTokens);
+}
+function assistantText(message) {
+  return message.content.flatMap((block) => block.type === "text" ? [block.text] : []).join("\n").trim();
+}
+function parsedJsonObject(text) {
+  let candidate = text.trim();
+  const fenced = candidate.match(/^```(?:json)?\s*\n([\s\S]*?)\n```$/i);
+  if (fenced) candidate = fenced[1].trim();
+  try {
+    const value = JSON.parse(candidate);
+    return value !== null && typeof value === "object" && !Array.isArray(value) ? value : void 0;
+  } catch {
+    return void 0;
+  }
+}
+function hasExactKeys(value, required, optional = []) {
+  const allowed = /* @__PURE__ */ new Set([...required, ...optional]);
+  return required.every((key) => Object.hasOwn(value, key)) && Object.keys(value).every((key) => allowed.has(key));
+}
+function shortString(value, maxBytes = 768) {
+  return typeof value === "string" && value.trim().length > 0 && utf8Bytes(value) <= maxBytes ? value.trim() : void 0;
+}
+function stringArray(value, maxItems, maxItemBytes = 768) {
+  if (!Array.isArray(value) || value.length > maxItems) return void 0;
+  const items = value.map((item) => shortString(item, maxItemBytes));
+  return items.every((item) => item !== void 0) ? items : void 0;
+}
+function renderSemanticCapsule(output, maxBytes) {
+  const sections = [
+    ["Decisive facts", output.decisiveFacts],
+    ["Relationships", output.relationships],
+    ["Unresolved or ambiguous", output.unresolvedOrAmbiguous],
+    ["Source anchors", output.sourceAnchors]
+  ];
+  const text = sections.flatMap(([heading, items]) => items.length === 0 ? [] : [`${heading}:`, ...items.map((item) => `- ${item}`)]).join("\n");
+  return text.length > 0 && utf8Bytes(text) <= maxBytes ? text : void 0;
+}
+function parseSemanticCapsuleOutput(text, options) {
+  const value = parsedJsonObject(text);
+  if (!value || !hasExactKeys(value, [
+    "decisiveFacts",
+    "relationships",
+    "unresolvedOrAmbiguous",
+    "sourceAnchors"
+  ])) return void 0;
+  const decisiveFacts = stringArray(value.decisiveFacts, 6);
+  const relationships = stringArray(value.relationships, 4);
+  const unresolvedOrAmbiguous = stringArray(value.unresolvedOrAmbiguous, 3);
+  const sourceAnchors = stringArray(value.sourceAnchors, 6);
+  if (!decisiveFacts || !relationships || !unresolvedOrAmbiguous || !sourceAnchors) return void 0;
+  if (options.allowedSourceAnchors && sourceAnchors.some((anchor) => !options.allowedSourceAnchors.has(anchor))) {
+    return void 0;
+  }
+  const output = { decisiveFacts, relationships, unresolvedOrAmbiguous, sourceAnchors };
+  return renderSemanticCapsule(output, options.capsuleMaxBytes) === void 0 ? void 0 : output;
+}
+function renderTaskScoutSupplement(output) {
+  return [
+    ...output.initialStrategy.map((item) => `Strategy: ${item}`),
+    ...output.attentionPoints.map((item) => `Attention: ${item}`)
+  ].join("\n");
+}
+function parseTaskScoutOutput(text, eligibleSkillNames) {
+  const value = parsedJsonObject(text);
+  if (!value || !hasExactKeys(value, ["selectedSkillNames", "initialStrategy", "attentionPoints"])) {
+    return void 0;
+  }
+  const selectedSkillNames = stringArray(value.selectedSkillNames, 2, 256);
+  const initialStrategy = stringArray(value.initialStrategy, 3, 512);
+  const attentionPoints = stringArray(value.attentionPoints, 4, 512);
+  if (!selectedSkillNames || !initialStrategy || !attentionPoints || selectedSkillNames.some((name) => !eligibleSkillNames.has(name))) return void 0;
+  const output = { selectedSkillNames, initialStrategy, attentionPoints };
+  return estimateAuxiliaryTokens(renderTaskScoutSupplement(output)) <= 220 ? output : void 0;
+}
+function renderStallRecoveryHint(output) {
+  return [
+    `Diagnosis: ${output.diagnosis}`,
+    `Next action: ${output.nextAction}`,
+    ...output.assumptionToDrop ? [`Assumption to drop: ${output.assumptionToDrop}`] : []
+  ].join("\n");
+}
+function parseStallRecoveryOutput(text) {
+  const value = parsedJsonObject(text);
+  if (!value || !hasExactKeys(value, ["diagnosis", "nextAction"], ["assumptionToDrop"])) return void 0;
+  const diagnosis = shortString(value.diagnosis, 768);
+  const nextAction = shortString(value.nextAction, 768);
+  const assumptionToDrop = value.assumptionToDrop === void 0 ? void 0 : shortString(value.assumptionToDrop, 768);
+  if (!diagnosis || !nextAction || value.assumptionToDrop !== void 0 && !assumptionToDrop) return void 0;
+  const output = { diagnosis, nextAction, ...assumptionToDrop ? { assumptionToDrop } : {} };
+  return estimateAuxiliaryTokens(renderStallRecoveryHint(output)) <= 180 ? output : void 0;
+}
+function factualUsage(usage) {
+  if (!usage) return void 0;
+  const input = finiteNonNegative(usage.input) ?? 0;
+  const output = finiteNonNegative(usage.output) ?? 0;
+  const cacheRead = finiteNonNegative(usage.cacheRead) ?? 0;
+  const cacheWrite = finiteNonNegative(usage.cacheWrite) ?? 0;
+  const totalTokens = finiteNonNegative(usage.totalTokens) ?? input + output + cacheRead + cacheWrite;
+  const cost = finiteNonNegative(usage.cost?.total) ?? 0;
+  return { input, output, cacheRead, cacheWrite, totalTokens, cost };
+}
+function addFactualUsage(metric, usage) {
+  if (!usage) return;
+  metric.inputTokens += usage.input;
+  metric.outputTokens += usage.output;
+  metric.cacheReadTokens += usage.cacheRead;
+  metric.cacheWriteTokens += usage.cacheWrite;
+  metric.cost += usage.cost;
+}
+function recordResponse(kind, runtime, usage, latencyMs) {
+  const metric = runtime.accounting.byKind[kind];
+  metric.callsCompleted += 1;
+  metric.latencyMs += latencyMs;
+  addFactualUsage(metric, usage);
+}
+function recordFailure(kind, runtime, usage, latencyMs, timedOut) {
+  const metric = runtime.accounting.byKind[kind];
+  metric.callsFailed += 1;
+  metric.latencyMs += latencyMs;
+  addFactualUsage(metric, usage);
+  if (timedOut) metric.timedOut += 1;
+}
+function abortSignal(input, timeoutMs) {
+  const controller = new AbortController();
+  let timeout = false;
+  const onAbort = () => controller.abort(input?.reason);
+  if (input?.aborted) controller.abort(input.reason);
+  else input?.addEventListener("abort", onAbort, { once: true });
+  const timer = setTimeout(() => {
+    timeout = true;
+    controller.abort(new Error("auxiliary request timed out"));
+  }, timeoutMs);
+  timer.unref?.();
+  return {
+    signal: controller.signal,
+    timedOut: () => timeout,
+    dispose: () => {
+      clearTimeout(timer);
+      input?.removeEventListener("abort", onAbort);
+    }
+  };
+}
+function outputTokenBound(kind) {
+  if (kind === "semantic-distill") return AUXILIARY_BOUNDS.distillOutputTokens;
+  if (kind === "task-scout") return AUXILIARY_BOUNDS.scoutOutputTokens;
+  if (kind === "stall-recovery") return AUXILIARY_BOUNDS.stallOutputTokens;
+  return AUXILIARY_BOUNDS.learnOutputTokens;
+}
+async function executeAuxiliaryOnce(input) {
+  const { plan, runtime, prompt } = input;
+  if (prompt.kind !== plan.kind) {
+    return {
+      status: "rejected",
+      decision: { run: false, reason: "prompt kind does not match plan kind" },
+      fallback: true,
+      reason: "prompt kind does not match plan kind"
+    };
+  }
+  const kindOutputBound = outputTokenBound(plan.kind);
+  if (prompt.estimatedInputTokens > AUXILIARY_BOUNDS.maxInputTokens || prompt.maxOutputTokens <= 0 || prompt.maxOutputTokens > kindOutputBound || plan.maxOutputTokens <= 0 || plan.maxOutputTokens > kindOutputBound) {
+    const reason = "prompt or output exceeds fixed auxiliary bound";
+    return { status: "rejected", decision: { run: false, reason }, fallback: true, reason };
+  }
+  const effectivePlan = {
+    ...plan,
+    estimatedInputTokens: Math.max(plan.estimatedInputTokens, prompt.estimatedInputTokens),
+    maxOutputTokens: Math.min(plan.maxOutputTokens, prompt.maxOutputTokens)
+  };
+  const decision = input.force ? canScheduleAuxiliary(effectivePlan.kind, effectivePlan.blocking, runtime) : decideAuxiliaryCall(effectivePlan, runtime);
+  if (!decision.run) {
+    return { status: "rejected", decision, fallback: true, reason: decision.reason };
+  }
+  if (!reserveAuxiliaryCall(effectivePlan, runtime)) {
+    const rejected = canScheduleAuxiliary(effectivePlan.kind, effectivePlan.blocking, runtime);
+    return { status: "rejected", decision: rejected, fallback: true, reason: rejected.reason };
+  }
+  const timeoutMs = Math.max(1, Math.floor(input.timeoutMs ?? DEFAULT_AUXILIARY_TIMEOUT_MS));
+  const controlled = abortSignal(input.signal, timeoutMs);
+  const started = Date.now();
+  try {
+    const completion = input.completion ?? completeSimple;
+    const message = await completion(effectivePlan.model, prompt.context, {
+      apiKey: input.auth?.apiKey,
+      headers: input.auth?.headers,
+      maxTokens: effectivePlan.maxOutputTokens,
+      reasoning: "off",
+      signal: controlled.signal,
+      timeoutMs,
+      maxRetries: 0
+    });
+    const latencyMs = Math.max(0, Date.now() - started);
+    const usage = factualUsage(message.usage);
+    if (message.stopReason === "error" || message.stopReason === "aborted") {
+      recordFailure(plan.kind, runtime, usage, latencyMs, controlled.timedOut());
+      return {
+        status: controlled.timedOut() ? "timeout" : "failure",
+        decision,
+        ...usage ? { usage } : {},
+        latencyMs,
+        fallback: true,
+        reason: controlled.timedOut() ? "auxiliary request timed out" : "auxiliary provider returned failure"
+      };
+    }
+    recordResponse(plan.kind, runtime, usage, latencyMs);
+    let output;
+    if (message.stopReason !== "length") {
+      try {
+        output = input.parseOutput(assistantText(message));
+      } catch {
+        output = void 0;
+      }
+    }
+    if (output === void 0) {
+      runtime.accounting.byKind[plan.kind].malformedOutputs += 1;
+      return {
+        status: "malformed",
+        decision,
+        ...usage ? { usage } : {},
+        latencyMs,
+        fallback: true,
+        reason: message.stopReason === "length" ? "auxiliary output hit its token limit" : "auxiliary output was malformed or exceeded its bound"
+      };
+    }
+    return {
+      status: "success",
+      decision,
+      output,
+      ...usage ? { usage } : {},
+      latencyMs,
+      fallback: false,
+      reason: "auxiliary output accepted"
+    };
+  } catch {
+    const latencyMs = Math.max(0, Date.now() - started);
+    const timedOut = controlled.timedOut();
+    recordFailure(plan.kind, runtime, void 0, latencyMs, timedOut);
+    return {
+      status: timedOut ? "timeout" : "failure",
+      decision,
+      latencyMs,
+      fallback: true,
+      reason: timedOut ? "auxiliary request timed out" : "auxiliary request failed"
+    };
+  } finally {
+    controlled.dispose();
+    releaseAuxiliaryCall(plan.kind, runtime);
+  }
+}
+function createModelResolutionHooks(input) {
+  return {
+    currentModel: input.currentModel,
+    resolveModel: (selector) => {
+      const normalized = selector.trim();
+      const slash = normalized.indexOf("/");
+      if (slash > 0 && slash < normalized.length - 1) {
+        const direct = input.modelRegistry.find(normalized.slice(0, slash), normalized.slice(slash + 1));
+        if (direct) return direct;
+      }
+      const matches = input.modelRegistry.getAll().filter((model) => model.id === normalized || `${model.provider}/${model.id}` === normalized);
+      return matches.length === 1 ? matches[0] : void 0;
+    },
+    resolveAuth: async (model) => {
+      const auth = await input.modelRegistry.getApiKeyAndHeaders(model);
+      return auth.ok ? { apiKey: auth.apiKey, headers: auth.headers } : void 0;
+    }
+  };
+}
+async function resolveAuxiliaryModel(kind, config, hooks) {
+  const selector = kind === "knowledge-compile" ? config.learningModel ?? config.auxiliaryModel : config.auxiliaryModel;
+  const configured = selector ? await hooks.resolveModel(selector) : void 0;
+  if (selector && !configured) return void 0;
+  const model = configured ?? hooks.currentModel();
+  if (!model) return void 0;
+  const auth = await hooks.resolveAuth(model);
+  if (!auth) return void 0;
+  return {
+    model,
+    ...auth,
+    source: configured ? "configured" : "current",
+    ...selector ? { selector } : {}
+  };
+}
+
+// src/skills.ts
+import { existsSync, readFileSync as readFileSync3, statSync } from "fs";
+import { mkdir as mkdir2, readdir as readdir2, readFile as readFile2, writeFile as writeFile2 } from "fs/promises";
+import { basename as basename2, dirname as dirname2, isAbsolute as isAbsolute2, join as join4, resolve as resolve2 } from "path";
+import {
+  loadSkillsFromDir,
+  parseFrontmatter
+} from "@earendil-works/pi-coding-agent";
+var SKILL_BOUNDS = {
+  maxPairs: 24,
+  maxSelected: 2,
+  maxTriggersPerSkill: 6,
+  maxPatternTokens: 800,
+  maxSkillBodyTokens: 350
+};
+var SKILL_NAME = /^(?!.*--)[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/;
+var MAX_TRIGGER_CHARACTERS = 120;
+var MAX_REQUIRED_TOOLS = 16;
+var MAX_TOOL_NAME_CHARACTERS = 128;
+function estimateSkillTokens(text) {
+  return Math.ceil(Buffer.byteLength(text, "utf8") / 4);
+}
+function resolveSkillLibraryPath(cwd, libraryPath) {
+  return isAbsolute2(libraryPath) ? resolve2(libraryPath) : resolve2(cwd, libraryPath);
+}
+function isValidSkillName(name) {
+  return SKILL_NAME.test(name);
+}
+function compareStableNames(left, right) {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+function asStringList(value, field, maxItems) {
+  if (value === void 0) return [];
+  if (!Array.isArray(value) || value.some((item) => typeof item !== "string" || item.trim().length === 0)) {
+    throw new Error(`${field} must be an array of non-empty strings`);
+  }
+  if (maxItems !== void 0 && value.length > maxItems) {
+    throw new Error(`${field} must contain at most ${maxItems} values`);
+  }
+  const values = value.map((item) => item.trim());
+  if (new Set(values).size !== values.length) throw new Error(`${field} must not contain duplicates`);
+  return values;
+}
+function parseSkillMarkdown(markdown, expectedName) {
+  const { frontmatter, body } = parseFrontmatter(markdown);
+  const name = frontmatter.name;
+  if (typeof name !== "string" || !isValidSkillName(name)) {
+    throw new Error("skill frontmatter must contain a valid lowercase-hyphen name");
+  }
+  if (expectedName !== void 0 && name !== expectedName) {
+    throw new Error(`skill frontmatter name "${name}" does not match "${expectedName}"`);
+  }
+  const description = frontmatter.description;
+  if (typeof description !== "string" || description.trim().length === 0 || description.length > 1024) {
+    throw new Error("skill frontmatter must contain a native description of at most 1024 characters");
+  }
+  if (frontmatter["disable-model-invocation"] !== true) {
+    throw new Error("skill frontmatter must set disable-model-invocation: true");
+  }
+  const triggers = asStringList(frontmatter.pc_triggers, "pc_triggers", SKILL_BOUNDS.maxTriggersPerSkill);
+  if (triggers.some((trigger) => [...trigger].length > MAX_TRIGGER_CHARACTERS)) {
+    throw new Error(`pc_triggers values must be at most ${MAX_TRIGGER_CHARACTERS} characters`);
+  }
+  const requiredTools = asStringList(frontmatter.pc_tools, "pc_tools", MAX_REQUIRED_TOOLS);
+  if (requiredTools.some((tool) => [...tool].length > MAX_TOOL_NAME_CHARACTERS || /\s/u.test(tool))) {
+    throw new Error(`pc_tools values must be whitespace-free and at most ${MAX_TOOL_NAME_CHARACTERS} characters`);
+  }
+  const trimmedBody = body.trim();
+  if (trimmedBody.length === 0) throw new Error("skill body must not be empty");
+  const estimatedTokens = estimateSkillTokens(trimmedBody);
+  if (estimatedTokens > SKILL_BOUNDS.maxSkillBodyTokens) {
+    throw new Error(`skill body exceeds ${SKILL_BOUNDS.maxSkillBodyTokens} estimated tokens`);
+  }
+  return {
+    name,
+    description: description.trim(),
+    triggers,
+    requiredTools,
+    body: trimmedBody,
+    estimatedTokens
+  };
+}
+function diagnostic(message, path) {
+  return { type: "warning", message, ...path === void 0 ? {} : { path } };
+}
+function emptySnapshot(revision) {
+  return Object.freeze({ revision, entries: Object.freeze([]) });
+}
+function loadSkillLibrary(options) {
+  const revision = options.revision ?? 1;
+  const skillsDir = join4(options.libraryPath, "skills");
+  if (!existsSync(skillsDir)) return { snapshot: emptySnapshot(revision), diagnostics: [] };
+  try {
+    if (!statSync(skillsDir).isDirectory()) {
+      return {
+        snapshot: emptySnapshot(revision),
+        diagnostics: [diagnostic("Prime Context skill path is not a directory", skillsDir)]
+      };
+    }
+  } catch (error) {
+    return {
+      snapshot: emptySnapshot(revision),
+      diagnostics: [diagnostic(`Prime Context skill path could not be read: ${error.message}`, skillsDir)]
+    };
+  }
+  const native = loadSkillsFromDir({ dir: skillsDir, source: options.source ?? "prime-context" });
+  const diagnostics = [...native.diagnostics];
+  const entries = [];
+  const seen = /* @__PURE__ */ new Set();
+  const skills = [...native.skills].sort((left, right) => compareStableNames(left.name, right.name));
+  for (const skill of skills) {
+    if (entries.length >= SKILL_BOUNDS.maxPairs) {
+      diagnostics.push(diagnostic(`Skill library is limited to ${SKILL_BOUNDS.maxPairs} current pairs`, skillsDir));
+      break;
+    }
+    if (skill.kind !== "markdown" || basename2(skill.filePath) !== "SKILL.md") {
+      diagnostics.push(diagnostic("Prime Context libraries accept only native Markdown SKILL.md files", skill.filePath));
+      continue;
+    }
+    if (seen.has(skill.name)) {
+      diagnostics.push(diagnostic(`Duplicate skill name "${skill.name}" was ignored`, skill.filePath));
+      continue;
+    }
+    try {
+      if (basename2(dirname2(skill.filePath)) !== skill.name) {
+        throw new Error(`skill directory must match name "${skill.name}"`);
+      }
+      const parsed = parseSkillMarkdown(readFileSync3(skill.filePath, "utf8"), skill.name);
+      const patternPath = join4(options.libraryPath, "patterns", `${parsed.name}.md`);
+      if (!existsSync(patternPath) || !statSync(patternPath).isFile()) {
+        throw new Error(`matching pattern page is missing: ${patternPath}`);
+      }
+      const patternMarkdown = readFileSync3(patternPath, "utf8");
+      if (patternMarkdown.trim().length === 0) throw new Error("matching pattern page is empty");
+      if (estimateSkillTokens(patternMarkdown) > SKILL_BOUNDS.maxPatternTokens) {
+        throw new Error(`pattern page exceeds ${SKILL_BOUNDS.maxPatternTokens} estimated tokens`);
+      }
+      seen.add(parsed.name);
+      entries.push(Object.freeze({
+        name: parsed.name,
+        description: parsed.description,
+        triggers: Object.freeze(parsed.triggers),
+        requiredTools: Object.freeze(parsed.requiredTools),
+        body: parsed.body,
+        estimatedTokens: parsed.estimatedTokens,
+        filePath: skill.filePath
+      }));
+    } catch (error) {
+      diagnostics.push(diagnostic(`Invalid Prime Context skill pair: ${error.message}`, skill.filePath));
+    }
+  }
+  return {
+    snapshot: Object.freeze({ revision, entries: Object.freeze(entries) }),
+    diagnostics: Object.freeze(diagnostics)
+  };
+}
+function normalizeSkillMatchText(value) {
+  return value.normalize("NFKC").toLowerCase().replace(/[\p{P}\p{S}]+/gu, " ").replace(/\s+/gu, " ").trim();
+}
+function lexicalTokens(value) {
+  const normalized = normalizeSkillMatchText(value);
+  return normalized.length === 0 ? [] : normalized.split(" ").filter(Boolean);
+}
+function exactSkillNamesInTask(taskText, entries) {
+  const tokens = taskText.normalize("NFKC").toLowerCase().match(/[\p{L}\p{N}]+(?:-[\p{L}\p{N}]+)*/gu) ?? [];
+  const tokenSet = new Set(tokens);
+  return new Set(entries.flatMap((entry) => tokenSet.has(entry.name) ? [entry.name] : []));
+}
+function phraseMatches(normalizedTask, phrase) {
+  const normalizedPhrase = normalizeSkillMatchText(phrase);
+  return normalizedPhrase.length > 0 && ` ${normalizedTask} `.includes(` ${normalizedPhrase} `);
+}
+function toolsAvailable(entry, installedTools) {
+  return entry.requiredTools.every((tool) => installedTools.has(tool));
+}
+function compareMatches(left, right) {
+  if (left.explicit !== right.explicit) return left.explicit ? -1 : 1;
+  if (left.matchedTriggers.length !== right.matchedTriggers.length) {
+    return right.matchedTriggers.length - left.matchedTriggers.length;
+  }
+  if (left.triggerSpecificity !== right.triggerSpecificity) {
+    return right.triggerSpecificity - left.triggerSpecificity;
+  }
+  if (left.descriptionOverlap !== right.descriptionOverlap) {
+    return right.descriptionOverlap - left.descriptionOverlap;
+  }
+  return compareStableNames(left.entry.name, right.entry.name);
+}
+function rankSkillMatches(snapshot, input) {
+  const normalizedTask = normalizeSkillMatchText(input.taskText);
+  const taskTokens = new Set(lexicalTokens(input.taskText));
+  const installedTools = new Set(input.installedToolNames);
+  const explicit = exactSkillNamesInTask(input.taskText, snapshot.entries);
+  for (const name of input.explicitSkillNames ?? []) {
+    if (snapshot.entries.some((entry) => entry.name === name)) explicit.add(name);
+  }
+  return snapshot.entries.flatMap((entry) => {
+    if (!toolsAvailable(entry, installedTools)) return [];
+    const matchedTriggers = entry.triggers.filter((trigger) => phraseMatches(normalizedTask, trigger));
+    const matchedSpecificTriggers = matchedTriggers.filter((trigger) => lexicalTokens(trigger).length > 1);
+    const descriptionOverlap = new Set(lexicalTokens(entry.description).filter((token) => taskTokens.has(token))).size;
+    const isExplicit = explicit.has(entry.name);
+    const eligible = isExplicit || matchedSpecificTriggers.length > 0 || matchedTriggers.length >= 2 || descriptionOverlap > 0;
+    if (!eligible) return [];
+    return [{
+      entry,
+      explicit: isExplicit,
+      matchedTriggers,
+      matchedSpecificTriggers,
+      triggerSpecificity: matchedTriggers.reduce(
+        (total, trigger) => total + lexicalTokens(trigger).length * 100 + [...normalizeSkillMatchText(trigger)].length,
+        0
+      ),
+      descriptionOverlap
+    }];
+  }).sort(compareMatches);
+}
+function hasClearMargin(first, second) {
+  if (!second) return first.matchedTriggers.length > 0 || first.descriptionOverlap >= 2;
+  if (first.matchedTriggers.length > second.matchedTriggers.length) return true;
+  if (first.matchedTriggers.length > 0 && first.triggerSpecificity >= second.triggerSpecificity + 100) return true;
+  return first.descriptionOverlap >= second.descriptionOverlap + 2;
+}
+function skillRoutingConfidence(matches) {
+  const first = matches[0];
+  if (!first) return "none";
+  if (first.explicit) return "high";
+  if (first.matchedSpecificTriggers.length > 0 && matches.slice(1).every((match) => match.matchedSpecificTriggers.length === 0)) return "high";
+  return hasClearMargin(first, matches[1]) ? "high" : "ambiguous";
+}
+function validateSelectedSkillNames(names, snapshot, installedToolNames) {
+  const installedTools = new Set(installedToolNames);
+  const byName = new Map(snapshot.entries.map((entry) => [entry.name, entry]));
+  const selected = [];
+  const seen = /* @__PURE__ */ new Set();
+  for (const name of names) {
+    if (seen.has(name)) continue;
+    seen.add(name);
+    const entry = byName.get(name);
+    if (!entry || !toolsAvailable(entry, installedTools)) continue;
+    selected.push(entry);
+    if (selected.length === SKILL_BOUNDS.maxSelected) break;
+  }
+  return selected;
+}
+function escapeXml2(value) {
+  return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+}
+function renderSelectedSkillsPacket(entries) {
+  if (entries.length === 0) return "";
+  const selected = entries.slice(0, SKILL_BOUNDS.maxSelected);
+  return [
+    "<prime_context_skills>",
+    "The following procedures were selected for this task. They are already loaded; do not spend a tool call reading them first. Apply only when their stated conditions and the available tools fit.",
+    "",
+    ...selected.flatMap((entry) => [
+      `<skill name="${entry.name}">`,
+      escapeXml2(entry.body),
+      "</skill>"
+    ]),
+    "</prime_context_skills>"
+  ].join("\n");
+}
+function selectSkills(snapshot, input) {
+  const rankedMatches = rankSkillMatches(snapshot, input);
+  const selectedEntries = [];
+  for (const match of rankedMatches) {
+    if (selectedEntries.length === SKILL_BOUNDS.maxSelected) break;
+    const candidate = [...selectedEntries, match.entry];
+    if (estimateSkillTokens(renderSelectedSkillsPacket(candidate)) <= input.skillBudgetTokens) {
+      selectedEntries.push(match.entry);
+    }
+  }
+  const packet = renderSelectedSkillsPacket(selectedEntries);
+  const selectedTopRanked = selectedEntries[0]?.name === rankedMatches[0]?.entry.name;
+  return {
+    selectedEntries,
+    selectedNames: selectedEntries.map((entry) => entry.name),
+    rankedMatches,
+    highConfidence: selectedTopRanked && skillRoutingConfidence(rankedMatches) === "high",
+    packet
+  };
+}
+function currentSkillPairPaths(libraryPath, name) {
+  if (!isValidSkillName(name)) throw new Error(`Invalid skill name: ${name}`);
+  return {
+    patternPath: join4(libraryPath, "patterns", `${name}.md`),
+    skillPath: join4(libraryPath, "skills", name, "SKILL.md")
+  };
+}
+function validateCurrentSkillPair(input) {
+  const errors = [];
+  if (!isValidSkillName(input.name)) errors.push("name must be a valid lowercase-hyphen skill name");
+  if (input.patternMarkdown.trim().length === 0) errors.push("pattern page must not be empty");
+  if (estimateSkillTokens(input.patternMarkdown) > SKILL_BOUNDS.maxPatternTokens) {
+    errors.push(`pattern page exceeds ${SKILL_BOUNDS.maxPatternTokens} estimated tokens`);
+  }
+  try {
+    parseSkillMarkdown(input.skillMarkdown, input.name);
+  } catch (error) {
+    errors.push(error.message);
+  }
+  return errors;
+}
+async function readCurrentSkillPair(libraryPath, name) {
+  const paths = currentSkillPairPaths(libraryPath, name);
+  try {
+    const [patternMarkdown, skillMarkdown] = await Promise.all([
+      readFile2(paths.patternPath, "utf8"),
+      readFile2(paths.skillPath, "utf8")
+    ]);
+    const errors = validateCurrentSkillPair({ name, patternMarkdown, skillMarkdown });
+    if (errors.length > 0) throw new Error(`Invalid current skill pair "${name}": ${errors.join("; ")}`);
+    return { name, patternMarkdown, skillMarkdown, ...paths };
+  } catch (error) {
+    if (error.code === "ENOENT") return void 0;
+    throw error;
+  }
+}
+async function storedCurrentPairNames(libraryPath) {
+  const patternsDir = join4(libraryPath, "patterns");
+  const skillsDir = join4(libraryPath, "skills");
+  try {
+    const [patternEntries, skillEntries] = await Promise.all([
+      readdir2(patternsDir, { withFileTypes: true }),
+      readdir2(skillsDir, { withFileTypes: true })
+    ]);
+    const patterns = new Set(patternEntries.filter((entry) => entry.isFile() && entry.name.endsWith(".md")).map((entry) => entry.name.slice(0, -3)).filter(isValidSkillName));
+    return skillEntries.filter((entry) => entry.isDirectory() && isValidSkillName(entry.name) && patterns.has(entry.name) && existsSync(join4(skillsDir, entry.name, "SKILL.md"))).map((entry) => entry.name).sort(compareStableNames);
+  } catch (error) {
+    if (error.code === "ENOENT") return [];
+    throw error;
+  }
+}
+async function upsertCurrentSkillPair(libraryPath, input) {
+  const errors = validateCurrentSkillPair(input);
+  if (errors.length > 0) throw new Error(`Invalid current skill pair: ${errors.join("; ")}`);
+  const names = await storedCurrentPairNames(libraryPath);
+  if (!names.includes(input.name) && names.length >= SKILL_BOUNDS.maxPairs) {
+    throw new Error(`Skill library already contains ${SKILL_BOUNDS.maxPairs} current pairs`);
+  }
+  const paths = currentSkillPairPaths(libraryPath, input.name);
+  await mkdir2(dirname2(paths.patternPath), { recursive: true });
+  await mkdir2(dirname2(paths.skillPath), { recursive: true });
+  const patternMarkdown = `${input.patternMarkdown.trim()}
+`;
+  const skillMarkdown = `${input.skillMarkdown.trim()}
+`;
+  await writeFile2(paths.patternPath, patternMarkdown, "utf8");
+  await writeFile2(paths.skillPath, skillMarkdown, "utf8");
+  return { name: input.name, patternMarkdown, skillMarkdown, ...paths };
+}
+
+// src/learn.ts
+var LEARNING_BOUNDS = {
+  maxEpisodes: 6,
+  maxPairs: 2,
+  maxInputTokens: 12e3,
+  maxEpisodeTokens: 1200,
+  maxOutputTokens: 2e3
+};
+var KNOWLEDGE_COMPILER_SYSTEM_PROMPT = `You compile current reusable Prime Context knowledge from bounded completed episodes.
+Return exactly one JSON object and no surrounding prose:
+{"action":"none"}
+or
+{"action":"upsert","name":"lowercase-hyphen-name","patternMarkdown":"...","skillMarkdown":"..."}
+
+Create an upsert only when the supplied actions and authoritative feedback support a reusable distinction. Preserve economical successful behavior as well as corrections. Update a relevant existing pair instead of making a near-duplicate. The pattern must explain applicability, the easy-to-miss distinction, the better approach, and exceptions. The skill must be the smallest complete actionable procedure. Parameterize task-specific answers, IDs, paths, filenames, benchmark artifacts, and model quirks. Do not invent unconditional rules, nonexistent tools, mandatory diagnostics, review stages, proof steps, or new completion conditions. Do not grade, prove, or score the proposal.
+
+The skill must be a native SKILL.md with a matching legal name and directory name, a description, disable-model-invocation: true, at most six short pc_triggers, pc_tools containing only required installed tool names, and a body of at most 350 estimated tokens. The pattern must be at most 800 estimated tokens. If the evidence is insufficient or the 24-pair library is full and no existing name should be updated, return {"action":"none"}.`;
+var DECISIVE_TEXT = /\b(?:error|fail(?:ed|ure)?|pass(?:ed)?|success|correct(?:ed|ion)?|instead|recover(?:ed|y)?|retry|fixed?|result|outcome)\b/iu;
+var MAX_VALUE_DEPTH = 6;
+var MAX_VALUE_ITEMS = 32;
+var MAX_FIELD_BYTES = 4096;
+var MAX_MESSAGE_BYTES = 2800;
+function oneLine(value) {
+  return value.replace(/\s+/gu, " ").trim();
+}
+function truncateUtf82(value, maxBytes) {
+  if (Buffer.byteLength(value, "utf8") <= maxBytes) return value;
+  const marker = "\n<...bounded omission...>\n";
+  const markerBytes = Buffer.byteLength(marker, "utf8");
+  const side = Math.max(0, Math.floor((maxBytes - markerBytes) / 2));
+  const bytes = Buffer.from(value, "utf8");
+  const head = bytes.subarray(0, side).toString("utf8").replace(/\uFFFD$/u, "");
+  const tail = bytes.subarray(Math.max(0, bytes.length - side)).toString("utf8").replace(/^\uFFFD/u, "");
+  return `${head}${marker}${tail}`;
+}
+function compactValue(value, seen, depth = 0) {
+  if (value === null || typeof value === "boolean" || typeof value === "number") return value;
+  if (typeof value === "string") return truncateUtf82(value, MAX_FIELD_BYTES);
+  if (typeof value === "bigint") return value.toString();
+  if (typeof value === "undefined" || typeof value === "function" || typeof value === "symbol") return void 0;
+  if (value instanceof Uint8Array) return `<binary ${value.byteLength} bytes omitted>`;
+  if (depth >= MAX_VALUE_DEPTH) return "<nested value omitted>";
+  if (seen.has(value)) return "<circular value omitted>";
+  seen.add(value);
+  if (Array.isArray(value)) {
+    const result2 = value.slice(0, MAX_VALUE_ITEMS).map((item) => compactValue(item, seen, depth + 1)).filter((item) => item !== void 0);
+    if (value.length > MAX_VALUE_ITEMS) result2.push(`<${value.length - MAX_VALUE_ITEMS} items omitted>`);
+    return result2;
+  }
+  const record4 = value;
+  const result = {};
+  for (const key of Object.keys(record4).sort().slice(0, MAX_VALUE_ITEMS)) {
+    const item = compactValue(record4[key], seen, depth + 1);
+    if (item !== void 0) result[key] = item;
+  }
+  if (Object.keys(record4).length > MAX_VALUE_ITEMS) result._omittedKeys = Object.keys(record4).length - MAX_VALUE_ITEMS;
+  return result;
+}
+function compactMessage(message) {
+  const compacted = compactValue(message, /* @__PURE__ */ new WeakSet());
+  return truncateUtf82(JSON.stringify(compacted), MAX_MESSAGE_BYTES);
+}
+function searchableMessageText(message) {
+  return compactMessage(message).slice(0, 8e3);
+}
+function lexicalTokens2(value) {
+  const normalized = value.normalize("NFKC").toLowerCase().replace(/[\p{P}\p{S}]+/gu, " ");
+  return new Set(normalized.split(/\s+/u).filter(Boolean));
+}
+function overlap(left, right) {
+  let count = 0;
+  for (const token of left) if (right.has(token)) count += 1;
+  return count;
+}
+function deriveLearningTopic(explicitTopic, episodes) {
+  const explicit = explicitTopic?.trim();
+  if (explicit) return oneLine(explicit);
+  for (let index = episodes.length - 1; index >= 0; index -= 1) {
+    const task = oneLine(episodes[index].task);
+    if (task) return truncateUtf82(task, 512);
+  }
+  return void 0;
+}
+function rankEpisodes(topic, episodes) {
+  const topicTokens = lexicalTokens2(topic);
+  return episodes.map((episode, index) => {
+    const taskTokens = lexicalTokens2(episode.task);
+    const messageText2 = episode.messages.map(searchableMessageText).join("\n");
+    const messageTokens = lexicalTokens2(messageText2);
+    const decisive = DECISIVE_TEXT.test(messageText2) ? 2 : 0;
+    const labelled = episode.taskOutcome === "unknown" ? 0 : 1;
+    const topicScore = overlap(topicTokens, taskTokens) * 20 + overlap(topicTokens, messageTokens) * 4;
+    return {
+      episode,
+      index,
+      topicScore,
+      score: topicScore + decisive + labelled
+    };
+  }).sort((left, right) => right.score - left.score || left.index - right.index);
+}
+function selectLearningEpisodes(topic, episodes) {
+  const rankedAll = rankEpisodes(topic, episodes);
+  const ranked = rankedAll.some((candidate) => candidate.topicScore > 0) ? rankedAll.filter((candidate) => candidate.topicScore > 0) : rankedAll;
+  const selected = [];
+  const selectedIndices = /* @__PURE__ */ new Set();
+  const add = (candidate) => {
+    if (!candidate || selectedIndices.has(candidate.index) || selected.length >= LEARNING_BOUNDS.maxEpisodes) return;
+    selected.push(candidate);
+    selectedIndices.add(candidate.index);
+  };
+  const bestSuccess = ranked.find((candidate) => candidate.episode.taskOutcome === "success");
+  const bestFailure = ranked.find((candidate) => candidate.episode.taskOutcome === "failure");
+  if (bestSuccess && bestFailure) {
+    if (bestSuccess.score > bestFailure.score || bestSuccess.score === bestFailure.score && bestSuccess.index < bestFailure.index) {
+      add(bestSuccess);
+      add(bestFailure);
+    } else {
+      add(bestFailure);
+      add(bestSuccess);
+    }
+  }
+  for (const candidate of ranked) add(candidate);
+  return selected.sort((left, right) => left.index - right.index).map(({ episode, index }) => ({ episode, index }));
+}
+function messagePriority(message, topicTokens, index, total) {
+  const text = searchableMessageText(message);
+  const record4 = message;
+  const role = typeof record4.role === "string" ? record4.role : "";
+  return overlap(topicTokens, lexicalTokens2(text)) * 20 + (DECISIVE_TEXT.test(text) ? 8 : 0) + (/tool|result/iu.test(role) ? 5 : 0) + (role === "user" ? 3 : 0) + (index === total - 1 ? 4 : 0);
+}
+function renderEpisode(episode, sourceIndex, topic) {
+  const task = truncateUtf82(oneLine(episode.task), 1600);
+  const header = [
+    `EPISODE ${sourceIndex + 1}`,
+    `task=${JSON.stringify(task)}`,
+    `taskOutcome=${episode.taskOutcome}`
+  ];
+  const topicTokens = lexicalTokens2(topic);
+  const priorities = episode.messages.map((message, index) => ({
+    index,
+    priority: messagePriority(message, topicTokens, index, episode.messages.length)
+  })).sort((left, right) => right.priority - left.priority || left.index - right.index);
+  const orderedCandidates = [];
+  const queued = /* @__PURE__ */ new Set();
+  for (const candidate of priorities) {
+    for (const index of [candidate.index, candidate.index - 1, candidate.index + 1]) {
+      if (index < 0 || index >= episode.messages.length || queued.has(index)) continue;
+      queued.add(index);
+      orderedCandidates.push(index);
+    }
+  }
+  const selected = /* @__PURE__ */ new Set();
+  for (const index of orderedCandidates) {
+    const candidate = new Set(selected);
+    candidate.add(index);
+    const lines2 = [...candidate].sort((left, right) => left - right).map((messageIndex) => `message[${messageIndex}]=${compactMessage(episode.messages[messageIndex])}`);
+    const rendered = [...header, ...lines2].join("\n");
+    if (estimateSkillTokens(rendered) <= LEARNING_BOUNDS.maxEpisodeTokens) selected.add(index);
+  }
+  const lines = [...selected].sort((left, right) => left - right).map((index) => `message[${index}]=${compactMessage(episode.messages[index])}`);
+  return truncateUtf82(
+    [...header, ...lines].join("\n"),
+    LEARNING_BOUNDS.maxEpisodeTokens * 4
+  );
+}
+function renderPair(pair) {
+  return [
+    `CURRENT PAIR ${pair.name}`,
+    "PATTERN:",
+    pair.patternMarkdown.trim(),
+    "SKILL:",
+    pair.skillMarkdown.trim()
+  ].join("\n");
+}
+async function selectCurrentPairs(topic, library, libraryPath) {
+  const installedForMatching = new Set(library.entries.flatMap((entry) => [...entry.requiredTools]));
+  const ranked = rankSkillMatches(library, {
+    taskText: topic,
+    installedToolNames: installedForMatching
+  });
+  const pairs = [];
+  for (const match of ranked) {
+    if (pairs.length >= LEARNING_BOUNDS.maxPairs) break;
+    try {
+      const pair = await readCurrentSkillPair(libraryPath, match.entry.name);
+      if (pair) pairs.push(pair);
+    } catch {
+    }
+  }
+  return pairs;
+}
+function learningPrompt(topic, automatic, episodes, pairs) {
+  return [
+    `topic=${JSON.stringify(topic)}`,
+    `automatic=${automatic ? "true" : "false"}`,
+    "Use only the bounded episodes and current pairs below.",
+    "",
+    "EPISODES",
+    episodes.length === 0 ? "(none)" : episodes.join("\n\n"),
+    "",
+    "RELEVANT CURRENT PAIRS",
+    pairs.length === 0 ? "(none)" : pairs.map(renderPair).join("\n\n")
+  ].join("\n");
+}
+async function packLearningRequest(request, libraryPath) {
+  const topic = deriveLearningTopic(request.topic, request.episodes);
+  if (!topic) throw new Error("A learning topic is required");
+  const episodeBlocks = [];
+  for (const { episode, index } of selectLearningEpisodes(topic, request.episodes)) {
+    const block = renderEpisode(episode, index, topic);
+    const candidate = learningPrompt(topic, request.automatic, [...episodeBlocks, block], []);
+    if (estimateSkillTokens(KNOWLEDGE_COMPILER_SYSTEM_PROMPT) + estimateSkillTokens(candidate) <= LEARNING_BOUNDS.maxInputTokens) episodeBlocks.push(block);
+  }
+  const pairs = [];
+  for (const pair of await selectCurrentPairs(topic, request.library, libraryPath)) {
+    const candidatePairs = [...pairs, pair];
+    const candidate = learningPrompt(topic, request.automatic, episodeBlocks, candidatePairs);
+    if (estimateSkillTokens(KNOWLEDGE_COMPILER_SYSTEM_PROMPT) + estimateSkillTokens(candidate) <= LEARNING_BOUNDS.maxInputTokens) pairs.push(pair);
+  }
+  const prompt = learningPrompt(topic, request.automatic, episodeBlocks, pairs);
+  const estimatedInputTokens = estimateSkillTokens(KNOWLEDGE_COMPILER_SYSTEM_PROMPT) + estimateSkillTokens(prompt);
+  if (estimatedInputTokens > LEARNING_BOUNDS.maxInputTokens) {
+    throw new Error(`Learning input exceeds ${LEARNING_BOUNDS.maxInputTokens} estimated tokens`);
+  }
+  return { topic, episodes: episodeBlocks, pairs, prompt, estimatedInputTokens };
+}
+function parseCompilation(text) {
+  const parsed = JSON.parse(text.trim());
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("Compiler output must be one JSON object");
+  }
+  const record4 = parsed;
+  if (record4.action === "none") return { action: "none" };
+  if (record4.action !== "upsert" || typeof record4.name !== "string" || typeof record4.patternMarkdown !== "string" || typeof record4.skillMarkdown !== "string") {
+    throw new Error("Compiler output must contain one recognized none or upsert action");
+  }
+  return {
+    action: "upsert",
+    name: record4.name,
+    patternMarkdown: record4.patternMarkdown,
+    skillMarkdown: record4.skillMarkdown
+  };
+}
+function accountingFor(completion, estimatedInputTokens) {
+  return {
+    provider: completion.provider ?? "unknown",
+    model: completion.model ?? "unknown",
+    inputTokens: completion.inputTokens ?? estimatedInputTokens,
+    outputTokens: completion.outputTokens ?? estimateSkillTokens(completion.text),
+    cost: completion.cost ?? null
+  };
+}
+function accountingLine(accounting) {
+  const model = accounting.provider === "unknown" ? accounting.model : `${accounting.provider}/${accounting.model}`;
+  return `model=${model} input=${accounting.inputTokens} output=${accounting.outputTokens} cost=${accounting.cost ?? "unknown"}`;
+}
+function errorResult(error, accounting) {
+  const detail = oneLine(error instanceof Error ? error.message : String(error));
+  return {
+    action: "error",
+    error: detail,
+    ...accounting === void 0 ? {} : { accounting },
+    message: [`learning failed: ${detail}`, ...accounting === void 0 ? [] : [accountingLine(accounting)]].join("\n")
+  };
+}
+async function runKnowledgeCompiler(request, options) {
+  let packed;
+  try {
+    packed = await packLearningRequest(request, options.libraryPath);
+  } catch (error) {
+    return errorResult(error);
+  }
+  let completion;
+  try {
+    completion = await options.complete({
+      kind: "knowledge-compile",
+      systemPrompt: KNOWLEDGE_COMPILER_SYSTEM_PROMPT,
+      prompt: packed.prompt,
+      maxOutputTokens: LEARNING_BOUNDS.maxOutputTokens,
+      automatic: request.automatic,
+      ...options.signal === void 0 ? {} : { signal: options.signal }
+    });
+  } catch (error) {
+    return errorResult(error);
+  }
+  const accounting = accountingFor(completion, packed.estimatedInputTokens);
+  let compilation;
+  try {
+    compilation = parseCompilation(completion.text);
+  } catch (error) {
+    return errorResult(error, accounting);
+  }
+  if (compilation.action === "none") {
+    return {
+      action: "none",
+      accounting,
+      message: ["no reusable skill change", accountingLine(accounting)].join("\n")
+    };
+  }
+  try {
+    await upsertCurrentSkillPair(options.libraryPath, compilation);
+  } catch (error) {
+    return errorResult(error, accounting);
+  }
+  return {
+    action: "upsert",
+    name: compilation.name,
+    accounting,
+    activationRequired: true,
+    message: [
+      `upserted ${compilation.name}`,
+      accountingLine(accounting),
+      "run /reload or start a new session to activate the updated library"
+    ].join("\n")
+  };
+}
+
+// src/index.ts
+import { completeSimple as completeSimple2 } from "@earendil-works/pi-ai";
+
+// src/runtime.ts
+var STEERING_PATH_MAX_BYTES = 1024;
+function record2(value) {
+  return value && typeof value === "object" ? value : void 0;
+}
+function messageRole(entry) {
+  return record2(entry.message)?.role;
+}
+function entryId(entry, index) {
+  return entry.id ?? entry.entryId ?? `user:${index}`;
+}
+function deriveTaskSelection(branch, activeGoal) {
+  if (activeGoal?.goalId && activeGoal.status !== "completed" && activeGoal.status !== "cancelled") {
+    return {
+      taskKey: activeGoal.goalId,
+      goalId: activeGoal.goalId,
+      ...activeGoal.objective === void 0 ? {} : { objective: activeGoal.objective },
+      source: "goal"
+    };
+  }
+  const rootIndex = branch.findIndex((entry) => entry.type === "message" && messageRole(entry) === "user");
+  if (rootIndex < 0) return void 0;
+  const rootUserEntryId = entryId(branch[rootIndex], rootIndex);
+  return { taskKey: rootUserEntryId, rootUserEntryId, source: "user" };
+}
+function normalizeSteeringPath(value) {
+  const trimmed = value.trim().replace(/^[`'"(<]+|[`'">),;:.]+$/g, "").replace(/:\d+(?::\d+)?$/, "");
+  if (!trimmed || /^(?:https?|file):\/\//i.test(trimmed) || /\s/.test(trimmed)) return void 0;
+  const pathLike = trimmed.startsWith("/") || trimmed.startsWith("./") || trimmed.startsWith("../") || trimmed.includes("/") || /(?:^|\.)[A-Za-z0-9_-]+\.[A-Za-z0-9*?_-]+$/.test(trimmed) || /^(?:README|Dockerfile|Makefile|LICENSE)(?:\.[A-Za-z0-9_-]+)?$/i.test(trimmed);
+  if (!pathLike || !/[A-Za-z0-9*?]/.test(trimmed)) return void 0;
+  const normalized = trimmed.startsWith("./") ? trimmed.slice(2) : trimmed;
+  return Buffer.byteLength(normalized, "utf8") <= STEERING_PATH_MAX_BYTES ? normalized : void 0;
+}
+function explicitSteeringPaths(text) {
+  const candidates = [
+    ...[...text.matchAll(/[`'"]([^`'"\n]+)[`'"]/g)].map((match) => match[1]),
+    ...text.split(/\s+/)
+  ];
+  const paths = [];
+  for (const candidate of candidates) {
+    const normalized = normalizeSteeringPath(candidate);
+    if (!normalized || paths.includes(normalized)) continue;
+    paths.push(normalized);
+  }
+  return paths;
+}
+
+// src/workflow.ts
+function applyProgressEffect(snapshot, effect) {
+  switch (effect.kind) {
+    case "information":
+      return addActionableObservations(snapshot, effect.observations);
+    case "failure":
+      return addActionableObservations(snapshot, [effect.observation]);
+    case "mutation":
+      return effect.artifacts?.length ? addTaskArtifacts(snapshot, effect.artifacts) : snapshot;
+    case "none":
+      return snapshot;
+  }
+}
+function applyProgressEffects(snapshot, exchanges) {
+  return exchanges.map((facts, inputOrder) => ({ facts, inputOrder })).sort((left, right) => left.facts.sourceOrder - right.facts.sourceOrder || left.inputOrder - right.inputOrder).reduce((current, { facts }) => applyProgressEffect(current, facts.progress), snapshot);
+}
+var EXACT_REPEAT_HINT = `<prime_context_hint>
+This action reproduced the same result without changing task state. Use the existing evidence or change the approach before repeating it again.
+</prime_context_hint>`;
+var REPEAT_RESULT_MAX_BYTES = 24 * 1024;
+var REPEAT_ACTION_MAX_BYTES = 4 * 1024;
+var REPEAT_EMITTED_MAX = 8;
+function createExactRepeatHintState(taskKey, contextEpoch = 0) {
+  return { ...taskKey ? { taskKey } : {}, contextEpoch, emitted: [] };
+}
+function normalizedActionValue(value) {
+  if (Array.isArray(value)) return value.map(normalizedActionValue);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value).sort(([left], [right]) => left.localeCompare(right)).map(([key, item]) => [key, normalizedActionValue(item)]));
+  }
+  return typeof value === "string" ? value.trim() : value;
+}
+function normalizedAction(facts) {
+  try {
+    const value = JSON.stringify({
+      toolName: facts.toolName,
+      input: normalizedActionValue(facts.executedInput ?? facts.originalInput)
+    });
+    return Buffer.byteLength(value, "utf8") <= REPEAT_ACTION_MAX_BYTES ? value : void 0;
+  } catch {
+    return void 0;
+  }
+}
+function sameRepeatValue(left, right) {
+  return left.action === right.action && left.subject === right.subject && left.resultText === right.resultText;
+}
+function timeSensitive(facts) {
+  const name = facts.toolName.toLowerCase();
+  if (["wait", "sleep", "poll", "watch", "heartbeat"].some((part) => name.includes(part))) return true;
+  if (facts.toolName !== "bash") return false;
+  const input = facts.executedInput ?? facts.originalInput;
+  const command = input && typeof input === "object" && typeof input.command === "string" ? input.command : "";
+  return /(?:^|[;&|]\s*|\s)(?:sleep|wait|watch|tail\s+-f|while\s+true)\b/i.test(command);
+}
+function resetExactRepeatHintState(state, context, clearEmitted = false) {
+  return {
+    ...context.taskKey ? { taskKey: context.taskKey } : {},
+    contextEpoch: context.contextEpoch,
+    emitted: clearEmitted ? [] : state.emitted.slice(-REPEAT_EMITTED_MAX)
+  };
+}
+function observeExactRepeatHint(state, facts, context) {
+  const structuralReset = state.taskKey !== context.taskKey || state.contextEpoch !== context.contextEpoch || context.intervening === "task" || context.intervening === "epoch";
+  let current = structuralReset ? resetExactRepeatHintState(state, context, true) : context.intervening ? resetExactRepeatHintState(state, context) : { ...state, emitted: state.emitted.slice(-REPEAT_EMITTED_MAX) };
+  const action = normalizedAction(facts);
+  if (context.userInitiated || facts.toolName === "user_bash" || context.pollingOrTimeSensitive || timeSensitive(facts) || facts.progress.kind === "mutation" || !action || !facts.text || facts.textBytes > REPEAT_RESULT_MAX_BYTES) {
+    return { state: resetExactRepeatHintState(current, context) };
+  }
+  const value = { action, subject: facts.intent.subjectKey, resultText: facts.text };
+  if (!current.candidate || !sameRepeatValue(current.candidate, value)) {
+    return { state: { ...current, candidate: { ...value, occurrences: 1 } } };
+  }
+  const occurrences = current.candidate.occurrences + 1;
+  const candidate = { ...value, occurrences };
+  const alreadyEmitted = current.emitted.some((item) => sameRepeatValue(item, value));
+  if (occurrences < 2 || alreadyEmitted) return { state: { ...current, candidate } };
+  current = { ...current, candidate, emitted: [...current.emitted, value].slice(-REPEAT_EMITTED_MAX) };
+  return { state: current, hint: EXACT_REPEAT_HINT };
+}
+function normalizedAttemptText(value) {
+  return value.trim().replace(/\s+/g, " ").slice(0, 1024);
+}
+function detectStallSignature(attempts) {
+  const recent = attempts.slice(-4).map((attempt) => ({
+    action: normalizedAttemptText(attempt.action),
+    decisiveObservation: normalizedAttemptText(attempt.decisiveObservation)
+  }));
+  if (recent.length >= 4) {
+    const [a, b, c, d] = recent;
+    if (a.decisiveObservation.startsWith("mutation:") && c.decisiveObservation.startsWith("mutation:") && b.decisiveObservation.startsWith("error:") && d.decisiveObservation === b.decisiveObservation && a.action !== c.action) return "persistent-error";
+    if (!recent.some((attempt) => attempt.decisiveObservation.startsWith("mutation:")) && a.action === c.action && b.action === d.action && a.action !== b.action && new Set(recent.map((attempt) => attempt.decisiveObservation)).size === 1) return "oscillation";
+  }
+  const retrieval = recent.slice(-3);
+  if (retrieval.length === 3 && /^(?:read|search|inspect|recall):/.test(retrieval[0].action) && retrieval.every((attempt) => attempt.action === retrieval[0].action && attempt.decisiveObservation === retrieval[0].decisiveObservation)) return "stale-retrieval";
+  return void 0;
+}
+function hasStrongExactRepeat(state) {
+  const candidate = state.candidate;
+  return candidate !== void 0 && candidate.occurrences >= 3 && state.emitted.some(
+    (item) => item.action === candidate.action && item.subject === candidate.subject && item.resultText === candidate.resultText
+  );
 }
 
 // src/policy.ts
@@ -8998,6 +9931,28 @@ function appendPrimeContextGlobalPolicy(systemPrompt) {
 }
 
 // src/index.ts
+async function readBoundedTextFile(path, maxBytes = 48 * 1024) {
+  let handle;
+  try {
+    handle = await openFile(path, "r");
+    const size = (await handle.stat()).size;
+    if (size <= maxBytes) return (await handle.readFile()).toString("utf8");
+    const edgeBytes = Math.floor(maxBytes / 2);
+    const head = Buffer.alloc(edgeBytes);
+    const tail = Buffer.alloc(edgeBytes);
+    const [{ bytesRead: headBytes }, { bytesRead: tailBytes }] = await Promise.all([
+      handle.read(head, 0, edgeBytes, 0),
+      handle.read(tail, 0, edgeBytes, Math.max(0, size - edgeBytes))
+    ]);
+    return `${head.toString("utf8", 0, headBytes)}
+\u2026
+${tail.toString("utf8", 0, tailBytes)}`;
+  } catch {
+    return void 0;
+  } finally {
+    await handle?.close().catch(() => void 0);
+  }
+}
 async function readRecallSessionHeader(path) {
   let handle;
   try {
@@ -9021,23 +9976,22 @@ async function readRecallSessionHeader(path) {
     await handle?.close().catch(() => void 0);
   }
 }
-var RECOVERY_LEASE_MAX_BYTES = 12 * 1024 * 1024;
-var RECOVERY_LEASE_TOTAL_BYTES = 24 * 1024 * 1024;
-function recoveryLeaseBytes(content) {
-  return content.reduce((total, block) => total + (block.type === "text" && typeof block.text === "string" ? Buffer.byteLength(block.text, "utf8") : block.type === "image" && typeof block.data === "string" ? Buffer.byteLength(block.data, "utf8") : 0), 0);
-}
 var REQUIRED_HOOKS = /* @__PURE__ */ new Set([
   "session_start",
+  "session_shutdown",
+  "resources_discover",
   "session_compact",
   "session_tree",
   "before_agent_start",
   "agent_start",
+  "agent_end",
   "turn_start",
   "model_select",
   "tool_execution_start",
   "tool_call",
   "tool_result",
   "turn_end",
+  "user_bash_end",
   "model_context",
   "message_end",
   "session_before_compact",
@@ -9045,11 +9999,8 @@ var REQUIRED_HOOKS = /* @__PURE__ */ new Set([
 ]);
 var PENDING_IMAGE_RESULT_MAX = 64;
 var PENDING_IMAGE_PER_RESULT_MAX = 4096;
-var CONSUMED_IMAGE_REF_MAX = PENDING_IMAGE_RESULT_MAX * PENDING_IMAGE_PER_RESULT_MAX;
 function clearPendingImages(runtime, toolCallId) {
-  const previous = runtime.pendingImages.get(toolCallId) ?? [];
   runtime.pendingImages.delete(toolCallId);
-  for (const image of previous) runtime.consumedImageRefs.delete(image.ref);
 }
 function setPendingImages(runtime, toolCallId, images) {
   clearPendingImages(runtime, toolCallId);
@@ -9064,6 +10015,9 @@ function requiredHooksLoaded(hooks) {
 }
 function shouldArchiveToolResult(toolName) {
   return toolName !== "prime_context";
+}
+function shouldCommitExchangeArchive(exchange, callArgumentByteLimit = 6144) {
+  return exchange.largeResult === true || exchange.admittedCapsule !== void 0 || exchange.archiveSource !== void 0 || exchange.frozenResultPath !== void 0 || exchange.persistedResultChanged === true || exchange.persistedCanonicalResultChanged === true || (exchange.intent?.modelInputBytes ?? 0) > callArgumentByteLimit || (exchange.archiveParts ?? []).some((part) => part.kind !== "result" || !(part.mediaType ?? "").startsWith("text/"));
 }
 function visibleToolResultText(content, maxBytes = Number.POSITIVE_INFINITY) {
   return boundedResultTextStats(content, maxBytes);
@@ -9127,10 +10081,12 @@ function typedObservationParts(event) {
   if (isIpythonToolResult(event)) {
     const stdout = textPart("stdout", "stdout", event.details?.stdout);
     const stderr = textPart("stderr", "stderr", event.details?.stderr);
+    const backgroundOutput = textPart("background-output", "stdout", event.details?.backgroundOutput);
     const result = textPart("result-value", "result", event.details?.result);
     const traceback = textPart("traceback", "traceback", event.details?.error?.traceback.join("\n"));
     if (stdout) parts.push(stdout);
     if (stderr) parts.push(stderr);
+    if (backgroundOutput) parts.push(backgroundOutput);
     if (result) parts.push(result);
     if (traceback) parts.push(traceback);
     const ipythonDetails = record3(event.details);
@@ -9182,23 +10138,6 @@ function typedObservationParts(event) {
   return parts;
 }
 var PROVIDER_IMAGE_MIME_TYPES2 = /* @__PURE__ */ new Set(["image/png", "image/jpeg", "image/gif", "image/webp"]);
-function projectedImageRefs(exchangeId, content) {
-  const images = [];
-  let imageIndex = 0;
-  for (const block of content) {
-    if (block.type !== "image") continue;
-    imageIndex += 1;
-    const bytes = Buffer.from(block.data, "base64");
-    const dimensions = imageDimensions(bytes, block.mimeType);
-    images.push({
-      ref: `${exchangeId}:image:${imageIndex}`,
-      mimeType: block.mimeType,
-      bytes: bytes.byteLength,
-      ...dimensions ?? {}
-    });
-  }
-  return images;
-}
 function typedObservationPartsEqual(left, right) {
   if (left.length !== right.length) return false;
   return left.every((part, index) => {
@@ -9220,6 +10159,32 @@ function typedObservationPartsEqual(left, right) {
 }
 function record3(value) {
   return value && typeof value === "object" ? value : void 0;
+}
+function canonicalProjectionValue(value) {
+  if (Array.isArray(value)) return value.map(canonicalProjectionValue);
+  const object = record3(value);
+  if (!object) return value;
+  return Object.fromEntries(
+    Object.keys(object).sort().map((key) => [key, canonicalProjectionValue(object[key])])
+  );
+}
+function activeToolSetRevision(pi) {
+  const installed = new Map((pi.getAllTools?.() ?? []).map((tool) => [tool.name, tool]));
+  const activeNames = [...new Set(pi.getActiveTools?.() ?? installed.keys())].sort();
+  return JSON.stringify(activeNames.map((name) => {
+    const tool = installed.get(name);
+    return tool === void 0 ? { name } : canonicalProjectionValue({ name, description: tool.description, parameters: tool.parameters });
+  }));
+}
+function explicitUserTaskOutcome(text) {
+  const subject = String.raw`(?:your|the|this|that)\s+(?:solution|answer|implementation|change|fix|work|task|result)`;
+  if (new RegExp(String.raw`\b${subject}\s+(?:is|was|looks)\s+(?:correct|successful|complete|good)\b|\b${subject}\s+(?:passed|succeeded|works)\b|\bconfirmed\s*:\s*(?:pass|success)\b`, "iu").test(text)) {
+    return "success";
+  }
+  if (new RegExp(String.raw`\b${subject}\s+(?:is|was|looks)\s+(?:incorrect|wrong|unsuccessful|incomplete|broken)\b|\b${subject}\s+(?:failed|does\s+not\s+work)\b|\bconfirmed\s*:\s*(?:fail(?:ure)?|error)\b`, "iu").test(text)) {
+    return "failure";
+  }
+  return "unknown";
 }
 function messageText(content) {
   if (typeof content === "string") return content;
@@ -9251,21 +10216,6 @@ function scopeBranchToGoal(branch, goal) {
     if (record3(branch[index].message)?.role === "user") return branch.slice(index);
   }
   return branch.slice(goalIndex);
-}
-function branchUserEntries(branch, selection) {
-  const entries = [];
-  let selected = selection.source === "goal";
-  for (let index = 0; index < branch.length; index += 1) {
-    const entry = branch[index];
-    const message = record3(entry.message);
-    if (entry.type !== "message" || message?.role !== "user") continue;
-    const id = entry.id ?? `user:${index}`;
-    if (!selected && id === selection.rootUserEntryId) selected = true;
-    if (!selected) continue;
-    const text = messageText(message.content);
-    if (text.trim()) entries.push({ id, text });
-  }
-  return entries;
 }
 function taskObjective(branch, selection, fallback = "") {
   if (selection.objective?.trim()) return selection.objective;
@@ -9348,7 +10298,6 @@ function observationRefsInProjectedMessages(messages) {
 function summaryObservationRefs(branch) {
   return observationRefsFromValues(branch.flatMap((entry) => {
     if (entry.type === "compaction" || entry.type === "branch_summary") return [entry.summary];
-    if (entry.type === "custom_message" && entry.customType === PRIME_CONTEXT_FOLD_TYPE) return [entry.content];
     return [];
   }));
 }
@@ -9395,42 +10344,6 @@ function providerModelBranchEntries(branch) {
   const visible = providerVisibleBranchEntries(branch);
   return latestCompaction ? [latestCompaction, ...visible] : visible;
 }
-function branchSourceMessages(branch) {
-  return new Map(branchProjectionEntries(branch).map((entry) => [entry.entryId, entry.message]));
-}
-function resolveFoldApplication(branch, fold, taskKey) {
-  if (!fold) return void 0;
-  const allEntryIds = branch.flatMap((entry) => entry.id ? [entry.id] : []);
-  if (allEntryIds.length !== branch.length || new Set(allEntryIds).size !== allEntryIds.length) {
-    return void 0;
-  }
-  const cutoffMatches = branch.flatMap((entry, index) => entry.id === fold.throughEntryId ? [index] : []);
-  if (cutoffMatches.length !== 1) return void 0;
-  const cutoff = cutoffMatches[0];
-  const prefix = branch.slice(0, cutoff + 1);
-  if (prefix.some((entry) => !entry.id)) return void 0;
-  const prefixEntryIds = new Set(prefix.map((entry) => entry.id));
-  if (prefixEntryIds.size !== prefix.length || new Set(fold.retainedEntryIds).size !== fold.retainedEntryIds.length || fold.retainedEntryIds.some((id) => !prefixEntryIds.has(id))) {
-    return void 0;
-  }
-  const matches = branch.flatMap((entry, index) => {
-    if (!entry.id) return [];
-    const raw = entry.type === "custom_message" ? { customType: entry.customType, content: entry.content, details: entry.details } : record3(entry.message);
-    const details = record3(raw?.details);
-    return raw?.customType === PRIME_CONTEXT_FOLD_TYPE && raw.content === fold.renderedMessage && details?.taskKey === taskKey && details?.generation === fold.generation && details?.throughEntryId === fold.throughEntryId ? [{ entryId: entry.id, index }] : [];
-  });
-  if (matches.length !== 1 || matches[0].index <= cutoff) return void 0;
-  return { prefixEntryIds, foldMessageEntryId: matches[0].entryId };
-}
-function filterFoldPrefix(entries, fold, prefixEntryIds) {
-  const retained = new Set(fold.retainedEntryIds);
-  return entries.filter((entry) => !entry.id || !prefixEntryIds.has(entry.id) || retained.has(entry.id));
-}
-function foldVisibleBranchEntries(branch, fold, taskKey) {
-  if (!fold) return branch;
-  const application = resolveFoldApplication(branch, fold, taskKey);
-  return application ? filterFoldPrefix(branch, fold, application.prefixEntryIds) : branch;
-}
 function completeVisibleToolCallIds(branch) {
   const calls = /* @__PURE__ */ new Set();
   const results = /* @__PURE__ */ new Set();
@@ -9451,26 +10364,19 @@ function completeVisibleToolCallIds(branch) {
   }
   return new Set([...calls].filter((id) => results.has(id)));
 }
-function visibleFixedToolCallIds(branch, fold, taskKey) {
-  const modelBranch = providerModelBranchEntries(branch);
-  if (!fold) return completeVisibleToolCallIds(modelBranch);
-  const application = resolveFoldApplication(branch, fold, taskKey);
-  return completeVisibleToolCallIds(application ? filterFoldPrefix(modelBranch, fold, application.prefixEntryIds) : modelBranch);
+function visibleFixedToolCallIds(branch) {
+  return completeVisibleToolCallIds(providerModelBranchEntries(branch));
 }
-function selectForkVisibleImports(branch, fold, taskKey, pinnedRefs, parentViews) {
+function selectForkVisibleImports(branch, pinnedRefs, parentViews) {
   const modelBranch = providerModelBranchEntries(branch);
-  const application = resolveFoldApplication(branch, fold, taskKey);
-  const visibleBranch = fold && application ? filterFoldPrefix(modelBranch, fold, application.prefixEntryIds) : modelBranch;
+  const visibleBranch = modelBranch;
   const completeToolCallIds = completeVisibleToolCallIds(visibleBranch);
   const visibleViews = parentViews.filter((view) => completeToolCallIds.has(view.toolCallId));
   const fixedRefs = visibleViews.map((view) => view.exchangeId);
-  const projected = projectFoldCandidateMessages(
+  const projected = projectBranchCandidateMessages(
     branchProjectionEntries(modelBranch),
     visibleViews,
-    "provider",
-    fold,
-    application?.foldMessageEntryId,
-    application?.prefixEntryIds
+    "provider"
   );
   const required = [.../* @__PURE__ */ new Set([
     ...pinnedRefs.map(normalizeObservationRef),
@@ -9491,94 +10397,43 @@ function selectForkVisibleImports(branch, fold, taskKey, pinnedRefs, parentViews
     )
   };
 }
-function fileLists(fileOps) {
-  const value = record3(fileOps);
-  const values = (key) => {
-    const item = value?.[key];
-    if (item instanceof Set) return [...item].filter((path) => typeof path === "string");
-    return Array.isArray(item) ? item.filter((path) => typeof path === "string") : [];
-  };
-  const modifiedFiles = [.../* @__PURE__ */ new Set([...values("modifiedFiles"), ...values("modified"), ...values("written"), ...values("edited")])];
-  const modified = new Set(modifiedFiles);
-  return {
-    readFiles: [.../* @__PURE__ */ new Set([...values("readFiles"), ...values("read")])].filter((path) => !modified.has(path)),
-    modifiedFiles
-  };
-}
-function treeFixedFileLists(entries, views) {
-  const readFiles = /* @__PURE__ */ new Set();
-  const modifiedFiles = /* @__PURE__ */ new Set();
-  for (const entry of entries) {
-    if (entry.message.role !== "assistant" || !Array.isArray(entry.message.content)) continue;
-    for (const part of entry.message.content) {
-      const call = record3(part);
-      if (call?.type !== "toolCall" || typeof call.id !== "string" || typeof call.name !== "string") continue;
-      const view = views.get(call.id);
-      if (!view) return void 0;
-      const args = view.callArguments ?? record3(call.arguments);
-      const path = typeof args?.path === "string" ? args.path : typeof args?.file_path === "string" ? args.file_path : void 0;
-      if (call.name === "read") {
-        if (!path) return void 0;
-        readFiles.add(path);
-      } else if (call.name === "edit" || call.name === "write") {
-        if (!path) return void 0;
-        modifiedFiles.add(path);
-      } else {
-        return void 0;
-      }
-    }
-  }
-  for (const path of modifiedFiles) readFiles.delete(path);
-  return { readFiles: [...readFiles], modifiedFiles: [...modifiedFiles] };
-}
 function scopeFixedExchangeViews(views, allowedToolCallIds) {
   return views.filter((view) => allowedToolCallIds.has(view.toolCallId));
 }
 function selectForkImportRefs(pinnedRefs, fixedRefs, visibleRefs, _target) {
   return [.../* @__PURE__ */ new Set([...pinnedRefs, ...fixedRefs, ...visibleRefs])];
 }
-function commandCandidates(text) {
-  return [...text.matchAll(/`([^`\n]+)`/g)].map((match) => match[1].trim()).filter(Boolean);
+function rollingMean(previous, current) {
+  return previous === void 0 ? current : previous * 0.75 + current * 0.25;
 }
-function literalAcceptanceCommands(text) {
-  const executable = /(?:^|\s)((?:\.\/)?(?:python3?|pytest|py\.test|vitest|jest|mocha|npm|pnpm|yarn|bun|cargo|go|ctest|dotnet|mvnw?|gradlew?|mix|swift|tsc|eslint|ruff|clippy|biome|prettier|black))\b/gi;
-  const starts = [...text.matchAll(executable)].map((match) => (match.index ?? 0) + match[0].length - match[1].length);
-  const commands = [];
-  for (let index = 0; index < starts.length; index += 1) {
-    const start = starts[index];
-    let end = starts[index + 1] ?? text.length;
-    const tail = text.slice(start, end);
-    const boundary = tail.search(/(?:\r?\n|[,;.]\s|\s+(?:and|then|before|after|so that|to confirm)\b)/i);
-    if (boundary > 0) end = start + boundary;
-    const command = text.slice(start, end).trim().replace(/[,:;.]+$/, "").trim();
-    if (command) commands.push(command);
+function boundedStallAction(facts) {
+  try {
+    const input = canonicalProjectionValue(facts.executedInput ?? facts.originalInput);
+    const action = `${facts.toolName}:${facts.intent.subjectKey}:${JSON.stringify(input)}`;
+    return Buffer.from(action, "utf8").subarray(0, 1024).toString("utf8");
+  } catch {
+    return `${facts.toolName}:${facts.intent.subjectKey}`.slice(0, 1024);
   }
-  for (const fence of text.matchAll(/```(?:[A-Za-z0-9_-]+)?\s*\n([\s\S]*?)```/g)) {
-    commands.push(...fence[1].split(/\r?\n/).map((line) => line.trim()).filter(Boolean));
-  }
-  return [...new Set(commands)];
 }
-function acceptanceClassifier(cwd) {
-  return (text, current) => {
-    const explicitRemoval = /(?:remove|drop|no longer require).{0,40}(?:acceptance|validation|test|check)/i.test(text);
-    const acceptanceContext = /(?:acceptance|final (?:validation|check)|must (?:run|pass)|required (?:validation|test|check|command)|before (?:completion|completing|goal completion))/i.test(text);
-    if (!acceptanceContext && !explicitRemoval) return void 0;
-    const suites = [];
-    for (const command of [...commandCandidates(text), ...literalAcceptanceCommands(text)]) {
-      const classified = classifyValidationCommand(command, cwd);
-      if (classified && !suites.some((suite2) => suite2.family === classified.suite.family && suite2.target === classified.suite.target)) {
-        suites.push(classified.suite);
-      }
-    }
-    const currentCandidates = current.map(({ key, suiteFamily, target }) => ({ key, suiteFamily, target }));
-    if (explicitRemoval) {
-      if (suites.length === 0) return [];
-      const removed = new Set(suites.map((suite2) => `suite:${suite2.family}:${suite2.target}`));
-      return currentCandidates.filter((gate) => !removed.has(gate.key));
-    }
-    if (suites.length === 0) return void 0;
-    const replaces = /(?:replace|instead|only).{0,40}(?:acceptance|validation|test|check)|(?:acceptance|validation) (?:commands?|gates?) (?:is|are|now)/i.test(text);
-    return replaces ? suites : [...currentCandidates, ...suites];
+function decisiveStallObservation(facts) {
+  switch (facts.progress.kind) {
+    case "mutation":
+      return `mutation:${facts.progress.artifacts?.map((artifact) => artifact.pathOrId).join(",") || facts.intent.subjectKey}`;
+    case "failure":
+      return `error:${facts.outcome.exceptions[0] ?? facts.outcome.commandFailures[0] ?? facts.outcome.testSummary ?? facts.progress.observation.text}`.slice(0, 1024);
+    case "information":
+      return `evidence:${facts.progress.observations.map((observation) => observation.text).join(" | ")}`.slice(0, 1024);
+    case "none":
+      return (facts.outcome.testSummary ?? facts.outcome.exceptions[0] ?? facts.outcome.commandFailures[0] ?? facts.text).slice(0, 1024);
+  }
+}
+function compactTaskPacket(snapshot) {
+  return {
+    objective: snapshot.objective,
+    explicitConstraints: snapshot.explicitConstraints.filter((constraint) => !constraint.supersededBy).map((constraint) => constraint.text),
+    focus: snapshot.focus,
+    openItems: snapshot.openItems.map((item) => item.text),
+    decisiveObservations: snapshot.actionableObservations.slice(-6).map((observation) => observation.text)
   };
 }
 function primeContext(pi) {
@@ -9586,17 +10441,20 @@ function primeContext(pi) {
     mode: "on",
     config: { ...DEFAULT_CONFIG },
     configWarnings: [],
-    snapshot: emptySnapshot(),
-    readiness: "NOT_READY",
+    skillLibrary: Object.freeze({ revision: 0, entries: Object.freeze([]) }),
+    auxiliary: createAuxiliaryRuntime({ enabled: false }),
+    autoLearnedTaskKeys: /* @__PURE__ */ new Set(),
+    autoLearnInFlight: false,
+    exactRepeat: createExactRepeatHintState("session"),
+    recentAttempts: [],
+    toolStartedAt: /* @__PURE__ */ new Map(),
+    taskSnapshot: createTaskSnapshotV2("session"),
     exchanges: new ExchangeTracker(),
     fixedViews: /* @__PURE__ */ new Map(),
-    projectedRefs: /* @__PURE__ */ new WeakMap(),
-    recoveryLeases: /* @__PURE__ */ new Map(),
-    recoveryUtilities: /* @__PURE__ */ new Map(),
+    sourceMessages: /* @__PURE__ */ new Map(),
     pendingImages: /* @__PURE__ */ new Map(),
-    consumedImageRefs: /* @__PURE__ */ new Set(),
-    projectedRecoveryToolCallIds: /* @__PURE__ */ new Set(),
-    projectedImageRefs: /* @__PURE__ */ new Set(),
+    projectionEpoch: 0,
+    projectionCache: {},
     control: {
       structuralBoundary: false,
       needsAnchorRefresh: false
@@ -9607,12 +10465,221 @@ function primeContext(pi) {
     }
   };
   const hooks = /* @__PURE__ */ new Set();
+  let setAutomaticRefinementEnabled;
+  const advanceProjectionEpoch = () => {
+    runtime.projectionEpoch += 1;
+    runtime.exactRepeat = createExactRepeatHintState(runtime.taskSnapshot.taskKey, runtime.projectionEpoch);
+    runtime.recentAttempts = [];
+  };
+  const persistBenchmarkAccounting = () => {
+    const target = process.env.PRIME_CONTEXT_BENCHMARK_METRICS;
+    if (!target) return;
+    try {
+      writeFileSync(target, `${JSON.stringify({
+        schema: "prime-context.benchmark-accounting/v1",
+        auxiliary: runtime.auxiliary.accounting
+      }, null, 2)}
+`, "utf8");
+    } catch {
+    }
+  };
+  const executeTrackedAuxiliary = async (options) => {
+    const result = await executeAuxiliaryOnce(options);
+    persistBenchmarkAccounting();
+    return result;
+  };
+  pi.on("resources_discover", (event) => {
+    const loaded = loadPrimeContextConfig(event.cwd);
+    const skillsPath = join5(resolveSkillLibraryPath(event.cwd, loaded.config.libraryPath), "skills");
+    return existsSync2(skillsPath) ? { skillPaths: [skillsPath] } : {};
+  });
+  hooks.add("resources_discover");
   pi.on("before_agent_start", (event) => ({
     systemPrompt: appendPrimeContextGlobalPolicy(event.systemPrompt)
   }));
-  const cwdKey = (cwd) => Buffer.from(resolve2(cwd), "utf8").toString("base64url");
+  const taskSkillSupplement = async (event, ctx) => {
+    if (runtime.mode === "off") return "";
+    beginAuxiliaryTask(runtime.auxiliary, runtime.taskSnapshot.taskKey);
+    const installedToolNames = pi.getAllTools?.().map((tool) => tool.name) ?? [];
+    const selection = selectSkills(runtime.skillLibrary, {
+      taskText: event.prompt,
+      installedToolNames,
+      skillBudgetTokens: runtime.config.skillBudgetTokens
+    });
+    if (selection.highConfidence) return selection.packet;
+    const pathSignals = new Set(event.prompt.match(/(?:^|\s)(?:[./~][^\s,;:]+|[A-Za-z0-9_-]+\/[A-Za-z0-9_./-]+)/gu) ?? []);
+    const mentionedTools = installedToolNames.filter(
+      (name) => event.prompt.toLowerCase().includes(name.toLowerCase())
+    );
+    const scoutEligible = selection.rankedMatches.length >= 2 || utf8Bytes(event.prompt) >= 2048 || pathSignals.size >= 2 || mentionedTools.length >= 2;
+    if (!scoutEligible || runtime.config.auxiliaryMode === "off" || !ctx.model || !ctx.modelRegistry) {
+      return selection.packet;
+    }
+    const mainModel = ctx.model;
+    const modelRegistry = ctx.modelRegistry;
+    try {
+      const task = {
+        objective: runtime.taskSnapshot.objective ?? event.prompt,
+        explicitConstraints: runtime.taskSnapshot.explicitConstraints.filter((constraint) => !constraint.supersededBy).map((constraint) => constraint.text),
+        focus: runtime.taskSnapshot.focus,
+        openItems: runtime.taskSnapshot.openItems.map((item) => item.text),
+        decisiveObservations: runtime.taskSnapshot.actionableObservations.slice(-4).map((observation) => observation.text)
+      };
+      const prompt = buildTaskScoutPrompt({
+        task,
+        availableTools: installedToolNames,
+        skillCatalog: runtime.skillLibrary.entries,
+        libraryRevision: String(runtime.skillLibrary.revision)
+      });
+      const hooks2 = createModelResolutionHooks({
+        currentModel: () => mainModel,
+        modelRegistry
+      });
+      const resolved = await resolveAuxiliaryModel("task-scout", runtime.config, hooks2);
+      if (!resolved) return selection.packet;
+      const currentUsage = ctx.getContextUsage?.();
+      runtime.auxiliary.economics.currentMainInputUnitCost = mainModel.cost.input;
+      runtime.auxiliary.economics.currentMainOutputUnitCost = mainModel.cost.output;
+      if (currentUsage?.totalTokens !== void 0) {
+        runtime.auxiliary.economics.latestProviderInputTokens = currentUsage.totalTokens;
+      }
+      const result = await executeTrackedAuxiliary({
+        runtime: runtime.auxiliary,
+        prompt,
+        auth: resolved,
+        plan: {
+          kind: "task-scout",
+          model: resolved.model,
+          blocking: true,
+          estimatedInputTokens: prompt.estimatedInputTokens,
+          maxOutputTokens: prompt.maxOutputTokens,
+          estimatedPromptTokensSaved: 1200,
+          estimatedMainTurnsAvoided: 0.25,
+          estimatedToolCallsAvoided: 1,
+          completionRisk: "medium",
+          estimatedCriticalPathMsSaved: 6e3,
+          estimatedAuxiliaryLatencyMs: 1500
+        },
+        parseOutput: (output) => parseTaskScoutOutput(
+          output,
+          new Set(runtime.skillLibrary.entries.map((entry) => entry.name))
+        )
+      });
+      if (result.status !== "success" || !result.output) return selection.packet;
+      const selectedEntries = validateSelectedSkillNames(
+        result.output.selectedSkillNames,
+        runtime.skillLibrary,
+        installedToolNames
+      );
+      return [
+        renderSelectedSkillsPacket(selectedEntries),
+        renderTaskScoutSupplement(result.output)
+      ].filter(Boolean).join("\n\n");
+    } catch {
+      return selection.packet;
+    }
+  };
+  const resolveRuntimeAuxiliary = async (kind, ctx) => {
+    if (runtime.config.auxiliaryMode === "off" || !ctx.model || !ctx.modelRegistry) return void 0;
+    const resolved = await resolveAuxiliaryModel(kind, runtime.config, createModelResolutionHooks({
+      currentModel: () => ctx.model,
+      modelRegistry: ctx.modelRegistry
+    }));
+    runtime.auxiliary.economics.currentMainInputUnitCost = ctx.model.cost.input;
+    runtime.auxiliary.economics.currentMainOutputUnitCost = ctx.model.cost.output;
+    runtime.auxiliary.economics.latestProviderInputTokens = ctx.getContextUsage?.()?.totalTokens;
+    return resolved;
+  };
+  const runStallRecovery = async (ctx) => {
+    const resolved = await resolveRuntimeAuxiliary("stall-recovery", ctx);
+    if (!resolved) return void 0;
+    const installedTools = pi.getAllTools?.().map((tool) => tool.name) ?? [];
+    const supplement = record3(runtime.control.expectedAnchor?.details)?.skillSupplement;
+    const selectedSkills = typeof supplement === "string" ? runtime.skillLibrary.entries.filter((entry) => supplement.includes(`name="${entry.name}"`)).map((entry) => entry.name) : [];
+    const prompt = buildStallRecoveryPrompt({
+      task: compactTaskPacket(runtime.taskSnapshot),
+      selectedSkills,
+      availableTools: installedTools,
+      recentAttempts: runtime.recentAttempts
+    });
+    const result = await executeTrackedAuxiliary({
+      runtime: runtime.auxiliary,
+      prompt,
+      auth: resolved,
+      signal: ctx.signal,
+      plan: {
+        kind: "stall-recovery",
+        model: resolved.model,
+        blocking: true,
+        estimatedInputTokens: prompt.estimatedInputTokens,
+        maxOutputTokens: prompt.maxOutputTokens,
+        estimatedPromptTokensSaved: 300,
+        estimatedMainTurnsAvoided: 1,
+        estimatedToolCallsAvoided: 1,
+        completionRisk: "high",
+        estimatedCriticalPathMsSaved: 8e3,
+        estimatedAuxiliaryLatencyMs: 1500
+      },
+      parseOutput: parseStallRecoveryOutput
+    });
+    return result.status === "success" && result.output ? `<prime_context_hint>
+${renderStallRecoveryHint(result.output)}
+</prime_context_hint>` : void 0;
+  };
+  const distillLargestExchange = async (facts, archives, contextUsage, ctx) => {
+    if ((contextUsage?.percent ?? 0) < 55) return false;
+    const factsByCall = new Map(facts.map((item) => [item.toolCallId, item]));
+    const candidates = archives.flatMap((archive) => {
+      const item = factsByCall.get(archive.metadata.toolCallId);
+      if (!item || !archive.largeResult || !archive.admittedCapsule || item.textBytes < runtime.config.minTextBytes || /^(?:bash|edit|write|ipython)$/iu.test(item.toolName)) return [];
+      return [{ archive, facts: item }];
+    }).sort((left, right) => right.facts.textBytes - left.facts.textBytes);
+    const candidate = candidates[0];
+    if (!candidate) return false;
+    const resolved = await resolveRuntimeAuxiliary("semantic-distill", ctx);
+    if (!resolved) return false;
+    const ref = candidate.archive.metadata.exchangeId;
+    const rawResult = candidate.facts.fullOutputSnapshotPath ? await readBoundedTextFile(candidate.facts.fullOutputSnapshotPath) ?? candidate.facts.text : candidate.facts.text;
+    const prompt = buildSemanticDistillPrompt({
+      task: compactTaskPacket(runtime.taskSnapshot),
+      tool: candidate.facts.toolName,
+      subject: candidate.facts.intent.subjectKey,
+      deterministicCapsule: candidate.archive.admittedCapsule,
+      rawResult,
+      availableRecovery: [{ ref, part: "result" }]
+    });
+    const result = await executeTrackedAuxiliary({
+      runtime: runtime.auxiliary,
+      prompt,
+      auth: resolved,
+      signal: ctx.signal,
+      plan: {
+        kind: "semantic-distill",
+        model: resolved.model,
+        blocking: true,
+        estimatedInputTokens: prompt.estimatedInputTokens,
+        maxOutputTokens: prompt.maxOutputTokens,
+        estimatedPromptTokensSaved: Math.max(700, Math.ceil(candidate.facts.textBytes / 2)),
+        estimatedMainTurnsAvoided: 0.25,
+        estimatedToolCallsAvoided: 0.25,
+        completionRisk: candidate.facts.outcome.status === "unknown" ? "medium" : "low",
+        estimatedCriticalPathMsSaved: 3e3,
+        estimatedAuxiliaryLatencyMs: 1500
+      },
+      parseOutput: (output) => parseSemanticCapsuleOutput(output, {
+        capsuleMaxBytes: runtime.config.capsuleMaxBytes,
+        allowedSourceAnchors: /* @__PURE__ */ new Set([ref])
+      })
+    });
+    if (result.status !== "success" || !result.output) return false;
+    const rendered = renderSemanticCapsule(result.output, runtime.config.capsuleMaxBytes);
+    if (!rendered) return false;
+    candidate.archive.admittedCapsule = rendered;
+    return true;
+  };
+  const cwdKey = (cwd) => Buffer.from(resolve3(cwd), "utf8").toString("base64url");
   const discoverRecallSources = async (ctx, archiveRoot) => {
-    const normalizedCwd = resolve2(ctx.cwd);
+    const normalizedCwd = resolve3(ctx.cwd);
     const key = cwdKey(normalizedCwd);
     const getHeader = ctx.sessionManager.getHeader;
     const getSessionDir = ctx.sessionManager.getSessionDir;
@@ -9641,7 +10708,7 @@ function primeContext(pi) {
       } else if (expectedParentDepth === void 0 || parentHeader.rlmDepth !== expectedParentDepth) {
         break;
       }
-      projectSessionDir = dirname2(parentFile);
+      projectSessionDir = dirname3(parentFile);
       direct = false;
       if (parentHeader.rlmDepth === 0) break;
       expectedParentDepth = parentHeader.rlmDepth === void 0 ? void 0 : parentHeader.rlmDepth - 1;
@@ -9662,85 +10729,26 @@ function primeContext(pi) {
     const scoped = allowedToolCallIds ? scopeFixedExchangeViews(views, allowedToolCallIds) : views;
     for (const view of scoped) runtime.fixedViews.set(view.toolCallId, view);
   };
-  const clearProjectionLeases = () => {
-    runtime.recoveryLeases.clear();
-    runtime.recoveryUtilities.clear();
+  const clearProjectionImages = () => {
     runtime.pendingImages.clear();
-    runtime.consumedImageRefs.clear();
-    runtime.projectedRecoveryToolCallIds.clear();
-    runtime.projectedImageRefs.clear();
   };
-  const registerRecoveryLease = (toolCallId, content) => {
-    const cloned = content.map((block) => ({ ...block }));
-    const bytes = recoveryLeaseBytes(cloned);
-    runtime.recoveryLeases.delete(toolCallId);
-    if (bytes > RECOVERY_LEASE_MAX_BYTES) return;
-    while (runtime.recoveryLeases.size >= 32 || [...runtime.recoveryLeases.values()].reduce(
-      (total, lease) => total + (lease.bytes ?? recoveryLeaseBytes(lease.content)),
-      bytes
-    ) > RECOVERY_LEASE_TOTAL_BYTES) {
-      const oldest = runtime.recoveryLeases.keys().next().value;
-      if (oldest === void 0) break;
-      runtime.recoveryLeases.delete(oldest);
-      runtime.recoveryUtilities.delete(oldest);
-    }
-    runtime.recoveryLeases.set(toolCallId, { content: cloned, bytes });
-  };
-  const registerRecoveryUtility = (toolCallId, subjectKeys, exposedBytes, inspectRecallHit) => {
-    runtime.recoveryUtilities.delete(toolCallId);
-    runtime.recoveryUtilities.set(toolCallId, {
-      subjectKeys: [...new Set(subjectKeys)].slice(0, 8),
-      exposedBytes: Math.max(0, exposedBytes),
-      inspectRecallHit,
-      useful: true
-    });
-    while (runtime.recoveryUtilities.size > 32) {
-      const oldest = runtime.recoveryUtilities.keys().next().value;
-      if (oldest === void 0) break;
-      runtime.recoveryUtilities.delete(oldest);
-      runtime.recoveryLeases.delete(oldest);
-    }
-  };
-  const selectTaskRuntime = (branch, goal, reload = false) => {
+  const refreshTaskSelection = (branch, goal, reload = false) => {
     const selection = deriveTaskSelection(branch, goal);
     if (!selection) {
-      runtime.taskRuntime = void 0;
-      runtime.readiness = "NOT_READY";
       runtime.archive?.setBranchScope(void 0, branchScopeIds(branch), [
         ...observationRefs(branch),
-        ...runtime.snapshot.pinnedObservationIds
+        ...runtime.taskSnapshot.pinnedObservationIds
       ]);
       return void 0;
     }
-    if (reload || runtime.taskRuntime?.taskKey !== selection.taskKey) {
-      runtime.taskRuntime = loadLatestRuntime(branch, selection.taskKey) ?? createTaskRuntime(selection);
-      runtime.readiness = deriveReadiness(runtime.taskRuntime);
+    if (reload || runtime.taskSnapshot.taskKey !== selection.taskKey) {
       runtime.exchanges.clearPending();
       runtime.archive?.resetBranchState();
     }
     runtime.archive?.setBranchScope(selection.taskKey, branchScopeIds(branch), [
       ...observationRefs(branch),
-      ...runtime.snapshot.pinnedObservationIds
+      ...runtime.taskSnapshot.pinnedObservationIds
     ]);
-    return selection;
-  };
-  const refreshTaskContract = (branch, goal, cwd, reload = false) => {
-    const selection = selectTaskRuntime(branch, goal, reload);
-    if (!selection || !runtime.taskRuntime) return void 0;
-    const objective = taskObjective(branch, selection, runtime.taskRuntime.objective ?? "");
-    if (runtime.taskRuntime.objective === void 0 && objective.trim()) {
-      runtime.taskRuntime = {
-        ...runtime.taskRuntime,
-        objective,
-        objectiveVersion: Math.max(1, runtime.taskRuntime.objectiveVersion)
-      };
-    }
-    const update = updateTaskContract(runtime.taskRuntime, {
-      objective,
-      userEntries: branchUserEntries(branch, selection)
-    }, acceptanceClassifier(cwd));
-    runtime.taskRuntime = update.runtime;
-    runtime.readiness = deriveReadiness(update.runtime);
     runtime.branchAnchorId = branchAnchorId(branch);
     return selection;
   };
@@ -9765,51 +10773,76 @@ function primeContext(pi) {
     };
   };
   const currentTaskAnchor = (branch, selection, visiblePrompt) => {
-    if (!selection || !runtime.taskRuntime) return void 0;
+    if (!selection) return void 0;
     const objective = taskObjective(branch, selection, visiblePrompt);
+    if (!objective.trim()) return void 0;
+    if (runtime.taskSnapshot.taskKey !== selection.taskKey) {
+      runtime.taskSnapshot = createTaskSnapshotV2(selection.taskKey, objective, selection.rootUserEntryId);
+    } else if (!runtime.taskSnapshot.objective) {
+      runtime.taskSnapshot = {
+        ...runtime.taskSnapshot,
+        objective,
+        ...selection.rootUserEntryId ? { objectiveSourceEntryId: selection.rootUserEntryId } : {}
+      };
+    }
     const child = childAnchorContext(objective);
     const input = {
-      taskKey: selection.taskKey,
-      objective,
-      runtime: runtime.taskRuntime,
-      snapshot: runtime.snapshot,
+      task: runtime.taskSnapshot,
       ...child ? { child } : {}
     };
-    if (!input.objective.trim() || !taskAnchorHasDurableState(input, visiblePrompt)) return void 0;
-    return renderPrimeContextAnchor(input);
+    const content = renderPrimeContextTask(runtime.taskSnapshot, {
+      objectiveVisible: visiblePrompt.includes(objective)
+    });
+    if (!content) return void 0;
+    return { ...renderPrimeContextAnchor(input), content };
   };
   const clearControlState = (structuralBoundary) => {
     runtime.control.expectedAnchor = void 0;
-    runtime.control.lastStateContent = void 0;
     runtime.control.structuralBoundary = structuralBoundary;
     runtime.control.needsAnchorRefresh = false;
   };
-  const reloadSelectedBranch = (ctx, preserveProjectionLeases = false) => {
+  const reloadSelectedBranch = (ctx, preserveProjectionImages = false) => {
     const fullBranch = ctx.sessionManager.getBranch();
     const providerBranch = providerVisibleBranchEntries(fullBranch);
+    runtime.sourceMessages = new Map(branchProjectionEntries(fullBranch).map((entry) => [entry.entryId, entry.message]));
     runtime.exchanges.clearPending();
-    runtime.projectedRefs = /* @__PURE__ */ new WeakMap();
-    if (!preserveProjectionLeases) clearProjectionLeases();
+    advanceProjectionEpoch();
+    if (!preserveProjectionImages) clearProjectionImages();
     runtime.branchAnchorId = void 0;
     runtime.archive?.resetBranchState();
-    runtime.snapshot = loadLatestSnapshot(fullBranch);
     const goal = activeGoalFromBranch(fullBranch);
     const branch = scopeBranchToGoal(fullBranch, goal);
-    const selection = refreshTaskContract(branch, goal, ctx.cwd, true);
+    const selection = refreshTaskSelection(branch, goal, true);
+    if (selection) {
+      const loadedTask = loadLatestTaskSnapshotV2(fullBranch, selection.taskKey);
+      if (loadedTask) runtime.taskSnapshot = loadedTask;
+      else if (runtime.taskSnapshot.taskKey !== selection.taskKey) {
+        runtime.taskSnapshot = createTaskSnapshotV2(
+          selection.taskKey,
+          runtime.taskSnapshot.objective ?? selection.objective,
+          selection.rootUserEntryId
+        );
+      }
+    }
     runtime.control.expectedAnchor = currentTaskAnchor(
       branch,
       selection,
       latestBranchUserText(providerBranch)
     );
-    runtime.control.lastStateContent = runtime.taskRuntime ? latestProviderVisibleControlMessage(
-      fullBranch,
-      PRIME_CONTEXT_STATE_TYPE,
-      runtime.taskRuntime.taskKey
-    )?.content : void 0;
   };
-  const installUserBashViews = async (ctx) => {
+  const installUserBashViews = async (ctx, event) => {
     if (!runtime.archive) return;
-    const entries = branchProjectionEntries(ctx.sessionManager.getBranch());
+    const entries = event ? [{
+      entryId: event.entryId,
+      message: {
+        role: "bashExecution",
+        command: event.command,
+        output: event.output,
+        ...event.exitCode === void 0 ? {} : { exitCode: event.exitCode },
+        ...event.cancelled === void 0 ? {} : { cancelled: event.cancelled },
+        ...event.fullOutputPath === void 0 ? {} : { fullOutputPath: event.fullOutputPath }
+      }
+    }] : branchProjectionEntries(ctx.sessionManager.getBranch());
     const completed = [];
     const frozenSources = [];
     try {
@@ -9852,6 +10885,7 @@ function primeContext(pi) {
         });
         const isError = message.cancelled === true || typeof message.exitCode === "number" && message.exitCode !== 0;
         const outcome = collectFactualOutcome(intent, resolved.outcomeText ?? resolved.text, isError, details);
+        if (!resolved.large && !fullOutputPath2) continue;
         completed.push({
           metadata: {
             exchangeId,
@@ -9866,13 +10900,8 @@ function primeContext(pi) {
             executedInputBytes: intent.executedInputBytes,
             ...intent.facts ? { facts: intent.facts } : {},
             outcome,
-            taskKey: runtime.taskRuntime?.taskKey,
-            goalId: runtime.taskRuntime?.goalId,
-            branchAnchorId: entry.entryId,
-            turnSequence: runtime.taskRuntime?.turnSequence,
-            requirementsRevision: runtime.taskRuntime?.requirementsRevision,
-            workspaceRevisionAtStart: runtime.taskRuntime?.workspaceRevision,
-            workspaceRevisionAtResult: runtime.taskRuntime?.workspaceRevision
+            ...runtime.taskSnapshot.taskKey === "session" ? {} : { taskKey: runtime.taskSnapshot.taskKey },
+            branchAnchorId: entry.entryId
           },
           toolName: "bash",
           isError,
@@ -9894,14 +10923,12 @@ function primeContext(pi) {
         });
       }
       if (completed.length === 0) return;
-      await runtime.archive.finalizeExchanges(completed, ctx.signal, {
+      const installedViews = await runtime.archive.finalizeExchanges(completed, ctx.signal, {
         budgetBytes: fixedExchangeBudgetBytes(ctx.getContextUsage()),
-        capsuleMaxBytes: runtime.config.capsuleMaxBytes
+        capsuleMaxBytes: runtime.config.capsuleMaxBytes,
+        archiveAdmissionBytes: runtime.config.minTextBytes
       });
-      installFixedViews(await runtime.archive.loadFixedExchangeViews(
-        ctx.signal,
-        completed.map((item) => item.metadata.exchangeId)
-      ));
+      installFixedViews(installedViews);
     } finally {
       await Promise.all(frozenSources.map(
         (path) => runtime.archive.removeFrozenTextSource(path).catch(() => void 0)
@@ -9909,32 +10936,50 @@ function primeContext(pi) {
     }
   };
   pi.on("session_start", async (event, ctx) => {
+    if (typeof ctx.setAutomaticRefinementEnabled !== "function") {
+      throw new Error(
+        `Prime Context requires patched prime-agent@0.9.1. Run: prime-context-patch-agent "$(npm root -g)/prime-agent"`
+      );
+    }
+    setAutomaticRefinementEnabled = (enabled) => ctx.setAutomaticRefinementEnabled(enabled);
     const loaded = loadPrimeContextConfig(ctx.cwd);
     runtime.config = loaded.config;
     runtime.configWarnings = loaded.warnings;
+    runtime.auxiliary = createAuxiliaryRuntime({
+      enabled: loaded.config.enabled && loaded.config.auxiliaryMode === "utility-gated"
+    });
+    persistBenchmarkAccounting();
+    runtime.autoLearnedTaskKeys.clear();
+    runtime.autoLearnInFlight = false;
+    runtime.exactRepeat = createExactRepeatHintState("session");
+    runtime.recentAttempts = [];
+    const skills = loadSkillLibrary({
+      libraryPath: resolveSkillLibraryPath(ctx.cwd, loaded.config.libraryPath),
+      revision: runtime.skillLibrary.revision + 1
+    });
+    runtime.skillLibrary = skills.snapshot;
+    runtime.configWarnings.push(...skills.diagnostics.map((item) => item.message));
     runtime.mode = loaded.config.enabled ? "on" : "off";
+    setAutomaticRefinementEnabled(runtime.mode === "on" ? false : void 0);
     const archiveRoot = storageRoot();
     const currentArchive = new ObservationArchive(archiveRoot, ctx.sessionManager.getSessionId());
     runtime.archive = currentArchive;
     runtime.sessionRecall = await discoverRecallSources(ctx, archiveRoot);
     runtime.exchanges.resetSession();
     runtime.fixedViews.clear();
-    runtime.projectedRefs = /* @__PURE__ */ new WeakMap();
-    runtime.lastProviderProjection = void 0;
-    runtime.taskRuntime = void 0;
-    runtime.readiness = "NOT_READY";
+    runtime.taskSnapshot = createTaskSnapshotV2("session");
     runtime.lifecycle.selectedModelKey = ctx.model ? `${ctx.model.provider}:${ctx.model.id}` : void 0;
     runtime.lifecycle.replayMetadataPagingEligible = false;
+    runtime.projectionToolSetRevision = void 0;
     clearControlState(false);
     reloadSelectedBranch(ctx);
     runtime.exchanges.setMinimumSequence(await currentArchive.maxExchangeSequence(void 0, ctx.signal));
     currentArchive.recordBranchRuntimeReload();
     const sessionBranch = ctx.sessionManager.getBranch();
-    const selectedRuntime = runtime.taskRuntime;
     installFixedViews(
       await currentArchive.loadFixedExchangeViews(ctx.signal).catch(() => []),
       true,
-      visibleFixedToolCallIds(sessionBranch, selectedRuntime?.fold, selectedRuntime?.taskKey)
+      visibleFixedToolCallIds(sessionBranch)
     );
     if (event.reason === "fork" && runtime.sessionRecall.parent) {
       const parentSessionId = runtime.sessionRecall.parent.sessionId;
@@ -9942,12 +10987,9 @@ function primeContext(pi) {
         const branch = ctx.sessionManager.getBranch();
         const parentArchive = runtime.sessionRecall.parent.archive;
         const parentViews = await parentArchive.loadFixedExchangeViews(ctx.signal).catch(() => []);
-        const selectedRuntime2 = runtime.taskRuntime;
         const visible = selectForkVisibleImports(
           branch,
-          selectedRuntime2?.fold,
-          selectedRuntime2?.taskKey,
-          runtime.snapshot.pinnedObservationIds,
+          runtime.taskSnapshot.pinnedObservationIds,
           parentViews
         );
         const refs = visible.refs;
@@ -9956,7 +10998,7 @@ function primeContext(pi) {
           refs,
           ctx.signal,
           {
-            taskKey: runtime.taskRuntime?.taskKey,
+            ...runtime.taskSnapshot.taskKey === "session" ? {} : { taskKey: runtime.taskSnapshot.taskKey },
             branchAnchorId: branchAnchorId(branch)
           }
         ).catch(() => void 0);
@@ -9971,8 +11013,13 @@ function primeContext(pi) {
     await installUserBashViews(ctx);
   });
   hooks.add("session_start");
-  pi.on("before_agent_start", (event, ctx) => {
+  pi.on("before_agent_start", async (event, ctx) => {
     if (runtime.mode === "off") return;
+    runtime.exactRepeat = resetExactRepeatHintState(runtime.exactRepeat, {
+      taskKey: runtime.taskSnapshot.taskKey,
+      contextEpoch: runtime.exactRepeat.contextEpoch
+    });
+    runtime.recentAttempts = [];
     const fullBranch = ctx.sessionManager.getBranch();
     const providerBranch = providerVisibleBranchEntries(fullBranch);
     const goal = activeGoalFromBranch(fullBranch);
@@ -9983,23 +11030,33 @@ function primeContext(pi) {
         { type: "message", message: { role: "user", content: event.prompt } }
       ]);
       if (incomingSelection && incomingSelection.taskKey !== currentSelection?.taskKey) {
-        const preview2 = previewTaskContract(
-          createTaskRuntime({ taskKey: "", objective: event.prompt, source: "user" }),
-          event.prompt,
-          acceptanceClassifier(ctx.cwd)
-        ).runtime;
-        const child2 = childAnchorContext(event.prompt);
-        const input2 = {
-          objective: event.prompt,
-          runtime: preview2,
-          snapshot: runtime.snapshot,
-          ...child2 ? { child: child2 } : {}
-        };
-        if (!event.prompt.trim() || !taskAnchorHasDurableState(input2, event.prompt)) {
+        if (!event.prompt.trim()) {
           runtime.control.expectedAnchor = void 0;
           return;
         }
-        const anchor2 = renderPrimeContextAnchor(input2);
+        runtime.taskSnapshot = createTaskSnapshotV2(
+          incomingSelection.taskKey,
+          event.prompt,
+          incomingSelection.rootUserEntryId
+        );
+        const content2 = renderPrimeContextTask(runtime.taskSnapshot, { objectiveVisible: true });
+        if (!content2) {
+          runtime.control.expectedAnchor = void 0;
+          return;
+        }
+        const child2 = childAnchorContext(event.prompt);
+        const rendered2 = renderPrimeContextAnchor({
+          task: runtime.taskSnapshot,
+          ...child2 ? { child: child2 } : {}
+        });
+        const skillSupplement2 = await taskSkillSupplement(event, ctx);
+        const anchor2 = {
+          ...rendered2,
+          content: skillSupplement2 ? `${content2}
+
+${skillSupplement2}` : content2,
+          details: { ...rendered2.details, ...skillSupplement2 ? { skillSupplement: skillSupplement2 } : {} }
+        };
         runtime.control.expectedAnchor = anchor2;
         return {
           message: {
@@ -10012,36 +11069,58 @@ function primeContext(pi) {
       }
     }
     const branch = scopeBranchToGoal(fullBranch, goal);
-    const selection = refreshTaskContract(branch, goal, ctx.cwd);
+    const selection = refreshTaskSelection(branch, goal);
     if (!selection) {
       runtime.control.expectedAnchor = void 0;
       return;
     }
-    const base = runtime.taskRuntime ?? createTaskRuntime(selection);
-    const preview = /<goal_context>/i.test(event.prompt) ? base : previewTaskContract(base, event.prompt, acceptanceClassifier(ctx.cwd)).runtime;
     const objective = goal?.objective?.trim() || taskObjective(branch, selection, event.prompt);
-    const child = childAnchorContext(event.prompt || objective);
-    const input = {
-      taskKey: selection.taskKey,
-      objective,
-      runtime: preview,
-      snapshot: runtime.snapshot,
-      ...child ? { child } : {}
-    };
-    const visiblePrompt = latestBranchUserText(providerBranch) || event.prompt;
-    if (!input.objective.trim() || !taskAnchorHasDurableState(input, visiblePrompt)) {
+    if (!objective.trim()) {
       runtime.control.expectedAnchor = void 0;
       return;
     }
-    const anchor = renderPrimeContextAnchor(input);
-    runtime.control.expectedAnchor = anchor;
-    const unscoped = selection.source === "user" && selection.rootUserEntryId ? { content: anchor.content, afterEntryId: selection.rootUserEntryId } : void 0;
+    const loadedTask = loadLatestTaskSnapshotV2(fullBranch, selection.taskKey);
+    if (loadedTask) runtime.taskSnapshot = loadedTask;
+    else if (runtime.taskSnapshot.taskKey !== selection.taskKey) {
+      runtime.taskSnapshot = createTaskSnapshotV2(selection.taskKey, objective, selection.rootUserEntryId);
+    } else if (!runtime.taskSnapshot.objective) {
+      runtime.taskSnapshot = {
+        ...runtime.taskSnapshot,
+        objective,
+        ...selection.rootUserEntryId ? { objectiveSourceEntryId: selection.rootUserEntryId } : {}
+      };
+    }
+    const visiblePrompt = latestBranchUserText(providerBranch) || event.prompt;
+    const content = renderPrimeContextTask(runtime.taskSnapshot, {
+      objectiveVisible: visiblePrompt.includes(objective)
+    });
+    if (!content) {
+      runtime.control.expectedAnchor = void 0;
+      return;
+    }
+    const child = childAnchorContext(event.prompt || objective);
+    const rendered = renderPrimeContextAnchor({
+      task: runtime.taskSnapshot,
+      ...child ? { child } : {}
+    });
+    const lookupUnscoped = selection.source === "user" && selection.rootUserEntryId ? { content, afterEntryId: selection.rootUserEntryId } : void 0;
     const persisted = latestProviderVisibleControlMessage(
       fullBranch,
       PRIME_CONTEXT_ANCHOR_TYPE,
-      anchor.details.taskKey,
-      unscoped
+      rendered.details.taskKey,
+      lookupUnscoped
     );
+    const persistedSupplement = record3(persisted?.details)?.skillSupplement;
+    const skillSupplement = typeof persistedSupplement === "string" ? persistedSupplement : persisted ? "" : await taskSkillSupplement(event, ctx);
+    const anchor = {
+      ...rendered,
+      content: skillSupplement ? `${content}
+
+${skillSupplement}` : content,
+      details: { ...rendered.details, ...skillSupplement ? { skillSupplement } : {} }
+    };
+    runtime.control.expectedAnchor = anchor;
+    const unscoped = selection.source === "user" && selection.rootUserEntryId ? { content: anchor.content, afterEntryId: selection.rootUserEntryId } : void 0;
     const positionallyScopedUnscoped = unscoped !== void 0 && persisted?.details?.taskKey === void 0;
     if (!runtime.control.needsAnchorRefresh && sameAnchor(persisted, anchor, positionallyScopedUnscoped)) return;
     return {
@@ -10058,145 +11137,72 @@ function primeContext(pi) {
     if (runtime.mode === "off") return;
     runtime.lifecycle.agentRun += 1;
     runtime.lifecycle.turnIndex = 0;
+    runtime.lifecycle.turnStartedAt = void 0;
+    runtime.toolStartedAt.clear();
     runtime.exchanges.clearPending();
-    runtime.projectedRecoveryToolCallIds.clear();
-    runtime.projectedImageRefs.clear();
-    await installUserBashViews(ctx);
   });
   hooks.add("agent_start");
   pi.on("turn_start", async (event, ctx) => {
     if (runtime.mode === "off") return;
     runtime.lifecycle.turnIndex = event.turnIndex;
-    await installUserBashViews(ctx);
+    runtime.lifecycle.turnStartedAt = Date.now();
+    beginAuxiliaryTurn(runtime.auxiliary, String(event.turnIndex));
   });
   hooks.add("turn_start");
+  pi.on("user_bash_end", async (event, ctx) => {
+    if (runtime.mode === "off") return;
+    runtime.sourceMessages.set(event.entryId, {
+      role: "bashExecution",
+      command: event.command,
+      output: event.output,
+      ...event.exitCode === void 0 ? {} : { exitCode: event.exitCode },
+      ...event.cancelled === void 0 ? {} : { cancelled: event.cancelled },
+      ...event.fullOutputPath === void 0 ? {} : { fullOutputPath: event.fullOutputPath }
+    });
+    await installUserBashViews(ctx, event);
+  });
+  hooks.add("user_bash_end");
   pi.on("model_select", (event) => {
     if (runtime.mode === "off") return;
     const modelKey = `${event.model.provider}:${event.model.id}`;
     const previousKey = event.previousModel ? `${event.previousModel.provider}:${event.previousModel.id}` : runtime.lifecycle.selectedModelKey;
     runtime.lifecycle.selectedModelKey = modelKey;
     runtime.lifecycle.replayMetadataPagingEligible = previousKey !== void 0 && previousKey !== modelKey;
+    if (previousKey !== void 0 && previousKey !== modelKey) advanceProjectionEpoch();
   });
   hooks.add("model_select");
-  pi.on("session_before_compact", async (event, ctx) => {
-    if (runtime.mode === "off" || event.customInstructions || event.preparation.isSplitTurn || event.preparation.turnPrefixMessages.length > 0 || !runtime.taskRuntime) return;
-    await installUserBashViews(ctx);
-    const messages = event.preparation.messagesToSummarize;
-    const entryRefs = messages.flatMap((message, messageIndex) => {
-      const id = message && typeof message === "object" ? runtime.projectedRefs.get(message) : void 0;
-      return id ? [{ messageIndex, entryId: id }] : [];
-    });
-    if (entryRefs.length !== messages.length) return;
-    const compactBranch = event.branchEntries ?? ctx.sessionManager.getBranch() ?? [];
-    const compactFold = resolveFoldApplication(
-      compactBranch,
-      runtime.taskRuntime.fold,
-      runtime.taskRuntime.taskKey
-    );
-    const compactProjection = projectModelContext({
-      purpose: "compaction",
-      messages,
-      entryRefs,
-      fixedViews: runtime.fixedViews,
-      fold: runtime.taskRuntime.fold,
-      foldMessageEntryId: compactFold?.foldMessageEntryId,
-      foldPrefixEntryIds: compactFold?.prefixEntryIds,
-      sourceMessages: branchSourceMessages(compactBranch),
-      activeModelKey: runtime.lifecycle.selectedModelKey
-    });
-    const files = fileLists(event.preparation.fileOps);
-    const state = renderPrimeContextState(runtime.taskRuntime, runtime.snapshot).content;
-    const anchor = runtime.control.expectedAnchor?.content ?? renderPrimeContextAnchor({
-      taskKey: runtime.taskRuntime.taskKey,
-      objective: runtime.taskRuntime.objective ?? runtime.taskRuntime.taskKey,
-      runtime: runtime.taskRuntime,
-      snapshot: runtime.snapshot
-    }).content;
-    const summary = deterministicFastSummary({
-      messages: compactProjection.messages,
-      entryRefs: compactProjection.entryRefs ?? entryRefs,
-      fixedViews: runtime.fixedViews,
-      previousSummary: event.preparation.previousSummary,
-      anchor,
-      state,
-      hiddenSteering: runtime.taskRuntime.steeringDeltas,
-      fileOps: files,
-      sourceMessages: branchSourceMessages(compactBranch)
-    });
-    if (!summary) return;
-    return {
-      compaction: {
-        summary,
-        firstKeptEntryId: event.preparation.firstKeptEntryId,
-        tokensBefore: event.preparation.tokensBefore,
-        details: files
-      }
-    };
-  });
+  pi.on("session_before_compact", () => void 0);
   hooks.add("session_before_compact");
-  pi.on("session_before_tree", async (event, ctx) => {
-    if (runtime.mode === "off" || !event.preparation.userWantsSummary || event.preparation.customInstructions || !runtime.taskRuntime) return;
-    await installUserBashViews(ctx);
-    const entries = branchProjectionEntries(event.preparation.entriesToSummarize);
-    if (entries.length === 0) return;
-    const files = treeFixedFileLists(entries, runtime.fixedViews);
-    if (!files) return;
-    const foldApplication = resolveFoldApplication(
-      ctx.sessionManager.getBranch(),
-      runtime.taskRuntime.fold,
-      runtime.taskRuntime.taskKey
-    );
-    const projected = projectFoldCandidateMessages(
-      entries,
-      runtime.fixedViews,
-      "branch-summary",
-      runtime.taskRuntime.fold,
-      foldApplication?.foldMessageEntryId,
-      foldApplication?.prefixEntryIds
-    );
-    const summary = deterministicFastSummary({
-      messages: projected.messages,
-      entryRefs: projected.entryRefs,
-      fixedViews: runtime.fixedViews,
-      anchor: runtime.control.expectedAnchor?.content ?? renderPrimeContextAnchor({
-        taskKey: runtime.taskRuntime.taskKey,
-        objective: runtime.taskRuntime.objective ?? runtime.taskRuntime.taskKey,
-        runtime: runtime.taskRuntime,
-        snapshot: runtime.snapshot
-      }).content,
-      state: renderPrimeContextState(runtime.taskRuntime, runtime.snapshot).content,
-      hiddenSteering: runtime.taskRuntime.steeringDeltas,
-      fileOps: files,
-      sourceMessages: projected.sourceMessages
-    });
-    if (!summary) return;
-    return { summary: { summary, details: files } };
-  });
+  pi.on("session_before_tree", () => void 0);
   hooks.add("session_before_tree");
   pi.on("session_compact", async (_event, ctx) => {
     clearControlState(true);
+    runtime.exactRepeat = createExactRepeatHintState(runtime.taskSnapshot.taskKey, runtime.exactRepeat.contextEpoch + 1);
+    runtime.recentAttempts = [];
     runtime.fixedViews.clear();
     reloadSelectedBranch(ctx, true);
     runtime.archive?.recordBranchRuntimeReload();
     const branch = ctx.sessionManager.getBranch();
-    const allowed = visibleFixedToolCallIds(branch, runtime.taskRuntime?.fold, runtime.taskRuntime?.taskKey);
+    const allowed = visibleFixedToolCallIds(branch);
     installFixedViews(await runtime.archive?.loadFixedExchangeViews(ctx.signal).catch(() => []) ?? [], true, allowed);
   });
   hooks.add("session_compact");
   pi.on("session_tree", async (_event, ctx) => {
     clearControlState(true);
+    runtime.exactRepeat = createExactRepeatHintState(runtime.taskSnapshot.taskKey, runtime.exactRepeat.contextEpoch + 1);
+    runtime.recentAttempts = [];
     runtime.fixedViews.clear();
     reloadSelectedBranch(ctx);
     runtime.archive?.recordBranchRuntimeReload();
     const branch = ctx.sessionManager.getBranch();
-    const allowed = visibleFixedToolCallIds(branch, runtime.taskRuntime?.fold, runtime.taskRuntime?.taskKey);
+    const allowed = visibleFixedToolCallIds(branch);
     installFixedViews(await runtime.archive?.loadFixedExchangeViews(ctx.signal).catch(() => []) ?? [], true, allowed);
-    await installUserBashViews(ctx);
   });
   hooks.add("session_tree");
   pi.on("tool_execution_start", (event) => {
     if (runtime.mode === "off") return;
     const exchange = runtime.exchanges.start(event);
+    runtime.toolStartedAt.set(event.toolCallId, Date.now());
     exchange.replayOriginKey = runtime.lifecycle.selectedModelKey;
   });
   hooks.add("tool_execution_start");
@@ -10204,16 +11210,29 @@ function primeContext(pi) {
     if (runtime.mode === "off") return;
     const branch = ctx.sessionManager.getBranch();
     runtime.branchAnchorId = branchAnchorId(branch);
-    runtime.archive?.setBranchScope(runtime.taskRuntime?.taskKey, branchScopeIds(branch), [
-      ...observationRefs(branch),
-      ...runtime.snapshot.pinnedObservationIds
-    ]);
+    runtime.archive?.setBranchScope(
+      runtime.taskSnapshot.taskKey === "session" ? void 0 : runtime.taskSnapshot.taskKey,
+      branchScopeIds(branch),
+      [
+        ...observationRefs(branch),
+        ...runtime.taskSnapshot.pinnedObservationIds
+      ]
+    );
     const toolSchema = pi.getAllTools?.().find((tool) => tool.name === event.toolName)?.parameters;
     runtime.exchanges.noteCall(event, ctx.cwd, toolSchema);
   });
   hooks.add("tool_call");
   pi.on("tool_result", async (event, ctx) => {
     if (runtime.mode === "off") return;
+    const startedAt = runtime.toolStartedAt.get(event.toolCallId);
+    runtime.toolStartedAt.delete(event.toolCallId);
+    if (startedAt !== void 0) {
+      const latency = Math.max(0, Date.now() - startedAt);
+      runtime.auxiliary.economics.recentMeanToolLatencyMs = rollingMean(
+        runtime.auxiliary.economics.recentMeanToolLatencyMs,
+        latency
+      );
+    }
     try {
       const content = event.content;
       const archiveResult = shouldArchiveToolResult(event.toolName);
@@ -10226,29 +11245,19 @@ function primeContext(pi) {
           ctx.signal?.throwIfAborted();
         }
       }
-      const resolvedText = await resolveArchiveText(
-        content,
-        archiveResult && runtime.archive ? frozenResultPath : fullOutputPath2,
-        ctx.signal
-      );
-      const parts = archiveResult ? typedObservationParts(event) : [];
-      const visibleResult = visibleToolResultText(content, resolvedText.large ? 64 * 1024 : Number.POSITIVE_INFINITY);
+      const visibleResult = visibleToolResultText(content, 1024 * 1024);
       const exchange = runtime.exchanges.noteResult(
         event,
         ctx.cwd,
-        resolvedText.text,
+        visibleResult.text,
         {
-          source: resolvedText.source,
-          parts: archiveResult ? parts : [],
-          retainResultText: archiveResult,
+          retainResultText: false,
           visibleResultText: visibleResult.text,
           visibleResultBytes: visibleResult.textBytes,
           visibleResultTruncated: visibleResult.truncated,
           visibleResultTail: visibleResult.tail,
           visibleResultSamples: visibleResult.samples,
-          outcomeText: resolvedText.outcomeText,
-          resultSummary: resolvedText,
-          large: resolvedText.large
+          large: visibleResult.truncated
         }
       );
       exchange.frozenResultPath = frozenResultPath;
@@ -10264,21 +11273,83 @@ function primeContext(pi) {
     const providerBranch = providerVisibleBranchEntries(fullBranch);
     const goal = activeGoalFromBranch(fullBranch);
     const branch = scopeBranchToGoal(fullBranch, goal);
-    const selection = refreshTaskContract(branch, goal, ctx.cwd);
+    const selection = refreshTaskSelection(branch, goal);
+    if (selection) {
+      const loadedTask = loadLatestTaskSnapshotV2(fullBranch, selection.taskKey);
+      if (loadedTask) runtime.taskSnapshot = loadedTask;
+      else if (runtime.taskSnapshot.taskKey !== selection.taskKey) {
+        runtime.taskSnapshot = createTaskSnapshotV2(
+          selection.taskKey,
+          runtime.taskSnapshot.objective ?? selection.objective,
+          selection.rootUserEntryId
+        );
+      }
+    }
     runtime.control.expectedAnchor = currentTaskAnchor(
       branch,
       selection,
       latestBranchUserText(providerBranch)
     );
-    const persistedState = runtime.taskRuntime ? latestProviderVisibleControlMessage(
-      fullBranch,
-      PRIME_CONTEXT_STATE_TYPE,
-      runtime.taskRuntime.taskKey
-    )?.content : void 0;
-    const stateBefore = persistedState ?? runtime.control.lastStateContent ?? (runtime.taskRuntime ? renderPrimeContextState(runtime.taskRuntime, runtime.snapshot).content : void 0);
     const contextUsage = ctx.getContextUsage();
-    const exchanges = runtime.exchanges.finishTurn(event.message, event.toolResults);
+    if (!Array.isArray(event.exchanges)) {
+      throw new Error(
+        `Prime Context requires patched prime-agent@0.9.1 finalized exchanges. Run: prime-context-patch-agent "$(npm root -g)/prime-agent"`
+      );
+    }
+    const taskSnapshotBefore = structuredClone(runtime.taskSnapshot);
+    const toolSchemas = new Map(
+      (pi.getAllTools?.() ?? []).map((tool) => [tool.name, tool.parameters])
+    );
+    for (const source of runtime.exchanges.pendingFullOutputSources()) {
+      try {
+        const resolved = await resolveArchiveText([], source.path, ctx.signal);
+        runtime.exchanges.noteResolvedFullOutput(source.toolCallId, resolved);
+      } catch {
+        ctx.signal?.throwIfAborted();
+      }
+    }
+    const exchangeFacts = buildExchangeFacts({
+      exchanges: event.exchanges,
+      executionMode: event.toolExecution,
+      pendingFullOutputs: runtime.exchanges.pendingFullOutputCaptures(),
+      cwd: ctx.cwd,
+      toolSchemas
+    });
+    let exactRepeatHint;
+    if (runtime.exactRepeat.taskKey !== runtime.taskSnapshot.taskKey) runtime.recentAttempts = [];
+    for (const facts of exchangeFacts) {
+      const observed = observeExactRepeatHint(runtime.exactRepeat, facts, {
+        taskKey: runtime.taskSnapshot.taskKey,
+        contextEpoch: runtime.exactRepeat.contextEpoch
+      });
+      runtime.exactRepeat = observed.state;
+      if (observed.hint) exactRepeatHint = observed.hint;
+      runtime.recentAttempts.push({
+        action: boundedStallAction(facts),
+        decisiveObservation: decisiveStallObservation(facts)
+      });
+      runtime.recentAttempts = runtime.recentAttempts.slice(-4);
+    }
+    const stallSignature = hasStrongExactRepeat(runtime.exactRepeat) ? "repeat-after-hint" : detectStallSignature(runtime.recentAttempts);
+    const nextTaskSnapshot = applyProgressEffects(runtime.taskSnapshot, exchangeFacts);
+    const taskUpdate = renderPrimeContextUpdate(taskSnapshotBefore, nextTaskSnapshot);
+    const finalizedById = new Map(event.exchanges.map((exchange) => [exchange.toolCallId, exchange]));
+    const factsById = new Map(exchangeFacts.map((facts) => [facts.toolCallId, facts]));
+    const exchanges = runtime.exchanges.finishTurn(
+      event.message,
+      event.exchanges.map((exchange) => exchange.result),
+      event.exchanges
+    );
     for (const exchange of exchanges) {
+      const canonicalFacts = factsById.get(exchange.toolCallId);
+      if (canonicalFacts) runtime.exchanges.noteCanonicalFacts(exchange, canonicalFacts);
+      const finalized = finalizedById.get(exchange.toolCallId);
+      if (finalized) {
+        exchange.sourceOrder = finalized.sourceOrder;
+        exchange.modelInput = finalized.originalInput && typeof finalized.originalInput === "object" ? structuredClone(finalized.originalInput) : {};
+        exchange.executedInput = finalized.executedInput && typeof finalized.executedInput === "object" ? structuredClone(finalized.executedInput) : void 0;
+        exchange.rawResult = finalized.result;
+      }
       if (!exchange.rawResult) continue;
       const finalEvent = {
         ...exchange.rawResult,
@@ -10288,20 +11359,34 @@ function primeContext(pi) {
       };
       const finalContent = finalEvent.content;
       const finalTypedParts = typedObservationParts(finalEvent);
-      runtime.exchanges.noteFinalDetails(exchange, finalEvent.isError, finalEvent.details);
-      if (!typedObservationPartsEqual(exchange.archiveParts ?? [], finalTypedParts)) {
+      if (exchange.archiveParts && !typedObservationPartsEqual(exchange.archiveParts, finalTypedParts)) {
         exchange.persistedResultChanged = true;
-        exchange.archiveParts = finalTypedParts;
       }
+      exchange.archiveParts = finalTypedParts;
       const finalPath = resultFullOutputPath(exchange.rawResult.details);
-      if (exchange.persistedResultChanged) exchange.archiveParts = finalTypedParts;
       const finalVisibleSource = visiblePartSource(finalContent);
       if (exchange.frozenVisibleResultSource && !await partSourcesEqual(exchange.frozenVisibleResultSource, finalVisibleSource, ctx.signal)) {
         exchange.persistedTextChanged = true;
         exchange.persistedResultChanged = true;
         exchange.persistedCanonicalResultChanged = true;
       }
-      if (!shouldArchiveToolResult(exchange.toolName) || !exchange.persistedCanonicalResultChanged) continue;
+      if (!shouldArchiveToolResult(exchange.toolName)) continue;
+      if (!exchange.persistedCanonicalResultChanged && exchange.resultSummary) {
+        const canonicalPart2 = {
+          name: "result",
+          kind: "result",
+          mediaType: "text/plain; charset=utf-8",
+          source: exchange.resultSummary.partSource ?? { kind: "text", text: exchange.resultSummary.text }
+        };
+        const facts2 = factsById.get(exchange.toolCallId);
+        if (facts2) runtime.exchanges.noteCanonicalResult(
+          exchange,
+          exchange.resultSummary,
+          [canonicalPart2, ...finalTypedParts],
+          facts2
+        );
+        continue;
+      }
       let canonicalFrozenPath;
       if (!exchange.persistedTextChanged && finalPath && runtime.archive) {
         try {
@@ -10336,180 +11421,99 @@ function primeContext(pi) {
         mediaType: "text/plain; charset=utf-8",
         source: resolved.partSource ?? { kind: "text", text: resolved.text }
       };
-      runtime.exchanges.noteCanonicalResult(
+      const facts = factsById.get(exchange.toolCallId);
+      if (facts) runtime.exchanges.noteCanonicalResult(
         exchange,
         resolved,
-        finalEvent.isError,
-        finalEvent.details,
-        [canonicalPart, ...finalTypedParts]
+        [canonicalPart, ...finalTypedParts],
+        facts
       );
     }
-    if (runtime.archive) {
-      for (const exchange of exchanges) {
-        if (!shouldArchiveToolResult(exchange.toolName) || !exchange.rawResult || !exchange.resultSummary) continue;
-        const content = Array.isArray(exchange.rawResult.content) ? exchange.rawResult.content : [];
-        const metadata = runtime.exchanges.toObservationMetadata(exchange, {
-          taskKey: runtime.taskRuntime?.taskKey,
-          goalId: runtime.taskRuntime?.goalId,
-          branchAnchorId: runtime.branchAnchorId,
-          turnSequence: runtime.taskRuntime === void 0 ? void 0 : runtime.taskRuntime.turnSequence + 1,
-          requirementsRevision: runtime.taskRuntime?.requirementsRevision,
-          workspaceRevisionAtStart: runtime.taskRuntime?.workspaceRevision
-        });
-        if (!metadata) continue;
-        const archived = await runtime.archive.archiveVisibleContent(
-          content,
-          exchange.toolName,
-          exchange.outcome?.isError ?? false,
-          adaptiveMinTextBytes(runtime.config.minTextBytes, contextUsage),
-          runtime.config.capsuleMaxBytes,
-          ctx.signal,
-          exchange.resultSummary,
-          contextUsage,
-          metadata,
-          exchange.archiveParts ?? []
-        );
-        if (archived?.observation.envelope?.resultCapsule) {
-          exchange.admittedCapsule = archived.observation.envelope.resultCapsule;
-        }
-        if (archived) {
-          const images = archived.observation.envelope ? imageRefsForEnvelope(archived.observation.envelope) : projectedImageRefs(archived.observation.id, content);
-          if (images.length > 0) setPendingImages(runtime, exchange.toolCallId, images);
-        }
-      }
+    if (event.toolExecution !== "parallel" && event.toolExecution !== "sequential") {
+      throw new Error("Prime Context requires Prime Agent turn_end.toolExecution support.");
     }
-    let completedArchives;
-    let createdFold;
-    if (!runtime.taskRuntime) {
-      completedArchives = exchanges.flatMap((exchange) => {
-        const metadata = runtime.exchanges.toObservationMetadata(exchange, {
-          branchAnchorId: runtime.branchAnchorId
-        });
-        return metadata ? [{
-          metadata,
-          toolName: exchange.toolName,
-          isError: exchange.outcome?.isError ?? false,
-          source: exchange.archiveSource,
-          parts: exchange.archiveParts,
-          resultText: exchange.resultText,
-          largeResult: exchange.largeResult,
-          resultSummary: exchange.resultSummary,
-          admittedCapsule: exchange.admittedCapsule,
-          sourceOrder: exchange.sourceOrder,
-          replayProtected: exchange.replayProtected,
-          replayOriginKey: exchange.replayProtected ? exchange.replayOriginKey ?? "unknown" : void 0,
-          ...exchange.persistedCall ? {
-            persistedModelInput: exchange.modelInput,
-            persistedRawCall: exchange.rawCall,
-            persistedRawResult: exchange.rawResult,
-            resultChangedAfterHook: exchange.persistedResultChanged,
-            canonicalResultChangedAfterHook: exchange.persistedCanonicalResultChanged
-          } : {}
-        }] : [];
+    const completedArchives = exchanges.flatMap((exchange) => {
+      if (!shouldCommitExchangeArchive(exchange, runtime.config.capsuleMaxBytes)) return [];
+      const metadata = runtime.exchanges.toObservationMetadata(exchange, {
+        ...runtime.taskSnapshot.taskKey === "session" ? {} : { taskKey: runtime.taskSnapshot.taskKey },
+        branchAnchorId: runtime.branchAnchorId
       });
+      return metadata ? [{
+        metadata,
+        toolName: exchange.toolName,
+        isError: exchange.outcome?.isError ?? false,
+        source: exchange.archiveSource,
+        parts: exchange.archiveParts,
+        resultText: exchange.resultText,
+        largeResult: exchange.largeResult,
+        resultSummary: exchange.resultSummary,
+        admittedCapsule: exchange.admittedCapsule,
+        sourceOrder: exchange.sourceOrder,
+        replayProtected: exchange.replayProtected,
+        replayOriginKey: exchange.replayProtected ? exchange.replayOriginKey ?? "unknown" : void 0,
+        ...exchange.persistedCall ? {
+          persistedModelInput: exchange.modelInput,
+          persistedRawCall: exchange.rawCall,
+          persistedRawResult: exchange.rawResult,
+          resultChangedAfterHook: exchange.persistedResultChanged,
+          canonicalResultChangedAfterHook: exchange.persistedCanonicalResultChanged
+        } : {}
+      }] : [];
+    });
+    let turnHint;
+    if (exactRepeatHint) {
+      turnHint = EXACT_REPEAT_HINT;
+    } else if (stallSignature) {
+      turnHint = await runStallRecovery(ctx).catch(() => void 0) ?? EXACT_REPEAT_HINT;
     } else {
-      if (event.toolExecution !== "parallel" && event.toolExecution !== "sequential") {
-        throw new Error("Prime Context requires Prime Agent turn_end.toolExecution support.");
-      }
-      const reduced = reduceTurn(runtime.taskRuntime, exchanges, {
-        toolExecution: event.toolExecution
-      });
-      runtime.taskRuntime = reduced.runtime;
-      runtime.readiness = reduced.readiness;
-      const currentFold = runtime.taskRuntime.fold;
-      const currentFoldApplication = resolveFoldApplication(
-        fullBranch,
-        currentFold,
-        runtime.taskRuntime.taskKey
-      );
-      const rawEntryIds = fullBranch.flatMap((entry) => entry.id ? [entry.id] : []);
-      const exactRawOrder = rawEntryIds.length === fullBranch.length && new Set(rawEntryIds).size === rawEntryIds.length && (!currentFold || currentFoldApplication !== void 0);
-      const fold = exactRawOrder ? selectFoldGeneration(
-        branchProjectionEntries(providerModelBranchEntries(fullBranch)),
-        runtime.fixedViews,
-        contextUsage,
-        currentFold,
-        (generation, throughEntryId) => renderPrimeContextFold(runtime.taskRuntime, runtime.snapshot, generation, throughEntryId).content,
-        {
-          entryIds: rawEntryIds,
-          ...currentFoldApplication ? { currentFoldMessageEntryId: currentFoldApplication.foldMessageEntryId } : {}
-        }
-      ) : void 0;
-      if (fold) {
-        if (!currentFold || fold.generation > currentFold.generation) runtime.archive?.recordFoldGeneration();
-        runtime.taskRuntime = { ...runtime.taskRuntime, fold };
-        createdFold = renderPrimeContextFold(
-          runtime.taskRuntime,
-          runtime.snapshot,
-          fold.generation,
-          fold.throughEntryId
-        );
-      }
-      pi.appendEntry(RUNTIME_STATE_ENTRY_TYPE, runtime.taskRuntime);
-      const revisions = new Map(reduced.exchangeRevisions.map((revision) => [revision.toolCallId, revision]));
-      completedArchives = exchanges.flatMap((exchange) => {
-        const revision = revisions.get(exchange.toolCallId);
-        const metadata = runtime.exchanges.toObservationMetadata(exchange, {
-          taskKey: reduced.runtime.taskKey,
-          goalId: reduced.runtime.goalId,
-          branchAnchorId: runtime.branchAnchorId,
-          turnSequence: reduced.runtime.turnSequence,
-          requirementsRevision: reduced.runtime.requirementsRevision,
-          workspaceRevisionAtStart: revision?.workspaceRevisionAtStart,
-          workspaceRevisionAtResult: revision?.workspaceRevisionAtResult
-        });
-        return metadata ? [{
-          metadata,
-          toolName: exchange.toolName,
-          isError: exchange.outcome?.isError ?? false,
-          source: exchange.archiveSource,
-          parts: exchange.archiveParts,
-          resultText: exchange.resultText,
-          largeResult: exchange.largeResult,
-          resultSummary: exchange.resultSummary,
-          admittedCapsule: exchange.admittedCapsule,
-          sourceOrder: exchange.sourceOrder,
-          replayProtected: exchange.replayProtected,
-          replayOriginKey: exchange.replayProtected ? exchange.replayOriginKey ?? "unknown" : void 0,
-          ...exchange.persistedCall ? {
-            persistedModelInput: exchange.modelInput,
-            persistedRawCall: exchange.rawCall,
-            persistedRawResult: exchange.rawResult,
-            resultChangedAfterHook: exchange.persistedResultChanged,
-            canonicalResultChangedAfterHook: exchange.persistedCanonicalResultChanged
-          } : {}
-        }] : [];
-      });
+      await distillLargestExchange(exchangeFacts, completedArchives, contextUsage, ctx).catch(() => false);
     }
     const controlMessages = [];
     if (runtime.control.needsAnchorRefresh && runtime.control.expectedAnchor) {
       controlMessages.push(persistentControlMessage(PRIME_CONTEXT_ANCHOR_TYPE, runtime.control.expectedAnchor));
     }
-    if (runtime.taskRuntime) {
-      const stateAfter = renderPrimeContextState(runtime.taskRuntime, runtime.snapshot);
-      if (stateAfter.content !== stateBefore) {
-        controlMessages.push(persistentControlMessage(PRIME_CONTEXT_STATE_TYPE, stateAfter));
-        runtime.control.lastStateContent = stateAfter.content;
-      }
-      if (createdFold) controlMessages.push(persistentControlMessage(PRIME_CONTEXT_FOLD_TYPE, createdFold));
+    if (turnHint) {
+      controlMessages.push({
+        role: "custom",
+        customType: "prime-context.hint",
+        content: turnHint,
+        display: false,
+        details: { schema: "prime-context.hint/v1", taskKey: runtime.taskSnapshot.taskKey },
+        timestamp: Date.now()
+      });
     }
+    let archiveCommitted = true;
     if (runtime.archive && completedArchives.length > 0) {
       try {
-        await runtime.archive.finalizeExchanges(completedArchives, ctx.signal, {
+        const installedViews = await runtime.archive.finalizeExchanges(completedArchives, ctx.signal, {
           budgetBytes: fixedExchangeBudgetBytes(contextUsage),
-          capsuleMaxBytes: runtime.config.capsuleMaxBytes
+          capsuleMaxBytes: runtime.config.capsuleMaxBytes,
+          archiveAdmissionBytes: runtime.config.minTextBytes,
+          contextEpoch: runtime.projectionEpoch + 1
         });
-        const ids = completedArchives.map((completed) => completed.metadata.exchangeId);
-        for (const completed of completedArchives) {
-          const record4 = await runtime.archive.findObservation(completed.metadata.exchangeId, ctx.signal, true);
-          const images = record4.envelope ? imageRefsForEnvelope(record4.envelope) : [];
-          const toolCallId = completed.metadata.toolCallId;
-          if (toolCallId && images.length > 0) setPendingImages(runtime, toolCallId, images);
-          else if (toolCallId) clearPendingImages(runtime, toolCallId);
+        for (const view of installedViews) {
+          const images = view.images ?? [];
+          if (images.length > 0) setPendingImages(runtime, view.toolCallId, images);
+          else clearPendingImages(runtime, view.toolCallId);
         }
-        installFixedViews(await runtime.archive.loadFixedExchangeViews(ctx.signal, ids));
+        installFixedViews(installedViews);
       } catch {
+        archiveCommitted = false;
       }
+    }
+    if (taskUpdate && archiveCommitted) {
+      runtime.taskSnapshot = nextTaskSnapshot;
+      pi.appendEntry(SNAPSHOT_ENTRY_TYPE, runtime.taskSnapshot);
+      const taskMessage = {
+        role: "custom",
+        customType: PRIME_CONTEXT_UPDATE_TYPE,
+        content: taskUpdate,
+        display: false,
+        details: { schema: "prime-context.task-update/v1", taskKey: runtime.taskSnapshot.taskKey },
+        timestamp: Date.now()
+      };
+      const anchorOffset = runtime.control.needsAnchorRefresh && runtime.control.expectedAnchor ? 1 : 0;
+      controlMessages.splice(anchorOffset, 0, taskMessage);
     }
     if (runtime.archive) {
       for (const exchange of exchanges) {
@@ -10518,172 +11522,112 @@ function primeContext(pi) {
         exchange.frozenResultPath = void 0;
       }
     }
-    for (const [toolCallId, images] of runtime.pendingImages) {
-      if (!runtime.fixedViews.get(toolCallId)?.images?.length || !images.every((image) => runtime.consumedImageRefs.has(image.ref) || !PROVIDER_IMAGE_MIME_TYPES2.has(image.mimeType.toLowerCase()))) continue;
-      clearPendingImages(runtime, toolCallId);
-    }
     return controlMessages.length > 0 ? { messages: controlMessages } : void 0;
   });
   hooks.add("turn_end");
   pi.on("model_context", (event, ctx) => {
     if (runtime.mode === "off") return;
     const purpose = event.purpose;
-    const selectedBranch = ctx.sessionManager.getBranch();
-    let temporaryAnchorText;
-    if (purpose === "provider") {
-      const providerBranch = providerVisibleBranchEntries(selectedBranch);
-      const goal = activeGoalFromBranch(selectedBranch);
-      const branch = scopeBranchToGoal(selectedBranch, goal);
-      const selection = refreshTaskContract(branch, goal, ctx.cwd);
-      const anchor = currentTaskAnchor(
-        branch,
-        selection,
-        latestBranchUserText(providerBranch)
-      );
-      runtime.control.expectedAnchor = anchor;
-      const unscoped = anchor && selection?.source === "user" && selection.rootUserEntryId ? { content: anchor.content, afterEntryId: selection.rootUserEntryId } : void 0;
-      const persisted = anchor ? latestProviderVisibleControlMessage(
-        selectedBranch,
-        PRIME_CONTEXT_ANCHOR_TYPE,
-        anchor.details.taskKey,
-        unscoped
-      ) : void 0;
-      const positionallyScopedUnscoped = unscoped !== void 0 && persisted?.details?.taskKey === void 0;
-      if (!anchor || sameAnchor(persisted, anchor, positionallyScopedUnscoped)) {
-        runtime.control.structuralBoundary = false;
-        runtime.control.needsAnchorRefresh = false;
-      } else if (runtime.control.structuralBoundary || runtime.control.needsAnchorRefresh) {
-        runtime.control.structuralBoundary = false;
-        runtime.control.needsAnchorRefresh = true;
-        temporaryAnchorText = anchor.content;
-      }
-      runtime.archive?.noteContextTurn(goal !== void 0);
-    }
     const refs = event.entryRefs;
-    const foldApplication = resolveFoldApplication(
-      selectedBranch,
-      runtime.taskRuntime?.fold,
-      runtime.taskRuntime?.taskKey
-    );
-    const projected = projectModelContext({
+    const toolSetRevision = activeToolSetRevision(pi);
+    if (runtime.projectionToolSetRevision === void 0) {
+      runtime.projectionToolSetRevision = toolSetRevision;
+    } else if (runtime.projectionToolSetRevision !== toolSetRevision) {
+      runtime.projectionToolSetRevision = toolSetRevision;
+      advanceProjectionEpoch();
+    }
+    const projectionInput = {
       purpose,
       messages: event.messages,
       entryRefs: refs,
       fixedViews: runtime.fixedViews,
-      fold: runtime.taskRuntime?.fold,
-      foldMessageEntryId: foldApplication?.foldMessageEntryId,
-      foldPrefixEntryIds: foldApplication?.prefixEntryIds,
-      sourceMessages: branchSourceMessages(selectedBranch),
-      recoveryLeases: runtime.recoveryLeases,
-      pendingImages: runtime.pendingImages,
-      consumedImageRefs: runtime.consumedImageRefs,
-      activeModelKey: runtime.lifecycle.selectedModelKey
-    });
-    if (purpose === "provider") {
-      for (const id of projected.shownRecoveryToolCallIds ?? []) runtime.projectedRecoveryToolCallIds.add(id);
-      for (const message of projected.messages) {
-        if (message.role === "toolResult" && typeof message.toolCallId === "string" && runtime.recoveryUtilities.has(message.toolCallId)) {
-          runtime.projectedRecoveryToolCallIds.add(message.toolCallId);
+      sourceMessages: refs === void 0 ? void 0 : (() => {
+        const sourceMessages = new Map(runtime.sourceMessages);
+        for (const ref of refs) {
+          const message = event.messages[ref.messageIndex];
+          if (message && !sourceMessages.has(ref.entryId)) sourceMessages.set(ref.entryId, message);
         }
-      }
-      for (const ref of projected.shownImageRefs ?? []) runtime.projectedImageRefs.add(ref);
-    }
-    const messages = temporaryAnchorText ? appendProviderTextMessage(projected.messages, temporaryAnchorText) : projected.messages;
-    for (const ref of projected.entryRefs ?? []) {
-      const message = messages[ref.messageIndex];
-      if (message && typeof message === "object") runtime.projectedRefs.set(message, ref.entryId);
-    }
-    if (purpose === "provider") {
-      const effectiveRefs = projected.entryRefs ?? refs ?? [];
-      const previous = runtime.lastProviderProjection;
-      const foldGeneration = runtime.taskRuntime?.fold?.generation ?? 0;
-      const extendedStableGeneration = Boolean(
-        previous && previous.foldGeneration === foldGeneration && effectiveRefs.length > previous.entryCount && previous.entryCount > 0 && effectiveRefs[previous.entryCount - 1]?.entryId === previous.lastEntryId
-      );
-      runtime.archive?.recordProviderProjection(
-        utf8Bytes(JSON.stringify(messages)),
-        extendedStableGeneration
-      );
-      runtime.lastProviderProjection = {
-        entryCount: effectiveRefs.length,
-        ...effectiveRefs.at(-1)?.entryId ? { lastEntryId: effectiveRefs.at(-1).entryId } : {},
-        foldGeneration
-      };
-    }
+        return sourceMessages;
+      })(),
+      pendingImages: runtime.pendingImages,
+      activeModelKey: runtime.lifecycle.selectedModelKey,
+      contextEpoch: runtime.projectionEpoch
+    };
+    const projected = purpose === "provider" || purpose === "budget" ? buildProviderRepresentation({
+      ...projectionInput,
+      purpose,
+      epochId: runtime.projectionEpoch,
+      modelKey: runtime.lifecycle.selectedModelKey ?? "unselected",
+      toolSetRevision,
+      cache: runtime.projectionCache
+    }) : projectModelContext(projectionInput);
+    const messages = projected.messages;
     const messagesChanged = messages !== event.messages;
     const refsChanged = projected.entryRefs !== void 0 && (refs === void 0 || projected.entryRefs.length !== refs.length || projected.entryRefs.some((ref, index) => ref.messageIndex !== refs[index]?.messageIndex || ref.entryId !== refs[index]?.entryId));
-    if (!messagesChanged && !refsChanged) return;
+    if (!messagesChanged && !refsChanged && projected.projectionIdentity === void 0) return;
     return {
-      messages,
-      ...projected.entryRefs === void 0 ? {} : { entryRefs: projected.entryRefs }
+      ...messagesChanged ? { messages } : {},
+      ...projected.entryRefs === void 0 || !refsChanged ? {} : { entryRefs: projected.entryRefs },
+      ...projected.projectionIdentity === void 0 ? {} : {
+        projectionIdentity: projected.projectionIdentity
+      }
     };
   });
   hooks.add("model_context");
-  pi.on("message_end", async (event, ctx) => {
-    if (runtime.mode === "off" || event.message.role !== "assistant") return;
-    runtime.archive?.recordUsage(event.message.usage ?? {});
-    const successful = event.message.stopReason !== "error" && event.message.stopReason !== "aborted";
-    if (successful) {
-      for (const id of runtime.projectedRecoveryToolCallIds) {
-        const utility = runtime.recoveryUtilities.get(id);
-        if (utility) {
-          runtime.archive?.recordRecovery(
-            utility.useful,
-            utility.subjectKeys,
-            utility.exposedBytes,
-            utility.inspectRecallHit
-          );
-          runtime.recoveryUtilities.delete(id);
-        }
-        runtime.recoveryLeases.delete(id);
-      }
-      const imageBytes = /* @__PURE__ */ new Map();
-      for (const view of runtime.fixedViews.values()) {
-        for (const image of view.images ?? []) imageBytes.set(image.ref, image.bytes);
-      }
-      for (const images of runtime.pendingImages.values()) {
-        for (const image of images) imageBytes.set(image.ref, image.bytes);
-      }
-      let projectedMediaBytes = 0;
-      for (const ref of runtime.projectedImageRefs) {
-        if (!runtime.consumedImageRefs.has(ref)) projectedMediaBytes += imageBytes.get(ref) ?? 0;
-        runtime.consumedImageRefs.add(ref);
-      }
-      if (projectedMediaBytes > 0) runtime.archive?.recordTypedMediaProjection(projectedMediaBytes);
-      while (runtime.consumedImageRefs.size > CONSUMED_IMAGE_REF_MAX) {
-        const oldest = runtime.consumedImageRefs.values().next().value;
-        if (!oldest) break;
-        runtime.consumedImageRefs.delete(oldest);
-      }
+  pi.on("message_end", (event) => {
+    if (runtime.mode === "off") return;
+    const message = record3(event.message);
+    if (message?.role !== "assistant") return;
+    const usage = record3(message.usage);
+    if (!usage) return;
+    const input = [usage.input, usage.cacheRead, usage.cacheWrite].filter((value) => typeof value === "number" && Number.isFinite(value)).reduce((total, value) => total + Math.max(0, value), 0);
+    if (input > 0) runtime.auxiliary.economics.latestProviderInputTokens = input;
+    if (typeof usage.output === "number" && Number.isFinite(usage.output) && usage.output >= 0) {
+      runtime.auxiliary.economics.conservativeMainOutputTokens = Math.max(512, rollingMean(
+        runtime.auxiliary.economics.conservativeMainOutputTokens,
+        usage.output
+      ));
     }
-    runtime.projectedRecoveryToolCallIds.clear();
-    runtime.projectedImageRefs.clear();
-    if (runtime.archive) await runtime.archive.flushSessionState(ctx.signal).catch(() => void 0);
+    const totalCost = record3(usage.cost)?.total;
+    if (typeof totalCost === "number" && Number.isFinite(totalCost) && totalCost >= 0) {
+      runtime.auxiliary.economics.recentMeanSolverCallCost = rollingMean(
+        runtime.auxiliary.economics.recentMeanSolverCallCost,
+        totalCost
+      );
+    }
+    if (runtime.lifecycle.turnStartedAt !== void 0) {
+      runtime.auxiliary.economics.recentMeanSolverLatencyMs = rollingMean(
+        runtime.auxiliary.economics.recentMeanSolverLatencyMs,
+        Math.max(0, Date.now() - runtime.lifecycle.turnStartedAt)
+      );
+      runtime.lifecycle.turnStartedAt = void 0;
+    }
   });
   hooks.add("message_end");
   const actions = {
     getMode: () => runtime.mode,
     setMode: (mode) => {
+      if (runtime.mode !== mode) advanceProjectionEpoch();
       runtime.mode = mode;
+      setAutomaticRefinementEnabled?.(mode === "on" ? false : void 0);
     },
     getArchive: () => runtime.archive,
-    getSnapshot: () => runtime.snapshot,
-    getTaskRuntime: () => runtime.taskRuntime,
-    getReadiness: () => runtime.readiness,
+    getSnapshot: () => runtime.taskSnapshot,
     updateSnapshot: (changes) => {
-      const result = applySnapshotChanges(runtime.snapshot, changes);
+      const result = applySnapshotChanges(runtime.taskSnapshot, changes);
       if (result.ok && result.changed) {
+        runtime.taskSnapshot = result.snapshot;
         pi.appendEntry(SNAPSHOT_ENTRY_TYPE, result.snapshot);
-        runtime.snapshot = result.snapshot;
       }
       return result;
     },
     getReadMaxBytes: () => runtime.config.readMaxBytes,
     consumeConfigWarnings: () => runtime.configWarnings.splice(0),
     hooksLoaded: () => requiredHooksLoaded(hooks),
-    clearFixedViews: () => runtime.fixedViews.clear(),
-    registerRecoveryLease,
-    registerRecoveryUtility,
+    clearFixedViews: () => {
+      if (runtime.fixedViews.size > 0) advanceProjectionEpoch();
+      runtime.fixedViews.clear();
+    },
     resolveRecallSources: async (scope, signal) => {
       signal?.throwIfAborted();
       const recall = runtime.sessionRecall;
@@ -10702,21 +11646,189 @@ function primeContext(pi) {
       });
     }
   };
+  const compileKnowledge = async (request, ctx, automatic, automaticOutcome = "unknown") => {
+    if (runtime.mode === "off") throw new Error("Prime Context is disabled.");
+    if (!ctx.model || !ctx.modelRegistry) throw new Error("No registered model is available for learning.");
+    const messagesFromEntries = (entries) => entries.flatMap((entry) => {
+      if (entry.type !== "message") return [];
+      const role = record3(entry.message)?.role;
+      return role === "user" || role === "assistant" || role === "toolResult" ? [entry.message] : [];
+    });
+    const topic = request.topic;
+    const episodes = [];
+    if (request.from.length === 0) {
+      const fullBranch = ctx.sessionManager.getBranch();
+      const branch = scopeBranchToGoal(fullBranch, activeGoalFromBranch(fullBranch));
+      const messages = messagesFromEntries(branch);
+      if (messages.length === 0) throw new Error("The current selected branch has no learning episode.");
+      episodes.push({ task: topic, taskOutcome: automatic ? automaticOutcome : "unknown", messages });
+    } else {
+      for (const source of [...new Set(request.from)]) {
+        const sessionFile = resolve3(ctx.cwd, source);
+        const info = await stat(sessionFile);
+        if (!info.isFile() || info.size > 16 * 1024 * 1024) {
+          throw new Error(`Learning session file must be a regular file of at most 16 MiB: ${source}`);
+        }
+        const entries = (await readFile3(sessionFile, "utf8")).split(/\r?\n/u).flatMap((line) => {
+          if (!line.trim()) return [];
+          try {
+            const value = JSON.parse(line);
+            return value && typeof value === "object" ? [value] : [];
+          } catch {
+            throw new Error(`Invalid JSONL session file: ${source}`);
+          }
+        });
+        const messages = messagesFromEntries(entries);
+        if (messages.length === 0) throw new Error(`Session file has no learning episode: ${source}`);
+        const task = entries.flatMap((entry) => entry.type === "message" && record3(entry.message)?.role === "user" ? [messageText(record3(entry.message)?.content)] : []).find(Boolean) ?? topic;
+        episodes.push({ task, taskOutcome: "unknown", messages });
+      }
+    }
+    const hooks2 = createModelResolutionHooks({
+      currentModel: () => ctx.model,
+      modelRegistry: ctx.modelRegistry
+    });
+    const resolved = await resolveAuxiliaryModel("knowledge-compile", runtime.config, hooks2);
+    if (!resolved) throw new Error("The configured learning model could not be resolved or authenticated.");
+    const complete = async (call) => {
+      if (automatic) {
+        const prompt = {
+          kind: "knowledge-compile",
+          systemPrompt: call.systemPrompt,
+          userPrompt: call.prompt,
+          context: {
+            systemPrompt: call.systemPrompt,
+            messages: [{ role: "user", content: call.prompt, timestamp: Date.now() }]
+          },
+          maxOutputTokens: call.maxOutputTokens,
+          estimatedInputTokens: Math.ceil(utf8Bytes(`${call.systemPrompt}
+${call.prompt}`) / 4)
+        };
+        runtime.auxiliary.economics.currentMainInputUnitCost = ctx.model?.cost.input;
+        runtime.auxiliary.economics.currentMainOutputUnitCost = ctx.model?.cost.output;
+        runtime.auxiliary.economics.latestProviderInputTokens = ctx.getContextUsage?.()?.totalTokens;
+        const execution = await executeTrackedAuxiliary({
+          runtime: runtime.auxiliary,
+          prompt,
+          auth: resolved,
+          signal: call.signal ?? ctx.signal,
+          plan: {
+            kind: "knowledge-compile",
+            model: resolved.model,
+            blocking: false,
+            estimatedInputTokens: prompt.estimatedInputTokens,
+            maxOutputTokens: prompt.maxOutputTokens,
+            estimatedPromptTokensSaved: 4e3,
+            estimatedMainTurnsAvoided: 0.5,
+            estimatedToolCallsAvoided: 0,
+            completionRisk: "low",
+            estimatedCriticalPathMsSaved: 0,
+            estimatedAuxiliaryLatencyMs: 2e3
+          },
+          parseOutput: (text) => text
+        });
+        if (execution.status !== "success" || !execution.output) throw new Error(execution.reason);
+        return {
+          text: execution.output,
+          provider: resolved.model.provider,
+          model: resolved.model.id,
+          inputTokens: execution.usage?.input,
+          outputTokens: execution.usage?.output,
+          cost: execution.usage?.cost
+        };
+      }
+      const message = await completeSimple2(resolved.model, {
+        systemPrompt: call.systemPrompt,
+        messages: [{ role: "user", content: call.prompt, timestamp: Date.now() }]
+      }, {
+        apiKey: resolved.apiKey,
+        headers: resolved.headers,
+        maxTokens: call.maxOutputTokens,
+        reasoning: "off",
+        signal: call.signal ?? ctx.signal,
+        timeoutMs: 6e4,
+        maxRetries: 0
+      });
+      if (message.stopReason === "error" || message.stopReason === "aborted") {
+        throw new Error(message.errorMessage ?? `Learning completion ${message.stopReason}.`);
+      }
+      return {
+        text: message.content.flatMap((block) => block.type === "text" ? [block.text] : []).join("\n").trim(),
+        provider: message.provider,
+        model: message.model,
+        inputTokens: message.usage.input,
+        outputTokens: message.usage.output,
+        cost: message.usage.cost.total
+      };
+    };
+    const result = await runKnowledgeCompiler({
+      topic,
+      episodes,
+      library: runtime.skillLibrary,
+      automatic
+    }, {
+      libraryPath: resolveSkillLibraryPath(ctx.cwd, runtime.config.libraryPath),
+      complete,
+      signal: ctx.signal
+    });
+    return result.message;
+  };
+  pi.on("agent_end", (event, ctx) => {
+    if (runtime.mode === "off" || runtime.config.autoLearn !== "utility-gated" || runtime.autoLearnInFlight || !ctx.model || !ctx.modelRegistry) return;
+    const finalAssistant = [...event.messages].reverse().find((message) => message.role === "assistant");
+    if (!finalAssistant || finalAssistant.content.some((block) => block.type === "toolCall")) return;
+    const observations2 = runtime.taskSnapshot.actionableObservations;
+    const branch = ctx.sessionManager.getBranch();
+    const selectedSkill = branch.some((entry) => {
+      const details = record3(entry.details);
+      return entry.type === "custom_message" && entry.customType === PRIME_CONTEXT_ANCHOR_TYPE && details?.taskKey === runtime.taskSnapshot.taskKey && typeof details.skillSupplement === "string";
+    });
+    const hasFailure = observations2.some((observation) => /\b(?:fail(?:ed|ure)?|error)\b/iu.test(observation.text));
+    const latestUser = [...branch].reverse().find(
+      (entry) => entry.type === "message" && record3(entry.message)?.role === "user"
+    );
+    const userFeedback = messageText(record3(latestUser?.message)?.content);
+    const taskOutcome = explicitUserTaskOutcome(userFeedback);
+    if (taskOutcome === "unknown") return;
+    const explicitCorrection = /\b(?:instead|general rule|procedure|always|never)\b/iu.test(userFeedback);
+    if (!(explicitCorrection || selectedSkill && hasFailure && taskOutcome === "success")) return;
+    const taskKey = runtime.taskSnapshot.taskKey;
+    if (runtime.autoLearnedTaskKeys.has(taskKey)) return;
+    runtime.autoLearnedTaskKeys.add(taskKey);
+    runtime.autoLearnInFlight = true;
+    void compileKnowledge({
+      topic: runtime.taskSnapshot.objective ?? runtime.taskSnapshot.focus ?? "current task procedure",
+      from: []
+    }, ctx, true, taskOutcome).catch(() => void 0).finally(() => {
+      runtime.autoLearnInFlight = false;
+    });
+  });
+  hooks.add("agent_end");
+  pi.on("session_shutdown", () => {
+    finalizeAuxiliaryTask(runtime.auxiliary);
+    persistBenchmarkAccounting();
+    runtime.autoLearnInFlight = false;
+    setAutomaticRefinementEnabled?.(void 0);
+  });
+  hooks.add("session_shutdown");
   registerPrimeContextTool(pi, actions);
-  registerPrimeContextCommands(pi, actions);
+  registerPrimeContextCommands(pi, actions, {
+    learn: (request, ctx) => compileKnowledge(request, ctx, false)
+  });
 }
 export {
   REQUIRED_HOOKS,
   branchProjectionEntries,
   completeVisibleToolCallIds,
   primeContext as default,
-  foldVisibleBranchEntries,
+  explicitUserTaskOutcome,
   providerModelBranchEntries,
   requiredHooksLoaded,
   scopeFixedExchangeViews,
   selectForkImportRefs,
   selectForkVisibleImports,
   shouldArchiveToolResult,
+  shouldCommitExchangeArchive,
   typedObservationParts,
   typedObservationPartsEqual,
   visibleFixedToolCallIds

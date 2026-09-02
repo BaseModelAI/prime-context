@@ -9,13 +9,11 @@ import type {
   RecallArchiveSource,
   RecallScope,
 } from "./archive.js";
-import type { TaskRuntimeV2 } from "./runtime.js";
-import type { WorkflowReadiness } from "./workflow.js";
 import type {
   PrimeContextMode,
   SnapshotChanges,
   SnapshotUpdateResult,
-  TaskSnapshotV1,
+  TaskSnapshotV2,
 } from "./state.js";
 
 export interface PrimeContextParams extends SnapshotChanges {
@@ -47,66 +45,17 @@ export interface PrimeContextActions {
   getMode(): PrimeContextMode;
   setMode(mode: PrimeContextMode): void;
   getArchive(): ObservationArchive | undefined;
-  getSnapshot(): TaskSnapshotV1;
-  getTaskRuntime(): TaskRuntimeV2 | undefined;
-  getReadiness(): WorkflowReadiness;
+  getSnapshot(): TaskSnapshotV2;
   updateSnapshot(changes: SnapshotChanges): SnapshotUpdateResult;
   getReadMaxBytes(): number;
   consumeConfigWarnings(): string[];
   hooksLoaded(): boolean;
   clearFixedViews(): void;
-  registerRecoveryLease(toolCallId: string, content: readonly (TextContent | ImageContent)[]): void;
-  registerRecoveryUtility(
-    toolCallId: string,
-    subjectKeys: readonly string[],
-    exposedBytes: number,
-    inspectRecallHit: boolean,
-  ): void;
   resolveRecallSources(scope: RecallScope, signal?: AbortSignal): Promise<RecallArchiveSource[]>;
 }
 
 function textResult(text: string) {
   return { content: [{ type: "text" as const, text }], details: {} };
-}
-
-function recoveryContentBytes(content: readonly (TextContent | ImageContent)[]): number {
-  return content.reduce((total, block) => total + (
-    block.type === "text" ? Buffer.byteLength(block.text, "utf8") : Buffer.byteLength(block.data, "base64")
-  ), 0);
-}
-
-function transientDirectRecoveryBytes(content: readonly (TextContent | ImageContent)[]): number {
-  return recoveryContentBytes(content);
-}
-
-function transientDirectTextBytes(text: string): number {
-  return Buffer.byteLength(text, "utf8");
-}
-
-function recordRecoveryCandidate(
-  actions: PrimeContextActions,
-  _archive: ObservationArchive,
-  toolCallId: string,
-  evidence: boolean,
-  subjectKeys: readonly string[],
-  exposedBytes: number,
-  inspectRecallHit = false,
-): void {
-  if (evidence) {
-    actions.registerRecoveryUtility(toolCallId, subjectKeys, exposedBytes, inspectRecallHit);
-  }
-}
-
-function recoverySubjectKeys(details: unknown): string[] {
-  if (!details || typeof details !== "object") return [];
-  const object = details as { subjectKey?: unknown; matches?: unknown };
-  const direct = typeof object.subjectKey === "string" ? [object.subjectKey] : [];
-  const matches = Array.isArray(object.matches) ? object.matches.flatMap((match) =>
-    match && typeof match === "object" && typeof (match as { subjectKey?: unknown }).subjectKey === "string"
-      ? [(match as { subjectKey: string }).subjectKey]
-      : []
-  ) : [];
-  return [...new Set([...direct, ...matches])];
 }
 
 export async function formatStatus(actions: PrimeContextActions, signal?: AbortSignal): Promise<string> {
@@ -115,9 +64,6 @@ export async function formatStatus(actions: PrimeContextActions, signal?: AbortS
   const snapshot = actions.getSnapshot();
   const archiveCount = await archive.count(signal);
   const broker = archive.brokerStatistics();
-  const runtime = actions.getTaskRuntime();
-  const readiness = actions.getReadiness();
-  const latestValidation = runtime?.validations[0];
   const metrics = broker.metrics;
   const lines = [
     `Mode: ${actions.getMode()}`,
@@ -133,12 +79,6 @@ export async function formatStatus(actions: PrimeContextActions, signal?: AbortS
       ? ["- (none)"]
       : snapshot.pinnedObservationIds.map((id) => `- ${id}`)),
     `Archive count: ${archiveCount}`,
-    `Task: ${runtime?.taskKey ?? "(none)"}`,
-    `Workflow: revision ${runtime?.requirementsRevision ?? 0} | locked ${runtime?.requirementsLocked ? "yes" : "no"} | ` +
-      `workspace revision ${runtime?.workspaceRevision ?? 0} | readiness ${readiness}`,
-    `Latest validation: ${latestValidation?.summary ?? "(none)"}`,
-    `Validation gates: ${runtime?.validationGates.map((gate) => gate.key).join(", ") || "(none)"}`,
-    `Active diagnostics: ${runtime?.activeDiagnostics.length ?? 0}`,
     `Broker decisions: ${broker.passedThrough} pass-through | ${broker.structuredCapsules} structured | ${broker.deltaCapsules} delta`,
     `Utility buckets: ${broker.utilityBucketCount}`,
     `Source bytes archived: ${metrics.sourceBytesArchived}`,
@@ -146,13 +86,10 @@ export async function formatStatus(actions: PrimeContextActions, signal?: AbortS
     `Result bytes projected out: ${metrics.resultBytesProjectedOut}`,
     `Typed/media bytes projected out: ${metrics.typedMediaBytesProjectedOut}`,
     `Recovery bytes exposed: ${metrics.recoveryBytesExposed}`,
-    `Current projected model-view bytes: ${metrics.currentProjectedModelViewBytes}`,
     `Streaming bytes processed: ${metrics.streamingBytesProcessed}`,
     `Inspect/recall hits: ${metrics.inspectRecallHits}`,
-    `Fold generations: ${metrics.foldGenerationCount}`,
     `Branch runtime reloads: ${metrics.branchRuntimeReloadCount}`,
     `Usage tokens: uncached input ${metrics.uncachedInputTokens} | cache read ${metrics.cacheReadTokens} | cache write ${metrics.cacheWriteTokens}`,
-    `Stable projection extension turns: ${metrics.stableProjectionExtensionTurns}`,
     `Storage path: ${archive.sessionPath}`,
   ];
   return lines.join("\n");
@@ -210,22 +147,8 @@ function recoveryReceipt(details: ObservationRecoveryDetails): string {
   return `Recovered ${ref}${range} for the preceding model turn. Reinspect the same ref for exact text.`;
 }
 
-function currentRevisions(runtime: TaskRuntimeV2 | undefined) {
-  return runtime ? {
-    taskKey: runtime.taskKey,
-    workspaceRevision: runtime.workspaceRevision,
-    requirementsRevision: runtime.requirementsRevision,
-    activeDiagnosticExchangeIds: (runtime.activeDiagnostics ?? []).flatMap((diagnostic) =>
-      diagnostic.exchangeId ? [diagnostic.exchangeId] : []
-    ),
-    activeDiagnosticSignals: (runtime.activeDiagnostics ?? []).flatMap((diagnostic) => [
-      diagnostic.id,
-      diagnostic.summary,
-      diagnostic.subjectKey,
-      diagnostic.suiteFamily,
-      ...diagnostic.resources,
-    ].filter((value): value is string => typeof value === "string")),
-  } : undefined;
+function currentTaskContext(snapshot: TaskSnapshotV2) {
+  return snapshot.taskKey === "session" ? undefined : { taskKey: snapshot.taskKey };
 }
 
 interface DirectRecoveryTarget {
@@ -292,17 +215,16 @@ function directRecoveryDetails(
 }
 
 function directRecoveryResult<T extends object>(
-  actions: PrimeContextActions,
-  toolCallId: string,
+  _actions: PrimeContextActions,
+  _toolCallId: string,
   content: readonly (TextContent | ImageContent)[],
   details: T,
   receipt: string,
 ) {
-  actions.registerRecoveryLease(toolCallId, [
-    ...content,
-    { type: "text" as const, text: receipt },
-  ]);
-  return { content: [{ type: "text" as const, text: receipt }], details };
+  return {
+    content: [...content, { type: "text" as const, text: receipt }],
+    details,
+  };
 }
 
 export function registerPrimeContextTool(pi: ExtensionAPI, actions: PrimeContextActions): void {
@@ -350,8 +272,10 @@ export function registerPrimeContextTool(pi: ExtensionAPI, actions: PrimeContext
       if (!archive) return textResult("Prime Context session is not ready.");
       const recoveryMaxBytes = Math.min(actions.getReadMaxBytes(), MODEL_RECOVERY_MAX_BYTES);
       const maxMatches = Math.min(params.maxMatches ?? MODEL_SEARCH_DEFAULT_MATCHES, MODEL_SEARCH_DEFAULT_MATCHES);
+      const externalSearch = params.action === "search" &&
+        (params.scope === "parent" || params.scope === "project");
       try {
-        switch (params.action) {
+        switch (externalSearch ? "recall" : params.action) {
           case "read": {
             if (!params.id) return textResult("prime_context read requires an observation id.");
             const scope = params.scope ?? "task";
@@ -367,15 +291,12 @@ export function registerPrimeContextTool(pi: ExtensionAPI, actions: PrimeContext
                 startLine,
                 endLine,
                 maxBytes: recoveryMaxBytes,
-                current: currentRevisions(actions.getTaskRuntime()),
+                current: currentTaskContext(actions.getSnapshot()),
               }, signal, target.includeOutsideTask);
               const details = directRecoveryDetails(inspected.details, target, record.createdAt);
               const result = (inspected.content[0] as TextContent).text;
               const evidence = recoveryReturnedEvidence(result);
-              recordRecoveryCandidate(
-                actions, archive, toolCallId, evidence, recoverySubjectKeys(details),
-                evidence ? transientDirectRecoveryBytes(inspected.content) : 0,
-              );
+              archive.recordRecovery(evidence);
               if (!evidence) return { content: inspected.content, details };
               return directRecoveryResult(
                 actions,
@@ -389,11 +310,7 @@ export function registerPrimeContextTool(pi: ExtensionAPI, actions: PrimeContext
               `${record.id}:result`, startLine, endLine, recoveryMaxBytes, signal, target.includeOutsideTask,
             );
             const evidence = recoveryReturnedEvidence(result);
-            recordRecoveryCandidate(
-              actions, archive, toolCallId, evidence,
-              record.exchange?.subjectKey ? [record.exchange.subjectKey] : [],
-              evidence ? transientDirectTextBytes(result) : 0,
-            );
+            archive.recordRecovery(evidence);
             const returnedLines = [...result.matchAll(/^(\d+):/gm)].map((match) => Number(match[1]));
             const actualStartLine = returnedLines[0] ?? startLine;
             const actualEndLine = returnedLines.at(-1) ?? actualStartLine;
@@ -423,9 +340,6 @@ export function registerPrimeContextTool(pi: ExtensionAPI, actions: PrimeContext
           case "search": {
             if (!params.query) return textResult("prime_context search requires a non-empty fixed string query.");
             const scope = params.scope ?? "task";
-            if (!params.id && scope !== "task") {
-              return textResult(`prime_context search without id supports task scope; use recall scope=${scope}.`);
-            }
             if (params.id) {
               const target = await resolveDirectRecoveryTarget(archive, actions, scope, params.id, signal);
               const record = await target.archive.findObservation(
@@ -438,15 +352,12 @@ export function registerPrimeContextTool(pi: ExtensionAPI, actions: PrimeContext
                   matchOffset: params.matchOffset ?? 0,
                   maxMatches,
                   maxBytes: recoveryMaxBytes,
-                  current: currentRevisions(actions.getTaskRuntime()),
+                  current: currentTaskContext(actions.getSnapshot()),
                 }, signal, target.includeOutsideTask);
                 const details = directRecoveryDetails(inspected.details, target, record.createdAt);
                 const result = (inspected.content[0] as TextContent).text;
                 const evidence = recoveryReturnedEvidence(result);
-                recordRecoveryCandidate(
-                  actions, archive, toolCallId, evidence, recoverySubjectKeys(details),
-                  evidence ? transientDirectRecoveryBytes(inspected.content) : 0,
-                );
+                archive.recordRecovery(evidence);
                 if (!evidence) return { content: inspected.content, details };
                 return directRecoveryResult(
                   actions,
@@ -467,11 +378,7 @@ export function registerPrimeContextTool(pi: ExtensionAPI, actions: PrimeContext
                 target.includeOutsideTask,
               );
               const evidence = recoveryReturnedEvidence(result);
-              recordRecoveryCandidate(
-                actions, archive, toolCallId, evidence,
-                record.exchange?.subjectKey ? [record.exchange.subjectKey] : [],
-                evidence ? transientDirectTextBytes(result) : 0,
-              );
+              archive.recordRecovery(evidence);
               const details = {
                 observationId: record.id,
                 ref: `${record.id}:result`,
@@ -503,10 +410,7 @@ export function registerPrimeContextTool(pi: ExtensionAPI, actions: PrimeContext
               signal,
             );
             const evidence = recoveryReturnedEvidence(result);
-            recordRecoveryCandidate(
-              actions, archive, toolCallId, evidence, [],
-              evidence ? transientDirectTextBytes(result) : 0,
-            );
+            archive.recordRecovery(evidence);
             const details = {
               query: params.query,
               matchOffset: params.matchOffset ?? 0,
@@ -535,27 +439,19 @@ export function registerPrimeContextTool(pi: ExtensionAPI, actions: PrimeContext
               ...(params.query === undefined ? {} : { query: params.query }),
               contextLines: params.contextLines ?? 1,
               maxBytes: recoveryMaxBytes,
-              current: currentRevisions(actions.getTaskRuntime()),
+              current: currentTaskContext(actions.getSnapshot()),
             }, signal, target.includeOutsideTask);
             const details = directRecoveryDetails(inspected.details, target, record.createdAt);
             const evidence = inspected.content.some((block) =>
               block.type === "image" || recoveryReturnedEvidence(block.text)
             );
-            recordRecoveryCandidate(
-              actions, archive, toolCallId, evidence, recoverySubjectKeys(details),
-              evidence ? recoveryContentBytes(inspected.content) : 0,
-              true,
-            );
+            archive.recordRecovery(evidence);
             if (!evidence) {
               return { content: inspected.content, details };
             }
             const receipt = recoveryReceipt(details);
-            actions.registerRecoveryLease(toolCallId, [
-              ...inspected.content,
-              { type: "text" as const, text: receipt },
-            ]);
             return {
-              content: [{ type: "text" as const, text: receipt }],
+              content: [...inspected.content, { type: "text" as const, text: receipt }],
               details,
             };
           }
@@ -573,31 +469,16 @@ export function registerPrimeContextTool(pi: ExtensionAPI, actions: PrimeContext
               ...(params.status === undefined ? {} : { status: params.status }),
               scope,
               contextLines: params.contextLines ?? 1,
-            }, recoveryMaxBytes, currentRevisions(actions.getTaskRuntime()), signal, externalSources);
+            }, recoveryMaxBytes, currentTaskContext(actions.getSnapshot()), signal, externalSources);
             const evidence = recalled.matches.length > 0;
-            recordRecoveryCandidate(
-              actions,
-              archive,
-              toolCallId,
-              evidence,
-              recalled.matches.flatMap((match) => match.subjectKey ? [match.subjectKey] : []),
-              evidence ? recoveryContentBytes(recalled.content) : 0,
-              true,
-            );
+            archive.recordRecovery(evidence);
             if (!evidence) return { content: recalled.content, details: { matches: [] } };
             const refs = recalled.matches.map((match) =>
               match.sessionId ? `${match.sessionId}:${match.ref}` : match.ref
             ).join(", ");
-            const receipt = `Recovered ${refs} for the preceding model turn. Recall the same evidence again for exact text.`;
-            actions.registerRecoveryLease(toolCallId, [
-              ...recalled.content,
-              { type: "text" as const, text: receipt },
-            ]);
+            const receipt = `[prime-context: sources=${refs}]`;
             return {
-              content: [{
-                type: "text" as const,
-                text: receipt,
-              }],
+              content: [...recalled.content, { type: "text" as const, text: receipt }],
               details: { matches: recalled.matches },
             };
           }

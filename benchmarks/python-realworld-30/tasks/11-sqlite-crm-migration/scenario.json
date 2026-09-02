@@ -1,0 +1,34 @@
+{
+  "schema": "prime-context.python-realworld-task/v1",
+  "id": 11,
+  "slug": "sqlite-crm-migration",
+  "title": "SQLite CRM Migration",
+  "pressure": "L",
+  "timeout_seconds": 900,
+  "editable_paths": [
+    "crm/",
+    "workspace/",
+    "output/"
+  ],
+  "initial_prompt": "Read TASK.md and complete the requested workflow using only the Python standard library.",
+  "stages": [
+    {
+      "id": "initial",
+      "inject": "visible/",
+      "message": "Read TASK.md and complete the requested workflow using only the Python standard library.",
+      "compact_after": false
+    },
+    {
+      "id": "import-contacts",
+      "inject": "stages/import-contacts/",
+      "message": "Add `python -m crm.import_contacts workspace/crm.db inputs/new_contacts.csv output/import_report.json`. Read the UTF-8 CSV columns `display_name,email,phone,notes` in data-row order. Update an existing contact when the trimmed, casefolded email matches; otherwise insert a contact using consecutive IDs starting one above the current maximum. A nonblank imported display name replaces the existing one, a new distinct nonblank note is appended with `\\n`, and previously unseen methods are added using the migration normalization rules. Keep the existing primary method for a kind, or make its first method primary. Skip rows missing both a usable email and phone. Write JSON with exactly `inserted_ids`, `updated_ids`, and `skipped_rows`; ID lists record each processed row in CSV order, and skipped rows are 1-based data-row numbers. Re-running the import must not duplicate contacts, notes, or methods.",
+      "compact_after": false
+    }
+  ],
+  "judge_command": [
+    "python",
+    "judge.py",
+    "--workspace",
+    "{workspace}"
+  ]
+}

@@ -1,24 +1,70 @@
 # Changelog
 
+## 9.1.0 - 2026-09-02
+
+> **Interim release:** 9.1.0 is usable now and represents a major improvement, but the replacement benchmark and its reference points are still in progress. Results from the retired benchmark are retained as historical evidence and are not directly comparable with the new protocol.
+
+### Major runtime upgrade
+
+- Moves Prime Context onto the native Prime Agent 0.9.1 persistent REPL and Bash runtime while retaining the exact host surfaces required for finalized exchanges and purpose-aware projection.
+- Hardens long-task continuity: assistant `stop` no longer resets the task root, arbitrary first output lines no longer become durable task facts, and provisional session accounting no longer creates a fake task.
+- Keeps novel sub-24-KiB call bodies literal when there is no real admission pressure, including large Bash commands that must remain executable after projection.
+- Routes project and parent search through exact recall, persists task state only after archive finalization, and keeps projection reuse tied to the exact structural epoch, tools, prompt contract, and usage anchor.
+- Adds native `await bash(...)`, direct `rlm(...)`, `pytest.main()`, and `unittest` intent recognition, plus separate recovery of unattributed REPL background output.
+- Ships a single explicit, idempotent, exact-version host patcher. No `postinstall` hook mutates Prime Agent.
+
+### Interim benchmark result and reference reset
+
+- Replaces the Docker/synthetic corpus with a hermetic 30-task Python 3.12 suite using isolated hosts, hidden future stages, fresh judge fixtures, loopback-only tool networking, and identical neutral Bash behavior across arms.
+- Compared 9.1.0 with isolated copies of locally installed Prime Agent 0.8.1 plus Prime Context 8.1.1 on one frozen random sample of 12 tasks using `gpt-5.6-sol` at medium effort and at most six concurrent attempts.
+- 9.1.0 achieved **10/12 selected strict passes** versus **9/12**, and **9/12 primary strict passes** versus **8/12**. Its accuracy tuple was never worse on any sampled task.
+- Across nine matched strict pairs, 9.1.0 used **49.6% fewer provider tokens**, **31.7% less agent time**, and **31.8% less API cost**.
+- Across every retained primary and diagnostic retry, it used **36.0% fewer tokens**, **27.4% less time**, and **26.4% less cost**.
+- The frozen analyzer found zero correctness, individual-efficiency, or aggregate-efficiency regression candidates. Diagnosed failures were solver or candidate-implementation variance, so no result-invalidating product fix was required.
+- Earlier benchmark scores remain in the changelog as historical progress markers only. Because tasks, isolation, judging, and reference points changed, those numbers are invalid as a current 9.1.0 comparison baseline. See `benchmarks/RELEASE-9.1.0.md`.
+
+### Prime Agent 0.9.1 migration
+
+- Retargeted the package, type augmentation, startup diagnostics, benchmark runner, and documentation from Prime Agent 0.8.1 to the exact Prime Agent 0.9.1 release artifacts.
+- Audited the complete 0.8.1-to-0.9.1 upstream range. The public extension event surface used by Prime Context is unchanged; the main upstream work replaces the IPython-first kernel with the persistent REPL/bash runtime and restructures daemon session transport, recovery, and agent rosters.
+- Adapted the explicit host patch to the 0.9.1 daemon readiness and attach call shapes and switched late bundle patches to semantic chunk discovery instead of a generated chunk filename.
+- Kept the finalized-exchange, awaited hidden `turn_end`, purpose-aware model-context, exact entry-ref, compaction, usage-anchor, and refinement controls that stock 0.9.1 still does not provide.
+- Retained the provider prompt-usage exclusion and the rest of the custom host contract; none of those behavioral hooks were upstreamed.
+- Removed the patcher's obsolete optional mutation of a sibling Prime Context bundle. The patcher now changes only the exact host passed to it.
+- Installs the exact Prime Agent 0.9.1 runtime packages from their pinned upstream release tarballs, because matching registry peer versions do not exist; plain npm and Prime Agent package installs no longer fail with `ETARGET` or silently select an incompatible registry peer.
+- Preflights every host transformation in memory before writing any file. The documented flow now checks the stock contract, patches, and verifies the final contract.
+- Package smoke copies an explicit or repository-local pristine Prime Agent root into a disposable host, resolves dependencies only from that host, and never mutates or falls back to a global installation.
+- Updated the hermetic Python benchmark runner to require explicit isolated executable paths, use the packaged patcher's full stock/patched contract checks, reject partially patched hosts, and preserve native Bash failure semantics in the neutral adapter.
+- Recognizes native REPL `await bash(...)` calls, including literal `command=...`, for validation and workspace mutation tracking, and archives unattributed REPL `backgroundOutput` as a separate typed part. Legacy `%%bash` classification was removed because 0.9.1 rejects magic cells.
+
 ## 8.1.1 - 2026-08-30
 
-### Summary
+### Ranked context architecture
 
-Prime Context 8.1.1 is a maintenance release for the published 8.1 line. It preserves the 8.1.0 runtime and patched Prime Agent 0.8.1 host contract while shipping the latest public documentation and a more resilient benchmark runner.
+- Added an explicit, packaged, idempotent `prime-context-patch-agent` command pinned to `prime-agent@0.8.1`; installation never patches the host automatically.
+- Uses authoritative finalized exchanges in assistant source order, including original and executed input, final replaced results, typed parts, and usage.
+- Commits each finalized exchange batch to the archive once and installs the returned fixed views directly.
+- Reuses provider projections only for an exact entry-ID prefix in the same semantic epoch.
+- Patches Prime Agent to cache the complete provider-bound next-request estimate: effective system prompt, active tool definitions, and budget-projected messages.
+- Replaced plugin-generated lossy folds with host-owned compaction and tree summaries; legacy fold controls are excluded rather than applied.
+- Returns recovered text and images directly as persistent message content; removed transient recovery leases and show-once media bookkeeping.
+- Imports user Bash output only from the dedicated `user_bash_end` event.
 
-### Benchmark runner resilience
+### Descriptive state, skills, and bounded inference
 
-- Added bounded retries for transient manual-compaction failures, including provider `server_error`, overload, temporary-unavailability, and daemon-timeout responses.
-- Treats a successful late `compaction_end` lifecycle event as authoritative even when the original RPC timed out, without advancing a benchmark stage twice.
-- Does not consume retry capacity when the session is still too short to compact.
-- Preserves anchored test results first observed in streamed `tool_execution_update` events when compaction occurs before the terminal tool event.
-- Keeps the benchmark intervention sequence, exact-response requirements, 600-second task timeout, and strict completion checks unchanged.
+- Added bounded `TaskSnapshotV2` objective, constraints, focus, open items, observations, artifacts, and sparse updates without inferred completion gates.
+- Added native skill-resource discovery plus frozen library validation, deterministic ranking, direct injection, and a zero-call high-confidence path.
+- Added a bounded utility-gated auxiliary broker with registered model resolution, strict parsers, factual accounting, and one-shot task-scout, semantic-distill, stall-recovery, and knowledge-compile execution.
+- Added `/pc learn --topic <text> [--from <session-file>]...` for one bounded selected-episode compilation and at most one validated current pattern/skill upsert. Changes activate after reload.
+- Added narrowly gated nonblocking post-task learning after authoritative feedback and a strong reuse signal.
+- Removed semantic outcome-label repetition, kept exact subject-scoped repetition, and uses a single bounded stall-recovery hint after a confirmed repeat.
+- Disabled Prime Agent automatic refinement while Prime Context is active.
 
-### Documentation and distribution
+### Configuration and distribution
 
-- Includes the expanded 8.1.0 architecture changelog and the complete published 30-task benchmark report.
-- Retains the version-pinned, idempotent Prime Agent 0.8.1 patch workflow documented in the public repository.
-- Contains no Prime Context runtime-source change relative to 8.1.0; the maintenance changes are limited to evaluation reliability, package metadata, and documentation.
+- Added `auxiliaryMode`, `auxiliaryModel`, `libraryPath`, `skillBudgetTokens`, `learningModel`, and `autoLearn` configuration.
+- Package smoke verifies the packed extension, packaged patch command, patched host contract, and `--check` behavior.
+- Benchmark implementation and reporting are intentionally deferred to a separate release task.
 
 ## 8.1.0 - 2026-08-29
 

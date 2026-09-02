@@ -7,12 +7,11 @@
 Keep the complete local transcript. Send the model only the context it can use.
 
 [![npm version](https://img.shields.io/npm/v/prime-agent-context?style=flat-square&color=CB3837)](https://www.npmjs.com/package/prime-agent-context)
-[![Prime Agent](https://img.shields.io/badge/Prime_Agent-0.8.1_%2B_host_patch-6C63FF?style=flat-square)](https://github.com/PrimeIntellect-ai/prime-agent)
+[![Prime Agent](https://img.shields.io/badge/Prime_Agent-0.9.1_%2B_host_patch-6C63FF?style=flat-square)](https://github.com/PrimeIntellect-ai/prime-agent)
 [![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A522.8.0-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-2ea44f?style=flat-square)](LICENSE)
-[![Benchmark](https://img.shields.io/badge/strict_benchmark-30%2F30_vs_30%2F30-0A7B83?style=flat-square)](#benchmark-results)
 
-[Install](#quick-start) · [Benchmark](#benchmark-results) · [How it works](#how-it-works) · [Commands](#commands) · [Configuration](#configuration)
+[Install](#quick-start) · [How it works](#how-it-works) · [Benchmark](#interim-910-benchmark-evidence) · [Commands](#commands) · [Configuration](#configuration)
 
 </div>
 
@@ -28,17 +27,22 @@ It does this without rewriting the persisted session:
 - **exact evidence can be recovered on demand;**
 - **stable projections improve prompt locality instead of changing on every turn.**
 
+> [!NOTE]
+> **Prime Context 9.1.0 is an interim, usable release of a major runtime upgrade.** It is ready for real work on the pinned Prime Agent 0.9.1 host, while the new hermetic benchmark and its reference points continue to mature. Scores from the retired benchmark are retained as historical evidence, but they are not comparable with the new protocol.
+
 > [!WARNING]
-> **Full Prime Context 8.1.1 requires the version-pinned Prime Agent 0.8.1 host patch included in this repository.** Stock Prime Agent 0.8.1 does not yet emit the purpose-aware `model_context`, awaited hidden `turn_end` messages, and execution-mode metadata used by the benchmarked projection pipeline. The patch is idempotent and fails closed on any unsupported host version. [Install the host contract](#quick-start).
+> **Full Prime Context 9.1.0 requires the version-pinned Prime Agent 0.9.1 host patch included in this repository.** Stock Prime Agent 0.9.1 does not yet emit the purpose-aware `model_context`, awaited hidden `turn_end` messages, and execution-mode metadata required by the finalized-exchange projection pipeline. The patch is idempotent and fails closed on any unsupported host version. [Install the host contract](#quick-start).
 
 > [!IMPORTANT]
-> Prime Context 8.1.1 also appends its bundled **no-verification-theater / KISS policy** to Prime Agent's assembled system prompt. It applies without an `AGENTS.md` file and remains active across ordinary runs, autonomous continuations, and compaction. [Read the policy](#global-system-prompt-policy).
+> Prime Context 9.1.0 also appends its bundled **no-verification-theater / KISS policy** to Prime Agent's assembled system prompt. It applies without an `AGENTS.md` file and remains active across ordinary runs, autonomous continuations, and compaction. [Read the policy](#global-system-prompt-policy).
 
 <div align="center">
 
-| **100.0%** strict completion | **-20.8%** tokens | **-23.2%** model calls | **25/30** lower-cost pairs |
+| **10/12** strict passes | **-49.6%** tokens | **-31.7%** time | **-31.8%** cost |
 |:---:|:---:|:---:|:---:|
-| vs 100.0% `vanilla prime-agent` | whole-corpus aggregate | whole-corpus aggregate | all task pairs |
+| vs **9/12** on local 8.1.1 | matched strict pairs | matched strict pairs | matched strict pairs |
+
+_One frozen random sample, `gpt-5.6-sol`, medium effort, isolated old and new hosts. Across all retained attempts, 9.1.0 also used 36.0% fewer tokens, 27.4% less agent time, and 26.4% less cost. The analyzer found no significant correctness or efficiency regression. [Read the interim benchmark report](benchmarks/RELEASE-9.1.0.md)._
 
 </div>
 
@@ -54,118 +58,36 @@ Long agent sessions fail in predictable ways:
 | An image or typed result is too large to keep replaying | Show supported media once, then retain a recoverable descriptor. |
 | A later turn needs exact old output | Recover bounded pages with the `prime_context` tool or `/pc` commands. |
 | Repeated context reshaping destroys cache locality | Freeze completed exchanges and reuse a stable provider projection generation. |
-| Direct IPython writes make validation stale | Detect `write_text` / `write_bytes`, advance the workspace revision, and require current evidence. |
+| Direct REPL writes or native `bash()` calls make validation stale | Detect Python file writes and shell mutations, advance the workspace revision, and require current evidence. |
 
 Prime Context is not a second agent, a remote memory service, or a transcript database. It is a local context layer that operates at Prime Agent's extension hooks.
-
-## Benchmark results
-
-The complete 30-task corpus compares `prime-context 8.1.1` with `vanilla prime-agent` on the same patched Prime Agent 0.8.1 host. `vanilla prime-agent` loaded no extension, custom prompt, or `AGENTS.md`. Both variants ran with `--no-context-files`; the system policy bundled inside Prime Context remained enabled as shipped product behavior.
-
-### Aggregate correctness
-
-| Correctness measure | prime-context 8.1.1 | vanilla prime-agent | Paired interpretation |
-|---|---:|---:|---|
-| Tasks meeting every acceptance criterion | 30 / 30 | 30 / 30 | +0 tasks |
-| Strict completion rate | 100.00% | 100.00% | +0.00 pp |
-| Correctness gains | 0 | — | none |
-| Correctness losses | 0 | — | none |
-| Matched-correct pairs | 30 | 30 | formal efficiency cohort |
-
-`prime-context 8.1.1` met every acceptance criterion on **30/30 tasks**. `vanilla prime-agent` did so on **30/30 tasks**. The run produced **0 correctness gains** and **0 correctness losses** for `prime-context 8.1.1`.
-
-### Whole-corpus workload
-
-One selected strict-passing result for each of all 30 tasks per variant; failed initial attempts are excluded. Aggregate totals and deltas use unrounded source values; displayed per-task values are rounded for readability.
-
-| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
-|---|---:|---:|---:|---:|
-| Wall time | 10,304.04 s | 13,529.07 s | -3,225.03 s | -23.84% |
-| Lifecycle wall time | 10,314.52 s | 13,539.99 s | -3,225.48 s | -23.82% |
-| Model calls | 536 | 698 | -162 | -23.21% |
-| Tool calls | 520 | 632 | -112 | -17.72% |
-| Tool results | 519 | 632 | -113 | -17.88% |
-| Visible tool bytes | 6,322,704 | 5,527,703 | +795,001 | +14.38% |
-| Compactions | 173 | 229 | -56 | -24.45% |
-| Input tokens | 2,522,228 | 2,944,355 | -422,127 | -14.34% |
-| Output tokens | 161,425 | 255,963 | -94,538 | -36.93% |
-| Cache-read tokens | 2,859,520 | 3,795,456 | -935,936 | -24.66% |
-| Cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Total tokens | 5,543,173 | 6,995,774 | -1,452,601 | -20.76% |
-| Prompt-cache reuse | 53.13% | 56.31% | -3.18 pp | — |
-| Total API cost | $18.883650 | $24.298393 | -5.414743 | -22.28% |
-
-### Matched-correct efficiency
-
-The 30 task pairs where both variants meet all acceptance criteria:
-
-| Metric | prime-context 8.1.1 | vanilla prime-agent | Δ (prime-context 8.1.1 − vanilla prime-agent) | Relative change |
-|---|---:|---:|---:|---:|
-| Wall time | 10,304.04 s | 13,529.07 s | -3,225.03 s | -23.84% |
-| Lifecycle wall time | 10,314.52 s | 13,539.99 s | -3,225.48 s | -23.82% |
-| Model calls | 536 | 698 | -162 | -23.21% |
-| Tool calls | 520 | 632 | -112 | -17.72% |
-| Tool results | 519 | 632 | -113 | -17.88% |
-| Visible tool bytes | 6,322,704 | 5,527,703 | +795,001 | +14.38% |
-| Compactions | 173 | 229 | -56 | -24.45% |
-| Input tokens | 2,522,228 | 2,944,355 | -422,127 | -14.34% |
-| Output tokens | 161,425 | 255,963 | -94,538 | -36.93% |
-| Cache-read tokens | 2,859,520 | 3,795,456 | -935,936 | -24.66% |
-| Cache-write tokens | 0 | 0 | +0 | 0.00% |
-| Total tokens | 5,543,173 | 6,995,774 | -1,452,601 | -20.76% |
-| Prompt-cache reuse | 53.13% | 56.31% | -3.18 pp | — |
-| Total API cost | $18.883650 | $24.298393 | -5.414743 | -22.28% |
-
-### Success-adjusted workload
-
-| Success-adjusted measure | prime-context 8.1.1 | vanilla prime-agent | Relative change |
-|---|---:|---:|---:|
-| Task-seconds per strict completion | 343.47 s | 450.97 s | -23.84% |
-| Model calls per strict completion | 17.87 | 23.27 | -23.21% |
-| Tokens per strict completion | 184,772 | 233,192 | -20.76% |
-| API cost per strict completion | $0.629455 | $0.809946 | -22.28% |
-
-### Method summary
-
-- All 30 deterministic staged coding tasks; 60 initial isolated Docker jobs plus 8 isolated retries.
-- Maximum four active jobs.
-- `openai-codex/gpt-5.6-sol`, medium reasoning effort.
-- Exact 1,200-second deadline from initial instruction delivery.
-- Same Prime Agent 0.8.1 host patch in both variants.
-- No custom prompt or `AGENTS.md`; both variants used `--no-context-files`, and `vanilla prime-agent` had an empty package list.
-- Strict acceptance requires the exact cumulative tests, unchanged protected files, ordered interventions, post-lock goal completion, no run error, and the exact final response.
-- Efficiency claims use matched-correct pairs. Failed initial attempts are excluded from comparative metrics and retained only in retry disclosures.
-- Each initially strict-failed arm received exactly one isolated retry; all 8 retries strictly passed and replace the failed initial attempts in final comparisons. Both attempts are disclosed in the comprehensive report.
-- This is one model, effort level, host version, and complete-corpus execution. It is project evidence, not a universal claim for every workload.
-
-See **[COMPREHENSIVE_BENCHMARK.md](COMPREHENSIVE_BENCHMARK.md)** for methodology, complete aggregate metrics, fixture notes, task definitions and pivots, retry disclosures, and the identical full per-task comparison schema across all 30 tasks.
-
 
 ## Quick start
 
 ### Requirements
 
-- Prime Agent **0.8.1**
+- Prime Agent **0.9.1**
 - Node.js **22.8.0 or newer**
 - write access to the installed Prime Agent package for the compatibility patch
 
 ### 1. Install the Prime Agent host contract
 
-Clone this repository and apply the version-pinned, idempotent patch:
+Run the packaged, version-pinned patcher explicitly:
 
 ```bash
-git clone https://github.com/BaseModelAI/prime-context.git
-cd prime-context
-node scripts/patch-prime-agent.mjs "$(npm root -g)/prime-agent"
-node scripts/patch-prime-agent.mjs --check "$(npm root -g)/prime-agent"
+npx --yes --package=prime-agent-context@9.1.0 prime-context-patch-agent "$(npm root -g)/prime-agent" --check-stock
+npx --yes --package=prime-agent-context@9.1.0 prime-context-patch-agent "$(npm root -g)/prime-agent"
+npx --yes --package=prime-agent-context@9.1.0 prime-context-patch-agent "$(npm root -g)/prime-agent" --check
 ```
 
-The script accepts only `prime-agent@0.8.1`, checks every expected patch site, and stops instead of guessing when the installed host differs. It modifies the installed Prime Agent runtime; reinstalling or updating Prime Agent can overwrite it, in which case rerun the patch.
+The first command verifies the complete stock host contract without writing. The patcher then validates every planned transformation before it writes any file; the final command verifies the patched contract. It accepts only `prime-agent@0.9.1`, is idempotent, and stops instead of guessing when the host differs. Nothing runs automatically during package installation. Reinstalling or updating Prime Agent can overwrite the patch, in which case rerun all three commands.
+
+The package carries the exact upstream 0.9.1 runtime tarballs because matching registry packages are not published. This prevents npm from silently resolving an incompatible peer, though the first `npx` download can be larger than usual.
 
 ### 2. Install Prime Context from npm
 
 ```bash
-prime-agent package install npm:prime-agent-context@8.1.1
+prime-agent package install npm:prime-agent-context@9.1.0
 ```
 
 Start a new Prime Agent session. Prime Context is enabled by default.
@@ -209,7 +131,7 @@ flowchart LR
     C --> E[Observation broker]
     D --> E
     E --> F[Immutable exchange views]
-    G[Task anchor and workflow state] --> H[Purpose-aware projector]
+    G[Descriptive task snapshot] --> H[Purpose-aware projector]
     F --> H
     H -->|model_context| I[Compact provider view]
     D -->|read / search / recall| J[Bounded recovery]
@@ -221,7 +143,7 @@ flowchart LR
 
 Prime Context listens to Prime Agent's public session, model, turn, tool, compaction, and tree hooks. It records the actual tool name, arguments, result shape, completion order, workspace mutation, validation identity, and outcome.
 
-Parallel tools are admitted in assistant source order after their results are complete. Direct IPython filesystem writes and edit tools advance a workspace revision so old validation cannot be treated as current.
+Parallel tools are admitted in assistant source order after their results are complete. Direct persistent-REPL filesystem writes, native `bash()` mutations, and edit tools advance a workspace revision so old validation cannot be treated as current.
 
 ### 2. Archive large observations
 
@@ -250,33 +172,38 @@ Search: prime_context action=search id=obs_01... query="AssertionError"
 
 Raw session entries are not rewritten. Immediately before a provider request, Prime Context builds a temporary purpose-aware view:
 
-- completed exchanges use frozen projections;
-- unchanged tool output stays compact;
-- active recovery evidence is included only while useful;
-- supported images are shown once and later replaced with descriptors;
-- volatile state stays near the prompt tail;
-- old raw prefixes can become bounded folds when context pressure requires it.
+- finalized exchanges use one installed fixed view;
+- unchanged entry prefixes reuse the same projection only within the same semantic epoch;
+- recovered text and supported images remain literal persistent evidence;
+- sparse task updates stay near the prompt tail;
+- Prime Agent owns compaction summaries and tree summaries;
+- the patched host caches the next-request total across the effective system prompt, active tools, and the identical `budget` projection.
 
-This separation keeps persistence faithful while letting model context remain compact and cache-friendly.
+This separation keeps persistence faithful while letting model context remain compact and cache-friendly. Prime Context does not generate lossy history folds.
 
 ### 4. Preserve the task through long sessions
 
-Prime Context stores hidden, typed control messages for:
+Prime Context stores a bounded descriptive `TaskSnapshotV2` with:
 
 - the current objective and task identity;
-- requirements and workspace revisions;
-- monotonic requirements lock;
-- latest and largest cumulative validation suites;
-- focus, open items, completed items, and pinned evidence;
-- readiness to finish.
+- explicit user constraints;
+- the current focus and open items;
+- pinned evidence and actionable observations;
+- concrete artifact paths.
 
-Compaction and branch changes rebuild the provider view from persisted state instead of reconstructing the task from fragments.
+The snapshot records facts. It does not infer completion, readiness, gates, or a prescriptive plan. Compaction and branch changes rebuild the provider view from persisted state instead of reconstructing the task from fragments.
 
 ### 5. Recover exact evidence only when needed
 
-The model receives a `prime_context` tool with bounded `list`, `read`, `search`, `inspect`, `recall`, `status`, and `update` actions. Recovery is scoped to the active task or goal and expires when it is no longer useful.
+The model receives a `prime_context` tool with bounded `list`, `read`, `search`, `inspect`, `recall`, `status`, and `update` actions. Recovery is scoped to the active task or goal. Returned text and images are direct message content, so later turns can use the evidence without a transient lease.
 
 Human operators can use the matching `/pc` commands below.
+
+### 6. Route native skills and optional auxiliary work
+
+Prime Agent discovers `<libraryPath>/skills` as native skills. At `session_start`, Prime Context also loads one frozen routing catalog from the same configured library. Deterministic high-confidence matches inject at most two already-loaded procedures and make no model call. Ambiguous or genuinely complex starts can request one utility-gated scout completion, and the result is consumed directly by the same system prompt. Rare high-pressure large observations may use one semantic distillation call. A confirmed exact repeat may use one bounded stall-recovery hint; deterministic fallback remains available.
+
+`/pc learn --topic <text> [--from <session-file>]...` compiles bounded selected episodes with one completion. Without `--from` it uses the current selected branch. With `--from` it uses only the named JSONL session files. It can write at most one validated current pair under `patterns/<name>.md` and `skills/<name>/SKILL.md`. With automatic learning enabled, one nonblocking compile is eligible only after authoritative tool feedback plus a strong reuse signal. The active session keeps its frozen catalog; run `/reload` or start a new session to activate the change. There is no retry, repair, review, scoring, or append-only proposal history.
 
 ## Global system prompt policy
 
@@ -325,7 +252,7 @@ Violation of this rule is considered a failure. Re-plan and ship the real featur
 
 | Command | Purpose |
 |---|---|
-| `/pc status` | Show mode, workflow revisions, readiness, archive totals, projection bytes, recovery, folds, and token/cache metrics. |
+| `/pc status` | Show mode, task state, archive totals, projection bytes, recovery, and token/cache metrics. |
 | `/pc list [limit]` | List recent archived observations. |
 | `/pc read <id> [start:end]` | Read a bounded line range from an observation. |
 | `/pc search <id\|all> <text>` | Search one observation or the active archive using fixed text. |
@@ -336,6 +263,7 @@ Violation of this rule is considered a failure. Re-plan and ship the real featur
 | `/pc pin <id>` / `/pc unpin <id>` | Keep or release important evidence in the task snapshot. |
 | `/pc mode on\|off` | Enable or disable context projection for the current session. |
 | `/pc cleanup current` | Remove only the current session's Prime Context archives. |
+| `/pc learn --topic <text> [--from <session-file>]...` | Compile at most one current native pattern/skill pair from this session. |
 | `/pc doctor` | Show configuration warnings and extension health. |
 
 Commands remain available while projection mode is off.
@@ -354,7 +282,13 @@ Prime Context works with no configuration. Optional JSON files are loaded in thi
   "enabled": true,
   "minTextBytes": 24576,
   "capsuleMaxBytes": 6144,
-  "readMaxBytes": 65536
+  "readMaxBytes": 65536,
+  "auxiliaryMode": "utility-gated",
+  "auxiliaryModel": null,
+  "libraryPath": ".prime/agent/prime-context/knowledge",
+  "skillBudgetTokens": 800,
+  "learningModel": null,
+  "autoLearn": "utility-gated"
 }
 ```
 
@@ -364,6 +298,12 @@ Prime Context works with no configuration. Optional JSON files are loaded in thi
 | `minTextBytes` | `24576` | Text size at which archive/capsule handling becomes eligible. Set `0` to admit all text through the broker. |
 | `capsuleMaxBytes` | `6144` | Maximum capsule budget. Values below `512` are rejected. |
 | `readMaxBytes` | `65536` | Human `/pc` read budget and upper bound for recovery. Model-facing recovery remains separately bounded. |
+| `auxiliaryMode` | `"utility-gated"` | Permit bounded auxiliary work only when a deterministic utility gate accepts it; use `"off"` for zero auxiliary calls. |
+| `auxiliaryModel` | `null` | Optional `provider/model` selector for auxiliary work. `null` uses the current registered model. |
+| `libraryPath` | `".prime/agent/prime-context/knowledge"` | Native pattern/skill library, relative to the project unless absolute. |
+| `skillBudgetTokens` | `800` | Total deterministic native-skill injection budget. |
+| `learningModel` | `null` | Model for `/pc learn`; falls back to `auxiliaryModel`, then the current model. |
+| `autoLearn` | `"utility-gated"` | Permit one nonblocking post-task compile only after authoritative tool feedback plus a strong reuse signal; use `"off"` to disable it. |
 
 Invalid values fall back to defaults and are reported once by `/pc doctor`.
 
@@ -399,9 +339,23 @@ prime-agent package remove npm:prime-agent-context
 
 Uninstalling does not delete existing archives.
 
+## Interim 9.1.0 benchmark evidence
+
+Prime Context 9.1.0 was compared directly with the locally installed 8.1.1 release on one frozen random sample of 12 tasks from the new hermetic Python 3.12 suite. Both arms used `openai-codex/gpt-5.6-sol` at medium effort, isolated hosts, identical neutral tools, and no more than six concurrent attempts.
+
+| Measure | Local 8.1.1 | New 9.1.0 |
+|---|---:|---:|
+| Selected strict passes | 9/12 | **10/12** |
+| Primary strict passes | 8/12 | **9/12** |
+| Selected mean progress | 4.0833 | **4.2500** |
+
+On the nine matched strict pairs, 9.1.0 cut provider tokens by **49.6%**, agent time by **31.7%**, and API cost by **31.8%**. Including every retained primary and diagnostic retry, it still used **36.0% fewer tokens**, **27.4% less time**, and **26.4% less cost**. No significant new-version regression was found, so no result-invalidating product fix was needed.
+
+This is strong release evidence, not a claim of a finished benchmark standard. The Python suite replaces the retired Docker/synthetic protocol, and its reference points have changed. Earlier benchmark numbers remain useful as historical evidence of the architecture's direction, but they must not be compared directly with this interim result. See the [9.1.0 release report](benchmarks/RELEASE-9.1.0.md) and [benchmark protocol](benchmarks/python-realworld-30/README.md).
+
 ## Prime Agent compatibility
 
-Prime Context 8.1.1 targets **Prime Agent 0.8.1 with the included host compatibility patch**. The stock 0.8.1 extension ABI is not sufficient for the full projection pipeline; TypeScript declaration augmentation alone does not add runtime hooks.
+Prime Context 9.1.0 targets **Prime Agent 0.9.1 with the included host compatibility patch**. The stock 0.9.1 extension ABI is not sufficient for the full projection pipeline; TypeScript declaration augmentation alone does not add runtime hooks.
 
 | Prime Agent behavior | Prime Context support on the patched host |
 |---|---|
@@ -414,48 +368,6 @@ Prime Context 8.1.1 targets **Prime Agent 0.8.1 with the included host compatibi
 
 Autonomous quality-gate commands run as Prime Agent host subprocesses rather than model tools. Their failure text reaches the next continuation, but their output and side effects are not direct Prime Context observations. Prefer read-only autonomous gates such as tests or checks.
 
-## Reproduce the benchmark
-
-The published comparison used the retained runner and all 30 task IDs, but deliberately disabled the runner's external session-policy mount for both variants. The temporary launcher below changes no repository file:
-
-```bash
-cat >/tmp/prime-context-all30-no-agents.py <<'PY'
-from importlib.util import module_from_spec, spec_from_file_location
-from pathlib import Path
-import sys
-
-runner_path = Path.cwd() / "benchmarks" / "vanilla-current.py"
-spec = spec_from_file_location("pc_all30_no_agents", runner_path)
-runner = module_from_spec(spec)
-assert spec.loader is not None
-spec.loader.exec_module(runner)
-original = runner.major.prepare_variant
-
-def without_external_agents(name, output, image_runtime, session_policy):
-    runtime = original(name, output, image_runtime, session_policy)
-    agents_file = runtime.get("agents_file")
-    if agents_file is not None:
-        Path(agents_file).unlink(missing_ok=True)
-    runtime["agents_file"] = None
-    return runtime
-
-runner.major.prepare_variant = without_external_agents
-runner.TIMEOUT_SECONDS = 1200
-raise SystemExit(runner.main())
-PY
-
-python3 /tmp/prime-context-all30-no-agents.py \
-  --round all30-no-agents \
-  --tasks "$(seq -s, 1 30)" \
-  --output .benchmark-runs/all30-no-agents
-```
-
-After all 60 initial jobs finish, rerun every initially strict-failed task/variant arm exactly once with the same images, 1,200-second deadline, four-job limit, and context isolation. Retain both attempts for disclosure, but use only the strict-passing retry result in final comparisons and exclude failed attempts from comparative metrics.
-
-This launches 60 isolated Docker jobs, retains completed evidence, enforces the 1,200-second deadline from initial instruction delivery, and never exceeds four active jobs. Both variants receive the same Prime Agent 0.8.1 host patch. `vanilla prime-agent` has no package, custom prompt overlay, or `AGENTS.md`; `prime-context 8.1.1` loads `/opt/prime-context` and therefore includes its shipped global system policy. Model use can incur provider charges.
-
-See [`benchmarks/README.md`](benchmarks/README.md) for the corpus and runner internals, and [`COMPREHENSIVE_BENCHMARK.md`](COMPREHENSIVE_BENCHMARK.md) for the exact published methodology and results.
-
 ## Project structure
 
 | Path | Responsibility |
@@ -465,13 +377,14 @@ See [`benchmarks/README.md`](benchmarks/README.md) for the corpus and runner int
 | `src/intent.ts` | Execution-aware intent, resources, mutations, and validation identity. |
 | `src/archive.ts` / `src/envelope.ts` | Streaming archives, multipart observations, media metadata, and exact recovery. |
 | `src/broker.ts` / `src/capsule.ts` | Pass-through, capsules, deltas, and bounded diagnostics. |
-| `src/projection.ts` | Provider-facing projections, recovery leases, media views, and folds. |
-| `src/runtime.ts` / `src/workflow.ts` | Task contract, revisions, validation, lock, and readiness. |
-| `src/context.ts` / `src/state.ts` | Durable hidden anchors, checkpoints, configuration, and snapshots. |
+| `src/projection.ts` | Stable, purpose-aware provider projections and fixed media views. |
+| `src/runtime.ts` / `src/workflow.ts` | Branch task selection and canonical progress effects. |
+| `src/context.ts` / `src/state.ts` | Sparse descriptive task state, hidden anchors, and configuration. |
+| `src/skills.ts` / `src/learn.ts` | Frozen native-skill routing and current-pair compilation. |
+| `src/auxiliary.ts` | Bounded utility gating, model resolution, parsers, and one-shot execution. |
 | `src/tool.ts` / `src/commands.ts` | Model recovery API and `/pc` operator commands. |
 | `src/policy.ts` | Bundled global system-prompt policy. |
-| `scripts/patch-prime-agent.mjs` | Version-pinned Prime Agent 0.8.1 host contract patch. |
-| `benchmarks/` | Strict paired runners and deterministic 30-task fixtures. |
+| `scripts/patch-prime-agent.mjs` | Version-pinned Prime Agent 0.9.1 host contract patch. |
 
 ## Development
 
@@ -485,23 +398,25 @@ npm run build
 npm run package:smoke -- --shell bash
 ```
 
-The current suite contains **106 tests**. Package smoke installs the packed extension into an isolated Prime Agent 0.8.1 environment and checks loading and the public extension ABI. The strict Docker benchmark separately applies the included host patch and exercises the full projection contract.
+The current suite contains **106 tests**. Package smoke copies a pristine repository-local or explicit `PRIME_AGENT_ROOT` host into a disposable environment, then checks the packed extension, packaged patcher, and public extension ABI without mutating the source host.
 
 ## Limitations
 
-- Full 8.1.1 behavior requires the included Prime Agent 0.8.1 host patch; the stock host does not emit every required runtime surface.
+- Full 9.1.0 behavior requires the included Prime Agent 0.9.1 host patch; the stock host does not emit every required runtime surface.
+- This is an interim release: the replacement benchmark and its reference points are still being refined, so retired benchmark scores are historical rather than directly comparable.
 - Capsules use generic output heuristics rather than a parser for every possible tool.
 - Most tools expose only their public result payload; Bash can additionally use its typed complete-output source when Prime Agent provides it.
 - Model-facing archive recovery is intentionally bounded and may require another page.
 - Archives are local and require explicit cleanup.
 - Autonomous host gate execution is not currently emitted as a Prime Context tool observation.
-- Benchmark results are version-, model-, task-, and timeout-specific.
 
 ## Release and links
 
 - npm: [prime-agent-context](https://www.npmjs.com/package/prime-agent-context)
 - source: [BaseModelAI/prime-context](https://github.com/BaseModelAI/prime-context)
 - changelog: [CHANGELOG.md](CHANGELOG.md)
+- interim benchmark report: [benchmarks/RELEASE-9.1.0.md](benchmarks/RELEASE-9.1.0.md)
+- Prime Agent 0.9.1 migration: [PRIME_AGENT_0.9.1_MIGRATION.md](PRIME_AGENT_0.9.1_MIGRATION.md)
 - license: [MIT](LICENSE)
 
 ---

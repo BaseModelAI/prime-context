@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { createRequire } from "node:module";
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import type { PrimeContextActions } from "./tool.js";
 import { formatObservationList, formatSnapshotUpdate, formatStatus } from "./tool.js";
 
@@ -18,6 +18,7 @@ const USAGE = [
   "/pc unpin <observation-id>",
   "/pc mode on|off",
   "/pc cleanup current",
+  "/pc learn --topic <text> [--from <session-file>]...",
   "/pc doctor",
 ].join("\n");
 
@@ -65,7 +66,57 @@ function parseRange(value: string | undefined): { startLine: number; endLine: nu
   return { startLine, endLine };
 }
 
-export function registerPrimeContextCommands(pi: ExtensionAPI, actions: PrimeContextActions): void {
+export interface LearnCommandRequest {
+  topic: string;
+  from: readonly string[];
+}
+
+function tokenizeLearnArgs(raw: string): string[] {
+  const tokens: string[] = [];
+  const pattern = /"((?:\\.|[^"\\])*)"|'((?:\\.|[^'\\])*)'|([^\s]+)/gu;
+  let match: RegExpExecArray | null;
+  let consumed = 0;
+  while ((match = pattern.exec(raw)) !== null) {
+    if (raw.slice(consumed, match.index).trim()) throw new Error("Usage: /pc learn --topic <text> [--from <session-file>]...");
+    const token = match[1] ?? match[2] ?? match[3] ?? "";
+    tokens.push(token.replace(/\\([\\"'])/gu, "$1"));
+    consumed = pattern.lastIndex;
+  }
+  if (raw.slice(consumed).trim()) throw new Error("Usage: /pc learn --topic <text> [--from <session-file>]...");
+  return tokens;
+}
+
+export function parseLearnCommand(raw: string): LearnCommandRequest {
+  const tokens = tokenizeLearnArgs(raw);
+  let topic: string | undefined;
+  const from: string[] = [];
+  for (let index = 0; index < tokens.length; index += 1) {
+    const flag = tokens[index];
+    const value = tokens[index + 1];
+    if ((flag !== "--topic" && flag !== "--from") || !value || value.startsWith("--")) {
+      throw new Error("Usage: /pc learn --topic <text> [--from <session-file>]...");
+    }
+    if (flag === "--topic") {
+      if (topic !== undefined) throw new Error("/pc learn accepts exactly one --topic value.");
+      topic = value.trim();
+    } else {
+      from.push(value);
+    }
+    index += 1;
+  }
+  if (!topic) throw new Error("Usage: /pc learn --topic <text> [--from <session-file>]...");
+  return { topic, from };
+}
+
+export interface PrimeContextCommandOptions {
+  learn?: (request: LearnCommandRequest, ctx: ExtensionCommandContext) => Promise<string>;
+}
+
+export function registerPrimeContextCommands(
+  pi: ExtensionAPI,
+  actions: PrimeContextActions,
+  options: PrimeContextCommandOptions = {},
+): void {
   pi.registerCommand("pc", {
     description: "Page archived output and maintain the Prime Context task snapshot",
     handler: async (rawArgs, ctx) => {
@@ -157,6 +208,12 @@ export function registerPrimeContextCommands(pi: ExtensionAPI, actions: PrimeCon
               `Removed ${removed} archived observation${removed === 1 ? "" : "s"} from the current session.`,
               "info",
             );
+            return;
+          }
+          case "learn": {
+            if (!options.learn) throw new Error("Knowledge compilation is not available.");
+            const learnArgs = args.slice(command.length).trim();
+            ctx.ui.notify(await options.learn(parseLearnCommand(learnArgs), ctx), "info");
             return;
           }
           case "doctor": {

@@ -7,4 +7,5 @@ __pycache__/
 .coverage
 coverage/
 .benchmark-runs/
+benchmarks/python-realworld-30/results/
 .DS_Store

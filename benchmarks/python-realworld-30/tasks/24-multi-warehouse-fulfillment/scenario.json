@@ -1,0 +1,41 @@
+{
+  "schema": "prime-context.python-realworld-task/v1",
+  "id": 24,
+  "slug": "multi-warehouse-fulfillment",
+  "title": "Multi-Warehouse Order Fulfillment",
+  "pressure": "M",
+  "timeout_seconds": 1200,
+  "editable_paths": [
+    "solution/",
+    "output/"
+  ],
+  "initial_prompt": "Read TASK.md and complete the requested workflow using only the Python standard library.",
+  "stages": [
+    {
+      "id": "initial",
+      "inject": "visible/",
+      "message": "Read TASK.md and complete the requested workflow using only the Python standard library.",
+      "compact_after": true
+    },
+    {
+      "id": "warehouse-outage",
+      "inject": "stages/warehouse-outage/",
+      "message": "inputs/warehouse_outage.json removes one warehouse from new allocations. Preserve rows already marked shipped, release only unshipped reservations from that warehouse, and create output/allocation_changes.csv. Preserve existing reservations at every other warehouse. Replan all other unfilled quantities in the original order priority. The released warehouse's stock remains in inventory_after.csv but cannot receive a new reservation. Before replacing allocations.csv, compare the prior plan with the new plan after aggregating by order_id, line_id, warehouse_id, and status. Write allocation_changes.csv with header stage,order_id,line_id,warehouse_id,status,before_qty,after_qty,delta_qty; use stage=warehouse_outage, include only nonzero changes, and sort by order_id,line_id,warehouse_id,status.",
+      "compact_after": false
+    },
+    {
+      "id": "expedite",
+      "inject": "stages/expedite/",
+      "message": "inputs/expedite.csv raises selected unshipped orders to urgent. Replan the remaining pool under the same objective without changing shipped lines. Apply urgent priority before due date and order ID, retain the outage restriction, and rebuild new reservations from the remaining stock. Before replacing allocations.csv, compare the outage plan with the expedited plan using the same aggregated key. Preserve the existing warehouse_outage rows in allocation_changes.csv and append nonzero rows with stage=expedite. The final file header remains stage,order_id,line_id,warehouse_id,status,before_qty,after_qty,delta_qty and is ordered first by stage (warehouse_outage, then expedite), then order_id,line_id,warehouse_id,status.",
+      "compact_after": false
+    }
+  ],
+  "judge_command": [
+    "python3.12",
+    "-E",
+    "-S",
+    "judge.py",
+    "--workspace",
+    "{workspace}"
+  ]
+}

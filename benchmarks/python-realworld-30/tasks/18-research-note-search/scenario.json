@@ -1,0 +1,36 @@
+{
+  "schema": "prime-context.python-realworld-task/v1",
+  "id": 18,
+  "slug": "research-note-search",
+  "title": "Research-Note Search and Deduplication",
+  "pressure": "L",
+  "timeout_seconds": 900,
+  "editable_paths": [
+    "solution/",
+    "workspace/",
+    "output/"
+  ],
+  "initial_prompt": "Read TASK.md and complete the requested workflow using only the Python standard library.",
+  "stages": [
+    {
+      "id": "initial",
+      "inject": "visible/",
+      "message": "Read TASK.md and complete the requested workflow using only the Python standard library.",
+      "compact_after": false
+    },
+    {
+      "id": "update",
+      "inject": "stages/update/",
+      "message": "`inputs/notes-new/` contains 600 new and edited notes. Add an `update` command that refreshes changed paths, removes deleted paths listed in `inputs/deleted.txt`, and preserves deterministic search results. The command is `python3.12 -E -S -m solution.notes_index update workspace/notes.db inputs/notes-new inputs/deleted.txt output/duplicates.csv`. Each recursive `.md` path relative to `notes-new` is the database path to insert or replace. Each nonempty line of `deleted.txt` is a database path to remove; the fixture does not list a path in both places. Keep the stored stop words and rewrite the duplicate report from the complete post-update database.",
+      "compact_after": false
+    }
+  ],
+  "judge_command": [
+    "python3.12",
+    "-E",
+    "-S",
+    "judge.py",
+    "--workspace",
+    "{workspace}"
+  ]
+}

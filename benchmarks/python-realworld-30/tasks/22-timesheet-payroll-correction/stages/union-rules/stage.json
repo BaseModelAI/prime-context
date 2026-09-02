@@ -1,0 +1,6 @@
+{
+  "id": "union-rules",
+  "inject": "stages/union-rules/",
+  "message": "inputs/union_rules.json now applies to group U: hours after 8 in a local day pay 1.5x and after 12 pay 2x; weekly overtime does not stack. Keep the night differential additive on base pay. Recalculate all files and retain correction_summary.csv.",
+  "compact_after": false
+}

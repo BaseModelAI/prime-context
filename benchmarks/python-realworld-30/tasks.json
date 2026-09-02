@@ -1,0 +1,215 @@
+{
+  "schema": "prime-context.python-realworld-suite/v1",
+  "tasks": [
+    {
+      "id": 1,
+      "slug": "expense-reconciliation",
+      "title": "Household Expense Reconciliation",
+      "pressure": "N",
+      "scenario": "tasks/01-expense-reconciliation/scenario.json"
+    },
+    {
+      "id": 2,
+      "slug": "calendar-merge",
+      "title": "Calendar Merge and Conflict Report",
+      "pressure": "L",
+      "scenario": "tasks/02-calendar-merge/scenario.json"
+    },
+    {
+      "id": 3,
+      "slug": "mailbox-cleanup",
+      "title": "Mailbox Thread Cleanup",
+      "pressure": "L",
+      "scenario": "tasks/03-mailbox-cleanup/scenario.json"
+    },
+    {
+      "id": 4,
+      "slug": "invoice-payment-matching",
+      "title": "Invoice and Payment Matching",
+      "pressure": "N",
+      "scenario": "tasks/04-invoice-payment-matching/scenario.json"
+    },
+    {
+      "id": 5,
+      "slug": "inventory-reorder",
+      "title": "Inventory Reorder and Transfer Plan",
+      "pressure": "L",
+      "scenario": "tasks/05-inventory-reorder/scenario.json"
+    },
+    {
+      "id": 6,
+      "slug": "volunteer-shift-rescheduling",
+      "title": "Volunteer Shift Rescheduling",
+      "pressure": "M",
+      "scenario": "tasks/06-volunteer-shift-rescheduling/scenario.json"
+    },
+    {
+      "id": 7,
+      "slug": "utility-anomaly-report",
+      "title": "Utility Consumption Anomaly Report",
+      "pressure": "N",
+      "scenario": "tasks/07-utility-anomaly-report/scenario.json"
+    },
+    {
+      "id": 8,
+      "slug": "travel-itinerary-repair",
+      "title": "Travel Itinerary Repair",
+      "pressure": "L",
+      "scenario": "tasks/08-travel-itinerary-repair/scenario.json"
+    },
+    {
+      "id": 9,
+      "slug": "support-sla-event-analysis",
+      "title": "Support SLA Event Analysis",
+      "pressure": "N",
+      "scenario": "tasks/09-support-sla-event-analysis/scenario.json"
+    },
+    {
+      "id": 10,
+      "slug": "local-supplier-catalog-crawler",
+      "title": "Local Supplier Catalog Crawler",
+      "pressure": "N",
+      "scenario": "tasks/10-local-supplier-catalog-crawler/scenario.json"
+    },
+    {
+      "id": 11,
+      "slug": "sqlite-crm-migration",
+      "title": "SQLite CRM Migration",
+      "pressure": "L",
+      "scenario": "tasks/11-sqlite-crm-migration/scenario.json"
+    },
+    {
+      "id": 12,
+      "slug": "webhook-receiver-replay",
+      "title": "Webhook Receiver and Replay",
+      "pressure": "M",
+      "scenario": "tasks/12-webhook-receiver-replay/scenario.json"
+    },
+    {
+      "id": 13,
+      "slug": "cross-service-incident-timeline",
+      "title": "Cross-Service Incident Timeline",
+      "pressure": "H",
+      "scenario": "tasks/13-cross-service-incident-timeline/scenario.json"
+    },
+    {
+      "id": 14,
+      "slug": "layered-configuration-upgrade",
+      "title": "Layered Configuration Upgrade",
+      "pressure": "N",
+      "scenario": "tasks/14-layered-configuration-upgrade/scenario.json"
+    },
+    {
+      "id": 15,
+      "slug": "backup-restore-planner",
+      "title": "Backup Restore Planner",
+      "pressure": "N",
+      "scenario": "tasks/15-backup-restore-planner/scenario.json"
+    },
+    {
+      "id": 16,
+      "slug": "markdown-kb-repair",
+      "title": "Markdown Knowledge-Base Repair",
+      "pressure": "L",
+      "scenario": "tasks/16-markdown-kb-repair/scenario.json"
+    },
+    {
+      "id": 17,
+      "slug": "contract-clause-index",
+      "title": "Contract Clause Index and Comparison",
+      "pressure": "M",
+      "scenario": "tasks/17-contract-clause-index/scenario.json"
+    },
+    {
+      "id": 18,
+      "slug": "research-note-search",
+      "title": "Research-Note Search and Deduplication",
+      "pressure": "L",
+      "scenario": "tasks/18-research-note-search/scenario.json"
+    },
+    {
+      "id": 19,
+      "slug": "sensor-resampling",
+      "title": "Sensor Resampling and Gap Report",
+      "pressure": "N",
+      "scenario": "tasks/19-sensor-resampling/scenario.json"
+    },
+    {
+      "id": 20,
+      "slug": "time-of-use-energy-billing",
+      "title": "Time-of-Use Energy Billing",
+      "pressure": "M",
+      "scenario": "tasks/20-time-of-use-energy-billing/scenario.json"
+    },
+    {
+      "id": 21,
+      "slug": "wav-interview-chapters",
+      "title": "WAV Interview Cleanup and Chapters",
+      "pressure": "L",
+      "scenario": "tasks/21-wav-interview-chapters/scenario.json"
+    },
+    {
+      "id": 22,
+      "slug": "timesheet-payroll-correction",
+      "title": "Timesheet and Payroll Correction",
+      "pressure": "M",
+      "scenario": "tasks/22-timesheet-payroll-correction/scenario.json"
+    },
+    {
+      "id": 23,
+      "slug": "procurement-three-way-match",
+      "title": "Procurement Three-Way Match",
+      "pressure": "M",
+      "scenario": "tasks/23-procurement-three-way-match/scenario.json"
+    },
+    {
+      "id": 24,
+      "slug": "multi-warehouse-fulfillment",
+      "title": "Multi-Warehouse Order Fulfillment",
+      "pressure": "M",
+      "scenario": "tasks/24-multi-warehouse-fulfillment/scenario.json"
+    },
+    {
+      "id": 25,
+      "slug": "library-circulation-reconstruction",
+      "title": "Library Circulation Reconstruction",
+      "pressure": "L",
+      "scenario": "tasks/25-library-circulation-reconstruction/scenario.json"
+    },
+    {
+      "id": 26,
+      "slug": "school-meal-allergen-stock-plan",
+      "title": "School Meal Allergen and Stock Plan",
+      "pressure": "L",
+      "scenario": "tasks/26-school-meal-allergen-stock-plan/scenario.json"
+    },
+    {
+      "id": 27,
+      "slug": "clinic-appointment-rescheduling",
+      "title": "Clinic Appointment Rescheduling",
+      "pressure": "H",
+      "scenario": "tasks/27-clinic-appointment-rescheduling/scenario.json"
+    },
+    {
+      "id": 28,
+      "slug": "permit-intake-status-pipeline",
+      "title": "Permit Intake and Status Pipeline",
+      "pressure": "H",
+      "scenario": "tasks/28-permit-intake-status-pipeline/scenario.json"
+    },
+    {
+      "id": 29,
+      "slug": "legacy-budgeting-cli-repair",
+      "title": "Legacy Budgeting CLI Repair",
+      "pressure": "M",
+      "scenario": "tasks/29-legacy-budgeting-cli-repair/scenario.json"
+    },
+    {
+      "id": 30,
+      "slug": "helpdesk-service-upgrade",
+      "title": "Helpdesk Service Upgrade",
+      "pressure": "H",
+      "scenario": "tasks/30-helpdesk-service-upgrade/scenario.json"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "schema": "prime-context.python-realworld-task/v1",
+  "id": 3,
+  "slug": "mailbox-cleanup",
+  "title": "Mailbox Thread Cleanup",
+  "pressure": "L",
+  "timeout_seconds": 900,
+  "editable_paths": [
+    "solution/",
+    "output/"
+  ],
+  "initial_prompt": "Read TASK.md and complete the requested workflow using only the Python standard library.",
+  "stages": [
+    {
+      "id": "initial",
+      "inject": "visible/",
+      "message": "Read TASK.md and complete the requested workflow using only the Python standard library.",
+      "compact_after": false
+    },
+    {
+      "id": "archive",
+      "inject": "stages/archive/",
+      "message": "Please include `inputs/archive.mbox` as a second input. It contains forwarded duplicates and several messages with missing or invalid dates. Add positional input support for multiple mbox files. Unknown dates should remain blank in CSV and sort after known dates within a thread.",
+      "compact_after": false
+    }
+  ],
+  "judge_command": [
+    "python",
+    "judge.py",
+    "--workspace",
+    "{workspace}"
+  ]
+}

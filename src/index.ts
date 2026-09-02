@@ -1,11 +1,13 @@
-import { open as openFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { existsSync, writeFileSync } from "node:fs";
+import { open as openFile, readFile, stat } from "node:fs/promises";
+import { dirname, join, resolve } from "node:path";
 import { adaptiveMinTextBytes, utf8Bytes } from "./capsule.js";
 import {
   isBashToolResult,
   isEditToolResult,
   isIpythonToolResult,
   SessionManager,
+  type BeforeAgentStartEvent,
   type ExtensionAPI,
   type ExtensionContext,
   type ToolResultEvent,
@@ -25,42 +27,72 @@ import {
   type ResolvedArchiveText,
 } from "./archive.js";
 import { sourceBytes, summarizePartSource, type StreamPartSource } from "./envelope.js";
-import { registerPrimeContextCommands } from "./commands.js";
-import { boundedResultTextStats, ExchangeTracker } from "./exchange.js";
-import { adaptToolIntent, classifyValidationCommand, collectFactualOutcome, jsonBytes, type SuiteIdentity } from "./intent.js";
+import { registerPrimeContextCommands, type LearnCommandRequest } from "./commands.js";
 import {
-  appendProviderTextMessage,
-  deterministicFastSummary,
+  beginAuxiliaryTask,
+  beginAuxiliaryTurn,
+  buildSemanticDistillPrompt,
+  buildStallRecoveryPrompt,
+  buildTaskScoutPrompt,
+  createAuxiliaryRuntime,
+  createModelResolutionHooks,
+  executeAuxiliaryOnce,
+  finalizeAuxiliaryTask,
+  parseSemanticCapsuleOutput,
+  parseStallRecoveryOutput,
+  parseTaskScoutOutput,
+  renderSemanticCapsule,
+  renderStallRecoveryHint,
+  renderTaskScoutSupplement,
+  resolveAuxiliaryModel,
+  type AuxiliaryKind,
+  type AuxiliaryRuntime,
+  type CompactTaskPacket,
+} from "./auxiliary.js";
+import { runKnowledgeCompiler, type KnowledgeCompilerCall, type TaskOutcome } from "./learn.js";
+import { completeSimple } from "@earendil-works/pi-ai";
+import type { AgentMessage } from "@earendil-works/pi-agent-core";
+import {
+  buildExchangeFacts,
+  boundedResultTextStats,
+  ExchangeTracker,
+  type ExchangeFacts,
+  type PendingExchange,
+} from "./exchange.js";
+import { adaptToolIntent, collectFactualOutcome, jsonBytes } from "./intent.js";
+import {
+  buildProviderRepresentation,
   fixedExchangeBudgetBytes,
-  projectFoldCandidateMessages,
+  projectBranchCandidateMessages,
   projectModelContext,
-  selectFoldGeneration,
   type ContextEntryRef,
   type ContextPurpose,
   type FixedExchangeView,
-  type FoldCandidateEntry,
+  type ProjectionCandidateEntry,
   type ProjectedImageRef,
-  type RecoveryProjectionLease,
+  type ProviderProjectionCache,
 } from "./projection.js";
 import {
-  createTaskRuntime,
   deriveTaskSelection,
   explicitSteeringPaths,
-  previewTaskContract,
-  updateTaskContract,
-  type AcceptanceGateClassifier,
   type ActiveGoalSelection,
-  type SteeringEntry,
-  type TaskRuntimeV2,
   type TaskSelection,
 } from "./runtime.js";
-import { deriveReadiness, reduceTurn, type WorkflowReadiness } from "./workflow.js";
+import {
+  EXACT_REPEAT_HINT,
+  applyProgressEffects,
+  createExactRepeatHintState,
+  detectStallSignature,
+  hasStrongExactRepeat,
+  observeExactRepeatHint,
+  resetExactRepeatHintState,
+  type ExactRepeatHintState,
+} from "./workflow.js";
 import {
   persistentControlMessage,
   renderPrimeContextAnchor,
-  renderPrimeContextFold,
-  renderPrimeContextState,
-  taskAnchorHasDurableState,
+  renderPrimeContextTask,
+  renderPrimeContextUpdate,
   type ContextMessageLike,
   type RenderedTaskAnchor,
   type TaskAnchorInput,
@@ -68,15 +100,12 @@ import {
 import {
   DEFAULT_CONFIG,
   PRIME_CONTEXT_ANCHOR_TYPE,
-  PRIME_CONTEXT_FOLD_TYPE,
-  PRIME_CONTEXT_STATE_TYPE,
-  RUNTIME_STATE_ENTRY_TYPE,
+  PRIME_CONTEXT_UPDATE_TYPE,
   SNAPSHOT_ENTRY_TYPE,
   applySnapshotChanges,
-  emptySnapshot,
+  createTaskSnapshotV2,
   latestProviderVisibleControlMessage,
-  loadLatestRuntime,
-  loadLatestSnapshot,
+  loadLatestTaskSnapshotV2,
   loadPrimeContextConfig,
   providerVisibleBranchEntries,
   storageRoot,
@@ -85,10 +114,30 @@ import {
   type ResolvedPrimeContextConfig,
   type SnapshotChanges,
   type SnapshotUpdateResult,
-  type TaskSnapshotV1,
+  type TaskSnapshotV2,
 } from "./state.js";
 import { appendPrimeContextGlobalPolicy } from "./policy.js";
 import { registerPrimeContextTool, type PrimeContextActions } from "./tool.js";
+import {
+  loadSkillLibrary,
+  renderSelectedSkillsPacket,
+  resolveSkillLibraryPath,
+  selectSkills,
+  validateSelectedSkillNames,
+  type SkillLibrarySnapshot,
+} from "./skills.js";
+
+interface UserBashEndPayload {
+  entryId: string;
+  command: string;
+  output: string;
+  isError: boolean;
+  exitCode?: number | null;
+  cancelled?: boolean;
+  truncated?: boolean;
+  fullOutputPath?: string;
+  details?: unknown;
+}
 
 interface RecallSessionHeader {
   id: string;
@@ -96,6 +145,29 @@ interface RecallSessionHeader {
   cwd: string;
   parentSession?: string;
   rlmDepth?: number;
+}
+
+async function readBoundedTextFile(path: string, maxBytes = 48 * 1024): Promise<string | undefined> {
+  let handle;
+  try {
+    handle = await openFile(path, "r");
+    const size = (await handle.stat()).size;
+    if (size <= maxBytes) return (await handle.readFile()).toString("utf8");
+    const edgeBytes = Math.floor(maxBytes / 2);
+    const head = Buffer.alloc(edgeBytes);
+    const tail = Buffer.alloc(edgeBytes);
+    const [{ bytesRead: headBytes }, { bytesRead: tailBytes }] = await Promise.all([
+      handle.read(head, 0, edgeBytes, 0),
+      handle.read(tail, 0, edgeBytes, Math.max(0, size - edgeBytes)),
+    ]);
+    return `${head.toString("utf8", 0, headBytes)}
+…
+${tail.toString("utf8", 0, tailBytes)}`;
+  } catch {
+    return undefined;
+  } finally {
+    await handle?.close().catch(() => undefined);
+  }
 }
 
 async function readRecallSessionHeader(path: string): Promise<RecallSessionHeader | undefined> {
@@ -125,47 +197,27 @@ async function readRecallSessionHeader(path: string): Promise<RecallSessionHeade
   }
 }
 
-const RECOVERY_LEASE_MAX_BYTES = 12 * 1024 * 1024;
-const RECOVERY_LEASE_TOTAL_BYTES = 24 * 1024 * 1024;
-
-function recoveryLeaseBytes(content: readonly Record<string, unknown>[]): number {
-  return content.reduce((total, block) => total + (
-    block.type === "text" && typeof block.text === "string"
-      ? Buffer.byteLength(block.text, "utf8")
-      : block.type === "image" && typeof block.data === "string"
-        ? Buffer.byteLength(block.data, "utf8")
-        : 0
-  ), 0);
-}
-
 interface RuntimeState {
   mode: PrimeContextMode;
   config: ResolvedPrimeContextConfig;
   configWarnings: string[];
+  skillLibrary: SkillLibrarySnapshot;
+  auxiliary: AuxiliaryRuntime;
+  autoLearnedTaskKeys: Set<string>;
+  autoLearnInFlight: boolean;
+  exactRepeat: ExactRepeatHintState;
+  recentAttempts: { action: string; decisiveObservation: string }[];
+  toolStartedAt: Map<string, number>;
   archive?: ObservationArchive;
-  snapshot: TaskSnapshotV1;
-  taskRuntime?: TaskRuntimeV2;
-  readiness: WorkflowReadiness;
+  taskSnapshot: TaskSnapshotV2;
   branchAnchorId?: string;
   exchanges: ExchangeTracker;
   fixedViews: Map<string, FixedExchangeView>;
-  projectedRefs: WeakMap<object, string>;
-  recoveryLeases: Map<string, RecoveryProjectionLease>;
-  recoveryUtilities: Map<string, {
-    subjectKeys: readonly string[];
-    exposedBytes: number;
-    inspectRecallHit: boolean;
-    useful: boolean;
-  }>;
+  sourceMessages: Map<string, ContextMessageLike>;
   pendingImages: Map<string, readonly ProjectedImageRef[]>;
-  consumedImageRefs: Set<string>;
-  projectedRecoveryToolCallIds: Set<string>;
-  projectedImageRefs: Set<string>;
-  lastProviderProjection?: {
-    entryCount: number;
-    lastEntryId?: string;
-    foldGeneration: number;
-  };
+  projectionEpoch: number;
+  projectionToolSetRevision?: string;
+  projectionCache: ProviderProjectionCache<ContextMessageLike>;
   sessionRecall?: {
     normalizedCwd: string;
     cwdKey: string;
@@ -177,13 +229,13 @@ interface RuntimeState {
   };
   control: {
     expectedAnchor?: RenderedTaskAnchor;
-    lastStateContent?: string;
     structuralBoundary: boolean;
     needsAnchorRefresh: boolean;
   };
   lifecycle: {
     agentRun: number;
     turnIndex?: number;
+    turnStartedAt?: number;
     selectedModelKey?: string;
     replayMetadataPagingEligible: boolean;
   };
@@ -191,16 +243,20 @@ interface RuntimeState {
 
 export const REQUIRED_HOOKS = new Set([
   "session_start",
+  "session_shutdown",
+  "resources_discover",
   "session_compact",
   "session_tree",
   "before_agent_start",
   "agent_start",
+  "agent_end",
   "turn_start",
   "model_select",
   "tool_execution_start",
   "tool_call",
   "tool_result",
   "turn_end",
+  "user_bash_end",
   "model_context",
   "message_end",
   "session_before_compact",
@@ -209,12 +265,8 @@ export const REQUIRED_HOOKS = new Set([
 
 const PENDING_IMAGE_RESULT_MAX = 64;
 const PENDING_IMAGE_PER_RESULT_MAX = 4096;
-const CONSUMED_IMAGE_REF_MAX = PENDING_IMAGE_RESULT_MAX * PENDING_IMAGE_PER_RESULT_MAX;
-
 function clearPendingImages(runtime: RuntimeState, toolCallId: string): void {
-  const previous = runtime.pendingImages.get(toolCallId) ?? [];
   runtime.pendingImages.delete(toolCallId);
-  for (const image of previous) runtime.consumedImageRefs.delete(image.ref);
 }
 
 function setPendingImages(
@@ -237,6 +289,14 @@ export function requiredHooksLoaded(hooks: ReadonlySet<string>): boolean {
 
 export function shouldArchiveToolResult(toolName: string): boolean {
   return toolName !== "prime_context";
+}
+
+export function shouldCommitExchangeArchive(exchange: Readonly<PendingExchange>, callArgumentByteLimit = 6_144): boolean {
+  return exchange.largeResult === true || exchange.admittedCapsule !== undefined ||
+    exchange.archiveSource !== undefined || exchange.frozenResultPath !== undefined ||
+    exchange.persistedResultChanged === true || exchange.persistedCanonicalResultChanged === true ||
+    (exchange.intent?.modelInputBytes ?? 0) > callArgumentByteLimit ||
+    (exchange.archiveParts ?? []).some((part) => part.kind !== "result" || !(part.mediaType ?? "").startsWith("text/"));
 }
 
 function visibleToolResultText(
@@ -322,10 +382,12 @@ export function typedObservationParts(event: ToolResultEvent): ObservationPartIn
   if (isIpythonToolResult(event)) {
     const stdout = textPart("stdout", "stdout", event.details?.stdout);
     const stderr = textPart("stderr", "stderr", event.details?.stderr);
+    const backgroundOutput = textPart("background-output", "stdout", event.details?.backgroundOutput);
     const result = textPart("result-value", "result", event.details?.result);
     const traceback = textPart("traceback", "traceback", event.details?.error?.traceback.join("\n"));
     if (stdout) parts.push(stdout);
     if (stderr) parts.push(stderr);
+    if (backgroundOutput) parts.push(backgroundOutput);
     if (result) parts.push(result);
     if (traceback) parts.push(traceback);
     const ipythonDetails = record(event.details);
@@ -429,6 +491,37 @@ function record(value: unknown): Record<string, unknown> | undefined {
   return value && typeof value === "object" ? value as Record<string, unknown> : undefined;
 }
 
+function canonicalProjectionValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonicalProjectionValue);
+  const object = record(value);
+  if (!object) return value;
+  return Object.fromEntries(
+    Object.keys(object).sort().map((key) => [key, canonicalProjectionValue(object[key])]),
+  );
+}
+
+function activeToolSetRevision(pi: ExtensionAPI): string {
+  const installed = new Map((pi.getAllTools?.() ?? []).map((tool) => [tool.name, tool] as const));
+  const activeNames = [...new Set(pi.getActiveTools?.() ?? installed.keys())].sort();
+  return JSON.stringify(activeNames.map((name) => {
+    const tool = installed.get(name);
+    return tool === undefined
+      ? { name }
+      : canonicalProjectionValue({ name, description: tool.description, parameters: tool.parameters });
+  }));
+}
+
+export function explicitUserTaskOutcome(text: string): TaskOutcome {
+  const subject = String.raw`(?:your|the|this|that)\s+(?:solution|answer|implementation|change|fix|work|task|result)`;
+  if (new RegExp(String.raw`\b${subject}\s+(?:is|was|looks)\s+(?:correct|successful|complete|good)\b|\b${subject}\s+(?:passed|succeeded|works)\b|\bconfirmed\s*:\s*(?:pass|success)\b`, "iu").test(text)) {
+    return "success";
+  }
+  if (new RegExp(String.raw`\b${subject}\s+(?:is|was|looks)\s+(?:incorrect|wrong|unsuccessful|incomplete|broken)\b|\b${subject}\s+(?:failed|does\s+not\s+work)\b|\bconfirmed\s*:\s*(?:fail(?:ure)?|error)\b`, "iu").test(text)) {
+    return "failure";
+  }
+  return "unknown";
+}
+
 function messageText(content: unknown): string {
   if (typeof content === "string") return content;
   if (!Array.isArray(content)) return "";
@@ -470,21 +563,6 @@ function scopeBranchToGoal(
   return branch.slice(goalIndex);
 }
 
-function branchUserEntries(branch: readonly BranchEntryLike[], selection: TaskSelection): SteeringEntry[] {
-  const entries: SteeringEntry[] = [];
-  let selected = selection.source === "goal";
-  for (let index = 0; index < branch.length; index += 1) {
-    const entry = branch[index];
-    const message = record(entry.message);
-    if (entry.type !== "message" || message?.role !== "user") continue;
-    const id = entry.id ?? `user:${index}`;
-    if (!selected && id === selection.rootUserEntryId) selected = true;
-    if (!selected) continue;
-    const text = messageText(message.content);
-    if (text.trim()) entries.push({ id, text });
-  }
-  return entries;
-}
 
 function taskObjective(
   branch: readonly BranchEntryLike[],
@@ -587,7 +665,6 @@ function observationRefsInProjectedMessages(messages: readonly ContextMessageLik
 function summaryObservationRefs(branch: readonly BranchEntryLike[]): string[] {
   return observationRefsFromValues(branch.flatMap((entry) => {
     if (entry.type === "compaction" || entry.type === "branch_summary") return [entry.summary];
-    if (entry.type === "custom_message" && entry.customType === PRIME_CONTEXT_FOLD_TYPE) return [entry.content];
     return [];
   }));
 }
@@ -599,7 +676,7 @@ function latestCompactionObservationRefs(branch: readonly BranchEntryLike[]): st
   return [];
 }
 
-export function branchProjectionEntries(branch: readonly BranchEntryLike[]): FoldCandidateEntry[] {
+export function branchProjectionEntries(branch: readonly BranchEntryLike[]): ProjectionCandidateEntry[] {
   return branch.flatMap((entry) => {
     if (!entry.id) return [];
     if (entry.type === "message") {
@@ -641,72 +718,6 @@ export function providerModelBranchEntries(branch: readonly BranchEntryLike[]): 
   return latestCompaction ? [latestCompaction, ...visible] : visible;
 }
 
-function branchSourceMessages(branch: readonly BranchEntryLike[]): Map<string, ContextMessageLike> {
-  return new Map(branchProjectionEntries(branch).map((entry) => [entry.entryId, entry.message]));
-}
-
-interface FoldApplication {
-  prefixEntryIds: ReadonlySet<string>;
-  foldMessageEntryId: string;
-}
-
-function resolveFoldApplication(
-  branch: readonly BranchEntryLike[],
-  fold: TaskRuntimeV2["fold"],
-  taskKey?: string,
-): FoldApplication | undefined {
-  if (!fold) return undefined;
-  const allEntryIds = branch.flatMap((entry) => entry.id ? [entry.id] : []);
-  if (allEntryIds.length !== branch.length || new Set(allEntryIds).size !== allEntryIds.length) {
-    return undefined;
-  }
-  const cutoffMatches = branch.flatMap((entry, index) => entry.id === fold.throughEntryId ? [index] : []);
-  if (cutoffMatches.length !== 1) return undefined;
-  const cutoff = cutoffMatches[0];
-  const prefix = branch.slice(0, cutoff + 1);
-  if (prefix.some((entry) => !entry.id)) return undefined;
-  const prefixEntryIds = new Set(prefix.map((entry) => entry.id as string));
-  if (prefixEntryIds.size !== prefix.length ||
-    new Set(fold.retainedEntryIds).size !== fold.retainedEntryIds.length ||
-    fold.retainedEntryIds.some((id) => !prefixEntryIds.has(id))) {
-    return undefined;
-  }
-  const matches = branch.flatMap((entry, index) => {
-    if (!entry.id) return [];
-    const raw = entry.type === "custom_message"
-      ? { customType: entry.customType, content: entry.content, details: entry.details }
-      : record(entry.message);
-    const details = record(raw?.details);
-    return raw?.customType === PRIME_CONTEXT_FOLD_TYPE && raw.content === fold.renderedMessage &&
-      details?.taskKey === taskKey && details?.generation === fold.generation &&
-      details?.throughEntryId === fold.throughEntryId
-      ? [{ entryId: entry.id, index }]
-      : [];
-  });
-  if (matches.length !== 1 || matches[0].index <= cutoff) return undefined;
-  return { prefixEntryIds, foldMessageEntryId: matches[0].entryId };
-}
-
-function filterFoldPrefix(
-  entries: readonly BranchEntryLike[],
-  fold: NonNullable<TaskRuntimeV2["fold"]>,
-  prefixEntryIds: ReadonlySet<string>,
-): readonly BranchEntryLike[] {
-  const retained = new Set(fold.retainedEntryIds);
-  return entries.filter((entry) => !entry.id || !prefixEntryIds.has(entry.id) || retained.has(entry.id));
-}
-
-/** Apply an immutable fold using raw chronological branch membership. Ambiguity fails open. */
-export function foldVisibleBranchEntries(
-  branch: readonly BranchEntryLike[],
-  fold: TaskRuntimeV2["fold"],
-  taskKey?: string,
-): readonly BranchEntryLike[] {
-  if (!fold) return branch;
-  const application = resolveFoldApplication(branch, fold, taskKey);
-  return application ? filterFoldPrefix(branch, fold, application.prefixEntryIds) : branch;
-}
-
 export function completeVisibleToolCallIds(branch: readonly BranchEntryLike[]): Set<string> {
   const calls = new Set<string>();
   const results = new Set<string>();
@@ -728,17 +739,8 @@ export function completeVisibleToolCallIds(branch: readonly BranchEntryLike[]): 
   return new Set([...calls].filter((id) => results.has(id)));
 }
 
-export function visibleFixedToolCallIds(
-  branch: readonly BranchEntryLike[],
-  fold: TaskRuntimeV2["fold"],
-  taskKey?: string,
-): Set<string> {
-  const modelBranch = providerModelBranchEntries(branch);
-  if (!fold) return completeVisibleToolCallIds(modelBranch);
-  const application = resolveFoldApplication(branch, fold, taskKey);
-  return completeVisibleToolCallIds(application
-    ? filterFoldPrefix(modelBranch, fold, application.prefixEntryIds)
-    : modelBranch);
+export function visibleFixedToolCallIds(branch: readonly BranchEntryLike[]): Set<string> {
+  return completeVisibleToolCallIds(providerModelBranchEntries(branch));
 }
 
 export interface ForkVisibleImportSelection {
@@ -750,26 +752,18 @@ export interface ForkVisibleImportSelection {
 
 export function selectForkVisibleImports(
   branch: readonly BranchEntryLike[],
-  fold: TaskRuntimeV2["fold"],
-  taskKey: string | undefined,
   pinnedRefs: readonly string[],
   parentViews: readonly FixedExchangeView[],
 ): ForkVisibleImportSelection {
   const modelBranch = providerModelBranchEntries(branch);
-  const application = resolveFoldApplication(branch, fold, taskKey);
-  const visibleBranch = fold && application
-    ? filterFoldPrefix(modelBranch, fold, application.prefixEntryIds)
-    : modelBranch;
+  const visibleBranch = modelBranch;
   const completeToolCallIds = completeVisibleToolCallIds(visibleBranch);
   const visibleViews = parentViews.filter((view) => completeToolCallIds.has(view.toolCallId));
   const fixedRefs = visibleViews.map((view) => view.exchangeId);
-  const projected = projectFoldCandidateMessages(
+  const projected = projectBranchCandidateMessages(
     branchProjectionEntries(modelBranch),
     visibleViews,
     "provider",
-    fold,
-    application?.foldMessageEntryId,
-    application?.prefixEntryIds,
   );
   const required = [...new Set([
     ...pinnedRefs.map(normalizeObservationRef),
@@ -807,7 +801,7 @@ function fileLists(fileOps: unknown): { readFiles: string[]; modifiedFiles: stri
 }
 
 function treeFixedFileLists(
-  entries: readonly FoldCandidateEntry[],
+  entries: readonly ProjectionCandidateEntry[],
   views: ReadonlyMap<string, FixedExchangeView>,
 ): { readFiles: string[]; modifiedFiles: string[] } | undefined {
   const readFiles = new Set<string>();
@@ -878,27 +872,45 @@ function literalAcceptanceCommands(text: string): string[] {
   return [...new Set(commands)];
 }
 
-function acceptanceClassifier(cwd: string): AcceptanceGateClassifier {
-  return (text, current) => {
-    const explicitRemoval = /(?:remove|drop|no longer require).{0,40}(?:acceptance|validation|test|check)/i.test(text);
-    const acceptanceContext = /(?:acceptance|final (?:validation|check)|must (?:run|pass)|required (?:validation|test|check|command)|before (?:completion|completing|goal completion))/i.test(text);
-    if (!acceptanceContext && !explicitRemoval) return undefined;
-    const suites: SuiteIdentity[] = [];
-    for (const command of [...commandCandidates(text), ...literalAcceptanceCommands(text)]) {
-      const classified = classifyValidationCommand(command, cwd);
-      if (classified && !suites.some((suite) => suite.family === classified.suite.family && suite.target === classified.suite.target)) {
-        suites.push(classified.suite);
-      }
-    }
-    const currentCandidates = current.map(({ key, suiteFamily, target }) => ({ key, suiteFamily, target }));
-    if (explicitRemoval) {
-      if (suites.length === 0) return [];
-      const removed = new Set(suites.map((suite) => `suite:${suite.family}:${suite.target}`));
-      return currentCandidates.filter((gate) => !removed.has(gate.key));
-    }
-    if (suites.length === 0) return undefined;
-    const replaces = /(?:replace|instead|only).{0,40}(?:acceptance|validation|test|check)|(?:acceptance|validation) (?:commands?|gates?) (?:is|are|now)/i.test(text);
-    return replaces ? suites : [...currentCandidates, ...suites];
+
+function rollingMean(previous: number | undefined, current: number): number {
+  return previous === undefined ? current : previous * 0.75 + current * 0.25;
+}
+
+function boundedStallAction(facts: ExchangeFacts): string {
+  try {
+    const input = canonicalProjectionValue(facts.executedInput ?? facts.originalInput);
+    const action = `${facts.toolName}:${facts.intent.subjectKey}:${JSON.stringify(input)}`;
+    return Buffer.from(action, "utf8").subarray(0, 1_024).toString("utf8");
+  } catch {
+    return `${facts.toolName}:${facts.intent.subjectKey}`.slice(0, 1_024);
+  }
+}
+
+function decisiveStallObservation(facts: ExchangeFacts): string {
+  switch (facts.progress.kind) {
+    case "mutation":
+      return `mutation:${facts.progress.artifacts?.map((artifact) => artifact.pathOrId).join(",") || facts.intent.subjectKey}`;
+    case "failure":
+      return `error:${facts.outcome.exceptions[0] ?? facts.outcome.commandFailures[0] ??
+        facts.outcome.testSummary ?? facts.progress.observation.text}`.slice(0, 1_024);
+    case "information":
+      return `evidence:${facts.progress.observations.map((observation) => observation.text).join(" | ")}`.slice(0, 1_024);
+    case "none":
+      return (facts.outcome.testSummary ?? facts.outcome.exceptions[0] ??
+        facts.outcome.commandFailures[0] ?? facts.text).slice(0, 1_024);
+  }
+}
+
+function compactTaskPacket(snapshot: TaskSnapshotV2): CompactTaskPacket {
+  return {
+    objective: snapshot.objective,
+    explicitConstraints: snapshot.explicitConstraints
+      .filter((constraint) => !constraint.supersededBy)
+      .map((constraint) => constraint.text),
+    focus: snapshot.focus,
+    openItems: snapshot.openItems.map((item) => item.text),
+    decisiveObservations: snapshot.actionableObservations.slice(-6).map((observation) => observation.text),
   };
 }
 
@@ -907,17 +919,20 @@ export default function primeContext(pi: ExtensionAPI): void {
     mode: "on",
     config: { ...DEFAULT_CONFIG },
     configWarnings: [],
-    snapshot: emptySnapshot(),
-    readiness: "NOT_READY",
+    skillLibrary: Object.freeze({ revision: 0, entries: Object.freeze([]) }),
+    auxiliary: createAuxiliaryRuntime({ enabled: false }),
+    autoLearnedTaskKeys: new Set(),
+    autoLearnInFlight: false,
+    exactRepeat: createExactRepeatHintState("session"),
+    recentAttempts: [],
+    toolStartedAt: new Map(),
+    taskSnapshot: createTaskSnapshotV2("session"),
     exchanges: new ExchangeTracker(),
     fixedViews: new Map(),
-    projectedRefs: new WeakMap(),
-    recoveryLeases: new Map(),
-    recoveryUtilities: new Map(),
+    sourceMessages: new Map(),
     pendingImages: new Map(),
-    consumedImageRefs: new Set(),
-    projectedRecoveryToolCallIds: new Set(),
-    projectedImageRefs: new Set(),
+    projectionEpoch: 0,
+    projectionCache: {},
     control: {
       structuralBoundary: false,
       needsAnchorRefresh: false,
@@ -928,11 +943,251 @@ export default function primeContext(pi: ExtensionAPI): void {
     },
   };
   const hooks = new Set<string>();
+  let setAutomaticRefinementEnabled: ((enabled: boolean | undefined) => void) | undefined;
+  const advanceProjectionEpoch = (): void => {
+    runtime.projectionEpoch += 1;
+    runtime.exactRepeat = createExactRepeatHintState(runtime.taskSnapshot.taskKey, runtime.projectionEpoch);
+    runtime.recentAttempts = [];
+  };
+  const persistBenchmarkAccounting = (): void => {
+    const target = process.env.PRIME_CONTEXT_BENCHMARK_METRICS;
+    if (!target) return;
+    try {
+      writeFileSync(target, `${JSON.stringify({
+        schema: "prime-context.benchmark-accounting/v1",
+        auxiliary: runtime.auxiliary.accounting,
+      }, null, 2)}
+`, "utf8");
+    } catch {
+      // Benchmark accounting is observational and must never change task behavior.
+    }
+  };
+  const executeTrackedAuxiliary: typeof executeAuxiliaryOnce = async (options) => {
+    const result = await executeAuxiliaryOnce(options);
+    persistBenchmarkAccounting();
+    return result;
+  };
 
-  // System-prompt policy survives ordinary turns, autonomous continuations, and compaction.
+  pi.on("resources_discover", (event) => {
+    const loaded = loadPrimeContextConfig(event.cwd);
+    const skillsPath = join(resolveSkillLibraryPath(event.cwd, loaded.config.libraryPath), "skills");
+    return existsSync(skillsPath) ? { skillPaths: [skillsPath] } : {};
+  });
+  hooks.add("resources_discover");
+
+  // The bundled policy is synchronous and idempotent. Task-specific material is
+  // appended later, after the task boundary handler has established the snapshot.
   pi.on("before_agent_start", (event) => ({
     systemPrompt: appendPrimeContextGlobalPolicy(event.systemPrompt),
   }));
+
+  const taskSkillSupplement = async (
+    event: BeforeAgentStartEvent,
+    ctx: ExtensionContext,
+  ): Promise<string> => {
+    if (runtime.mode === "off") return "";
+    beginAuxiliaryTask(runtime.auxiliary, runtime.taskSnapshot.taskKey);
+    const installedToolNames = pi.getAllTools?.().map((tool) => tool.name) ?? [];
+    const selection = selectSkills(runtime.skillLibrary, {
+      taskText: event.prompt,
+      installedToolNames,
+      skillBudgetTokens: runtime.config.skillBudgetTokens,
+    });
+    if (selection.highConfidence) return selection.packet;
+
+    const pathSignals = new Set(event.prompt.match(/(?:^|\s)(?:[./~][^\s,;:]+|[A-Za-z0-9_-]+\/[A-Za-z0-9_./-]+)/gu) ?? []);
+    const mentionedTools = installedToolNames.filter((name) =>
+      event.prompt.toLowerCase().includes(name.toLowerCase())
+    );
+    const scoutEligible = selection.rankedMatches.length >= 2 ||
+      utf8Bytes(event.prompt) >= 2_048 || pathSignals.size >= 2 || mentionedTools.length >= 2;
+    if (!scoutEligible || runtime.config.auxiliaryMode === "off" || !ctx.model || !ctx.modelRegistry) {
+      return selection.packet;
+    }
+
+    const mainModel = ctx.model;
+    const modelRegistry = ctx.modelRegistry;
+    try {
+      const task: CompactTaskPacket = {
+        objective: runtime.taskSnapshot.objective ?? event.prompt,
+        explicitConstraints: runtime.taskSnapshot.explicitConstraints
+          .filter((constraint) => !constraint.supersededBy)
+          .map((constraint) => constraint.text),
+        focus: runtime.taskSnapshot.focus,
+        openItems: runtime.taskSnapshot.openItems.map((item) => item.text),
+        decisiveObservations: runtime.taskSnapshot.actionableObservations
+          .slice(-4)
+          .map((observation) => observation.text),
+      };
+      const prompt = buildTaskScoutPrompt({
+        task,
+        availableTools: installedToolNames,
+        skillCatalog: runtime.skillLibrary.entries,
+        libraryRevision: String(runtime.skillLibrary.revision),
+      });
+      const hooks = createModelResolutionHooks({
+        currentModel: () => mainModel,
+        modelRegistry,
+      });
+      const resolved = await resolveAuxiliaryModel("task-scout", runtime.config, hooks);
+      if (!resolved) return selection.packet;
+      const currentUsage = ctx.getContextUsage?.();
+      runtime.auxiliary.economics.currentMainInputUnitCost = mainModel.cost.input;
+      runtime.auxiliary.economics.currentMainOutputUnitCost = mainModel.cost.output;
+      if (currentUsage?.totalTokens !== undefined) {
+        runtime.auxiliary.economics.latestProviderInputTokens = currentUsage.totalTokens;
+      }
+
+      const result = await executeTrackedAuxiliary({
+        runtime: runtime.auxiliary,
+        prompt,
+        auth: resolved,
+        plan: {
+          kind: "task-scout",
+          model: resolved.model,
+          blocking: true,
+          estimatedInputTokens: prompt.estimatedInputTokens,
+          maxOutputTokens: prompt.maxOutputTokens,
+          estimatedPromptTokensSaved: 1200,
+          estimatedMainTurnsAvoided: 0.25,
+          estimatedToolCallsAvoided: 1,
+          completionRisk: "medium",
+          estimatedCriticalPathMsSaved: 6000,
+          estimatedAuxiliaryLatencyMs: 1500,
+        },
+        parseOutput: (output) => parseTaskScoutOutput(
+          output,
+          new Set(runtime.skillLibrary.entries.map((entry) => entry.name)),
+        ),
+      });
+      if (result.status !== "success" || !result.output) return selection.packet;
+      const selectedEntries = validateSelectedSkillNames(
+        result.output.selectedSkillNames,
+        runtime.skillLibrary,
+        installedToolNames,
+      );
+      return [
+        renderSelectedSkillsPacket(selectedEntries),
+        renderTaskScoutSupplement(result.output),
+      ].filter(Boolean).join("\n\n");
+    } catch {
+      return selection.packet;
+    }
+  };
+
+  const resolveRuntimeAuxiliary = async (kind: AuxiliaryKind, ctx: ExtensionContext) => {
+    if (runtime.config.auxiliaryMode === "off" || !ctx.model || !ctx.modelRegistry) return undefined;
+    const resolved = await resolveAuxiliaryModel(kind, runtime.config, createModelResolutionHooks({
+      currentModel: () => ctx.model!,
+      modelRegistry: ctx.modelRegistry,
+    }));
+    runtime.auxiliary.economics.currentMainInputUnitCost = ctx.model.cost.input;
+    runtime.auxiliary.economics.currentMainOutputUnitCost = ctx.model.cost.output;
+    runtime.auxiliary.economics.latestProviderInputTokens = ctx.getContextUsage?.()?.totalTokens;
+    return resolved;
+  };
+
+  const runStallRecovery = async (ctx: ExtensionContext): Promise<string | undefined> => {
+    const resolved = await resolveRuntimeAuxiliary("stall-recovery", ctx);
+    if (!resolved) return undefined;
+    const installedTools = pi.getAllTools?.().map((tool) => tool.name) ?? [];
+    const supplement = record(runtime.control.expectedAnchor?.details)?.skillSupplement;
+    const selectedSkills = typeof supplement === "string"
+      ? runtime.skillLibrary.entries.filter((entry) => supplement.includes(`name="${entry.name}"`)).map((entry) => entry.name)
+      : [];
+    const prompt = buildStallRecoveryPrompt({
+      task: compactTaskPacket(runtime.taskSnapshot),
+      selectedSkills,
+      availableTools: installedTools,
+      recentAttempts: runtime.recentAttempts,
+    });
+    const result = await executeTrackedAuxiliary({
+      runtime: runtime.auxiliary,
+      prompt,
+      auth: resolved,
+      signal: ctx.signal,
+      plan: {
+        kind: "stall-recovery",
+        model: resolved.model,
+        blocking: true,
+        estimatedInputTokens: prompt.estimatedInputTokens,
+        maxOutputTokens: prompt.maxOutputTokens,
+        estimatedPromptTokensSaved: 300,
+        estimatedMainTurnsAvoided: 1,
+        estimatedToolCallsAvoided: 1,
+        completionRisk: "high",
+        estimatedCriticalPathMsSaved: 8_000,
+        estimatedAuxiliaryLatencyMs: 1_500,
+      },
+      parseOutput: parseStallRecoveryOutput,
+    });
+    return result.status === "success" && result.output
+      ? `<prime_context_hint>
+${renderStallRecoveryHint(result.output)}
+</prime_context_hint>`
+      : undefined;
+  };
+
+  const distillLargestExchange = async (
+    facts: readonly ExchangeFacts[],
+    archives: CompletedExchangeArchive[],
+    contextUsage: ReturnType<ExtensionContext["getContextUsage"]>,
+    ctx: ExtensionContext,
+  ): Promise<boolean> => {
+    if ((contextUsage?.percent ?? 0) < 55) return false;
+    const factsByCall = new Map(facts.map((item) => [item.toolCallId, item]));
+    const candidates = archives.flatMap((archive) => {
+      const item = factsByCall.get(archive.metadata.toolCallId);
+      if (!item || !archive.largeResult || !archive.admittedCapsule ||
+          item.textBytes < runtime.config.minTextBytes ||
+          /^(?:bash|edit|write|ipython)$/iu.test(item.toolName)) return [];
+      return [{ archive, facts: item }];
+    }).sort((left, right) => right.facts.textBytes - left.facts.textBytes);
+    const candidate = candidates[0];
+    if (!candidate) return false;
+    const resolved = await resolveRuntimeAuxiliary("semantic-distill", ctx);
+    if (!resolved) return false;
+    const ref = candidate.archive.metadata.exchangeId;
+    const rawResult = candidate.facts.fullOutputSnapshotPath
+      ? await readBoundedTextFile(candidate.facts.fullOutputSnapshotPath) ?? candidate.facts.text
+      : candidate.facts.text;
+    const prompt = buildSemanticDistillPrompt({
+      task: compactTaskPacket(runtime.taskSnapshot),
+      tool: candidate.facts.toolName,
+      subject: candidate.facts.intent.subjectKey,
+      deterministicCapsule: candidate.archive.admittedCapsule!,
+      rawResult,
+      availableRecovery: [{ ref, part: "result" }],
+    });
+    const result = await executeTrackedAuxiliary({
+      runtime: runtime.auxiliary,
+      prompt,
+      auth: resolved,
+      signal: ctx.signal,
+      plan: {
+        kind: "semantic-distill",
+        model: resolved.model,
+        blocking: true,
+        estimatedInputTokens: prompt.estimatedInputTokens,
+        maxOutputTokens: prompt.maxOutputTokens,
+        estimatedPromptTokensSaved: Math.max(700, Math.ceil(candidate.facts.textBytes / 2)),
+        estimatedMainTurnsAvoided: 0.25,
+        estimatedToolCallsAvoided: 0.25,
+        completionRisk: candidate.facts.outcome.status === "unknown" ? "medium" : "low",
+        estimatedCriticalPathMsSaved: 3_000,
+        estimatedAuxiliaryLatencyMs: 1_500,
+      },
+      parseOutput: (output) => parseSemanticCapsuleOutput(output, {
+        capsuleMaxBytes: runtime.config.capsuleMaxBytes,
+        allowedSourceAnchors: new Set([ref]),
+      }),
+    });
+    if (result.status !== "success" || !result.output) return false;
+    const rendered = renderSemanticCapsule(result.output, runtime.config.capsuleMaxBytes);
+    if (!rendered) return false;
+    candidate.archive.admittedCapsule = rendered;
+    return true;
+  };
 
   const cwdKey = (cwd: string): string => Buffer.from(resolve(cwd), "utf8").toString("base64url");
   const discoverRecallSources = async (
@@ -995,108 +1250,34 @@ export default function primeContext(pi: ExtensionAPI): void {
     for (const view of scoped) runtime.fixedViews.set(view.toolCallId, view);
   };
 
-  const clearProjectionLeases = (): void => {
-    runtime.recoveryLeases.clear();
-    runtime.recoveryUtilities.clear();
+  const clearProjectionImages = (): void => {
     runtime.pendingImages.clear();
-    runtime.consumedImageRefs.clear();
-    runtime.projectedRecoveryToolCallIds.clear();
-    runtime.projectedImageRefs.clear();
   };
 
-  const registerRecoveryLease = (
-    toolCallId: string,
-    content: readonly (TextContent | ImageContent)[],
-  ): void => {
-    const cloned = content.map((block) => ({ ...block })) as readonly Record<string, unknown>[];
-    const bytes = recoveryLeaseBytes(cloned);
-    runtime.recoveryLeases.delete(toolCallId);
-    if (bytes > RECOVERY_LEASE_MAX_BYTES) return;
-    while (runtime.recoveryLeases.size >= 32 ||
-      [...runtime.recoveryLeases.values()].reduce(
-        (total, lease) => total + (lease.bytes ?? recoveryLeaseBytes(lease.content)),
-        bytes,
-      ) > RECOVERY_LEASE_TOTAL_BYTES) {
-      const oldest = runtime.recoveryLeases.keys().next().value;
-      if (oldest === undefined) break;
-      runtime.recoveryLeases.delete(oldest);
-      runtime.recoveryUtilities.delete(oldest);
-    }
-    runtime.recoveryLeases.set(toolCallId, { content: cloned, bytes });
-  };
-
-  const registerRecoveryUtility = (
-    toolCallId: string,
-    subjectKeys: readonly string[],
-    exposedBytes: number,
-    inspectRecallHit: boolean,
-  ): void => {
-    runtime.recoveryUtilities.delete(toolCallId);
-    runtime.recoveryUtilities.set(toolCallId, {
-      subjectKeys: [...new Set(subjectKeys)].slice(0, 8),
-      exposedBytes: Math.max(0, exposedBytes),
-      inspectRecallHit,
-      useful: true,
-    });
-    while (runtime.recoveryUtilities.size > 32) {
-      const oldest = runtime.recoveryUtilities.keys().next().value;
-      if (oldest === undefined) break;
-      runtime.recoveryUtilities.delete(oldest);
-      runtime.recoveryLeases.delete(oldest);
-    }
-  };
-
-  const selectTaskRuntime = (
+  const refreshTaskSelection = (
     branch: readonly BranchEntryLike[],
     goal?: ActiveGoalSelection,
     reload = false,
   ): TaskSelection | undefined => {
     const selection = deriveTaskSelection(branch, goal);
     if (!selection) {
-      runtime.taskRuntime = undefined;
-      runtime.readiness = "NOT_READY";
       runtime.archive?.setBranchScope(undefined, branchScopeIds(branch), [
-        ...observationRefs(branch), ...runtime.snapshot.pinnedObservationIds,
+        ...observationRefs(branch), ...runtime.taskSnapshot.pinnedObservationIds,
       ]);
       return undefined;
     }
-    if (reload || runtime.taskRuntime?.taskKey !== selection.taskKey) {
-      runtime.taskRuntime = loadLatestRuntime(branch, selection.taskKey) ?? createTaskRuntime(selection);
-      runtime.readiness = deriveReadiness(runtime.taskRuntime);
+    if (reload || runtime.taskSnapshot.taskKey !== selection.taskKey) {
       runtime.exchanges.clearPending();
       runtime.archive?.resetBranchState();
     }
     runtime.archive?.setBranchScope(selection.taskKey, branchScopeIds(branch), [
-      ...observationRefs(branch), ...runtime.snapshot.pinnedObservationIds,
+      ...observationRefs(branch), ...runtime.taskSnapshot.pinnedObservationIds,
     ]);
-    return selection;
-  };
-
-  const refreshTaskContract = (
-    branch: readonly BranchEntryLike[],
-    goal: ActiveGoalSelection | undefined,
-    cwd: string,
-    reload = false,
-  ): TaskSelection | undefined => {
-    const selection = selectTaskRuntime(branch, goal, reload);
-    if (!selection || !runtime.taskRuntime) return undefined;
-    const objective = taskObjective(branch, selection, runtime.taskRuntime.objective ?? "");
-    if (runtime.taskRuntime.objective === undefined && objective.trim()) {
-      runtime.taskRuntime = {
-        ...runtime.taskRuntime,
-        objective,
-        objectiveVersion: Math.max(1, runtime.taskRuntime.objectiveVersion),
-      };
-    }
-    const update = updateTaskContract(runtime.taskRuntime, {
-      objective,
-      userEntries: branchUserEntries(branch, selection),
-    }, acceptanceClassifier(cwd));
-    runtime.taskRuntime = update.runtime;
-    runtime.readiness = deriveReadiness(update.runtime);
     runtime.branchAnchorId = branchAnchorId(branch);
     return selection;
   };
+
+
 
   const childAnchorContext = (prompt: string): TaskAnchorInput["child"] | undefined => {
     const recall = runtime.sessionRecall;
@@ -1128,59 +1309,85 @@ export default function primeContext(pi: ExtensionAPI): void {
     selection: TaskSelection | undefined,
     visiblePrompt: string,
   ): RenderedTaskAnchor | undefined => {
-    if (!selection || !runtime.taskRuntime) return undefined;
+    if (!selection) return undefined;
     const objective = taskObjective(branch, selection, visiblePrompt);
+    if (!objective.trim()) return undefined;
+    if (runtime.taskSnapshot.taskKey !== selection.taskKey) {
+      runtime.taskSnapshot = createTaskSnapshotV2(selection.taskKey, objective, selection.rootUserEntryId);
+    } else if (!runtime.taskSnapshot.objective) {
+      runtime.taskSnapshot = {
+        ...runtime.taskSnapshot,
+        objective,
+        ...(selection.rootUserEntryId ? { objectiveSourceEntryId: selection.rootUserEntryId } : {}),
+      };
+    }
     const child = childAnchorContext(objective);
-    const input = {
-      taskKey: selection.taskKey,
-      objective,
-      runtime: runtime.taskRuntime,
-      snapshot: runtime.snapshot,
+    const input: TaskAnchorInput = {
+      task: runtime.taskSnapshot,
       ...(child ? { child } : {}),
     };
-    if (!input.objective.trim() || !taskAnchorHasDurableState(input, visiblePrompt)) return undefined;
-    return renderPrimeContextAnchor(input);
+    const content = renderPrimeContextTask(runtime.taskSnapshot, {
+      objectiveVisible: visiblePrompt.includes(objective),
+    });
+    if (!content) return undefined;
+    return { ...renderPrimeContextAnchor(input), content };
   };
 
   const clearControlState = (structuralBoundary: boolean): void => {
     runtime.control.expectedAnchor = undefined;
-    runtime.control.lastStateContent = undefined;
     runtime.control.structuralBoundary = structuralBoundary;
     runtime.control.needsAnchorRefresh = false;
   };
 
   const reloadSelectedBranch = (
     ctx: { cwd: string; sessionManager: { getBranch(): unknown[] } },
-    preserveProjectionLeases = false,
+    preserveProjectionImages = false,
   ) => {
     const fullBranch = ctx.sessionManager.getBranch() as BranchEntryLike[];
     const providerBranch = providerVisibleBranchEntries(fullBranch);
+    runtime.sourceMessages = new Map(branchProjectionEntries(fullBranch).map((entry) => [entry.entryId, entry.message]));
     runtime.exchanges.clearPending();
-    runtime.projectedRefs = new WeakMap();
-    if (!preserveProjectionLeases) clearProjectionLeases();
+    advanceProjectionEpoch();
+    if (!preserveProjectionImages) clearProjectionImages();
     runtime.branchAnchorId = undefined;
     runtime.archive?.resetBranchState();
-    runtime.snapshot = loadLatestSnapshot(fullBranch);
     const goal = activeGoalFromBranch(fullBranch);
     const branch = scopeBranchToGoal(fullBranch, goal);
-    const selection = refreshTaskContract(branch, goal, ctx.cwd, true);
+    const selection = refreshTaskSelection(branch, goal, true);
+    if (selection) {
+      const loadedTask = loadLatestTaskSnapshotV2(fullBranch, selection.taskKey);
+      if (loadedTask) runtime.taskSnapshot = loadedTask;
+      else if (runtime.taskSnapshot.taskKey !== selection.taskKey) {
+        runtime.taskSnapshot = createTaskSnapshotV2(
+          selection.taskKey,
+          runtime.taskSnapshot.objective ?? selection.objective,
+          selection.rootUserEntryId,
+        );
+      }
+    }
     runtime.control.expectedAnchor = currentTaskAnchor(
       branch,
       selection,
       latestBranchUserText(providerBranch),
     );
-    runtime.control.lastStateContent = runtime.taskRuntime
-      ? latestProviderVisibleControlMessage(
-        fullBranch,
-        PRIME_CONTEXT_STATE_TYPE,
-        runtime.taskRuntime.taskKey,
-      )?.content
-      : undefined;
   };
 
-  const installUserBashViews = async (ctx: ExtensionContext): Promise<void> => {
+  const installUserBashViews = async (
+    ctx: ExtensionContext,
+    event?: UserBashEndPayload,
+  ): Promise<void> => {
     if (!runtime.archive) return;
-    const entries = branchProjectionEntries(ctx.sessionManager.getBranch() as BranchEntryLike[]);
+    const entries: ProjectionCandidateEntry[] = event ? [{
+      entryId: event.entryId,
+      message: {
+        role: "bashExecution",
+        command: event.command,
+        output: event.output,
+        ...(event.exitCode === undefined ? {} : { exitCode: event.exitCode }),
+        ...(event.cancelled === undefined ? {} : { cancelled: event.cancelled }),
+        ...(event.fullOutputPath === undefined ? {} : { fullOutputPath: event.fullOutputPath }),
+      },
+    }] : branchProjectionEntries(ctx.sessionManager.getBranch() as BranchEntryLike[]);
     const completed: CompletedExchangeArchive[] = [];
     const frozenSources: string[] = [];
     try {
@@ -1224,6 +1431,7 @@ export default function primeContext(pi: ExtensionAPI): void {
       });
       const isError = message.cancelled === true || (typeof message.exitCode === "number" && message.exitCode !== 0);
       const outcome = collectFactualOutcome(intent, resolved.outcomeText ?? resolved.text, isError, details);
+      if (!resolved.large && !fullOutputPath) continue;
       completed.push({
         metadata: {
           exchangeId,
@@ -1238,13 +1446,8 @@ export default function primeContext(pi: ExtensionAPI): void {
           executedInputBytes: intent.executedInputBytes,
           ...(intent.facts ? { facts: intent.facts } : {}),
           outcome,
-          taskKey: runtime.taskRuntime?.taskKey,
-          goalId: runtime.taskRuntime?.goalId,
+          ...(runtime.taskSnapshot.taskKey === "session" ? {} : { taskKey: runtime.taskSnapshot.taskKey }),
           branchAnchorId: entry.entryId,
-          turnSequence: runtime.taskRuntime?.turnSequence,
-          requirementsRevision: runtime.taskRuntime?.requirementsRevision,
-          workspaceRevisionAtStart: runtime.taskRuntime?.workspaceRevision,
-          workspaceRevisionAtResult: runtime.taskRuntime?.workspaceRevision,
         },
         toolName: "bash",
         isError,
@@ -1266,14 +1469,12 @@ export default function primeContext(pi: ExtensionAPI): void {
       });
     }
       if (completed.length === 0) return;
-      await runtime.archive.finalizeExchanges(completed, ctx.signal, {
+      const installedViews = await runtime.archive.finalizeExchanges(completed, ctx.signal, {
         budgetBytes: fixedExchangeBudgetBytes(ctx.getContextUsage()),
         capsuleMaxBytes: runtime.config.capsuleMaxBytes,
+        archiveAdmissionBytes: runtime.config.minTextBytes,
       });
-      installFixedViews(await runtime.archive.loadFixedExchangeViews(
-        ctx.signal,
-        completed.map((item) => item.metadata.exchangeId),
-      ));
+      installFixedViews(installedViews);
     } finally {
       await Promise.all(frozenSources.map((path) =>
         runtime.archive!.removeFrozenTextSource(path).catch(() => undefined)
@@ -1282,34 +1483,52 @@ export default function primeContext(pi: ExtensionAPI): void {
   };
 
   pi.on("session_start", async (event, ctx) => {
+    if (typeof ctx.setAutomaticRefinementEnabled !== "function") {
+      throw new Error(
+        `Prime Context requires patched prime-agent@0.9.1. Run: prime-context-patch-agent "$(npm root -g)/prime-agent"`,
+      );
+    }
+    setAutomaticRefinementEnabled = (enabled) => ctx.setAutomaticRefinementEnabled(enabled);
     const loaded = loadPrimeContextConfig(ctx.cwd);
     runtime.config = loaded.config;
     runtime.configWarnings = loaded.warnings;
+    runtime.auxiliary = createAuxiliaryRuntime({
+      enabled: loaded.config.enabled && loaded.config.auxiliaryMode === "utility-gated",
+    });
+    persistBenchmarkAccounting();
+    runtime.autoLearnedTaskKeys.clear();
+    runtime.autoLearnInFlight = false;
+    runtime.exactRepeat = createExactRepeatHintState("session");
+    runtime.recentAttempts = [];
+    const skills = loadSkillLibrary({
+      libraryPath: resolveSkillLibraryPath(ctx.cwd, loaded.config.libraryPath),
+      revision: runtime.skillLibrary.revision + 1,
+    });
+    runtime.skillLibrary = skills.snapshot;
+    runtime.configWarnings.push(...skills.diagnostics.map((item) => item.message));
     runtime.mode = loaded.config.enabled ? "on" : "off";
+    setAutomaticRefinementEnabled(runtime.mode === "on" ? false : undefined);
     const archiveRoot = storageRoot();
     const currentArchive = new ObservationArchive(archiveRoot, ctx.sessionManager.getSessionId());
     runtime.archive = currentArchive;
     runtime.sessionRecall = await discoverRecallSources(ctx, archiveRoot);
     runtime.exchanges.resetSession();
     runtime.fixedViews.clear();
-    runtime.projectedRefs = new WeakMap();
-    runtime.lastProviderProjection = undefined;
-    runtime.taskRuntime = undefined;
-    runtime.readiness = "NOT_READY";
+    runtime.taskSnapshot = createTaskSnapshotV2("session");
     runtime.lifecycle.selectedModelKey = ctx.model
       ? `${ctx.model.provider}:${ctx.model.id}`
       : undefined;
     runtime.lifecycle.replayMetadataPagingEligible = false;
+    runtime.projectionToolSetRevision = undefined;
     clearControlState(false);
     reloadSelectedBranch(ctx);
     runtime.exchanges.setMinimumSequence(await currentArchive.maxExchangeSequence(undefined, ctx.signal));
     currentArchive.recordBranchRuntimeReload();
     const sessionBranch = ctx.sessionManager.getBranch() as BranchEntryLike[];
-    const selectedRuntime = runtime.taskRuntime as TaskRuntimeV2 | undefined;
     installFixedViews(
       await currentArchive.loadFixedExchangeViews(ctx.signal).catch(() => []),
       true,
-      visibleFixedToolCallIds(sessionBranch, selectedRuntime?.fold, selectedRuntime?.taskKey),
+      visibleFixedToolCallIds(sessionBranch),
     );
 
     if (event.reason === "fork" && runtime.sessionRecall.parent) {
@@ -1318,12 +1537,9 @@ export default function primeContext(pi: ExtensionAPI): void {
         const branch = ctx.sessionManager.getBranch() as BranchEntryLike[];
         const parentArchive = runtime.sessionRecall.parent.archive;
         const parentViews = await parentArchive.loadFixedExchangeViews(ctx.signal).catch(() => []);
-        const selectedRuntime = runtime.taskRuntime as TaskRuntimeV2 | undefined;
-        const visible = selectForkVisibleImports(
+            const visible = selectForkVisibleImports(
           branch,
-          selectedRuntime?.fold,
-          selectedRuntime?.taskKey,
-          runtime.snapshot.pinnedObservationIds,
+          runtime.taskSnapshot.pinnedObservationIds,
           parentViews,
         );
         const refs = visible.refs;
@@ -1333,7 +1549,7 @@ export default function primeContext(pi: ExtensionAPI): void {
             refs,
             ctx.signal,
             {
-              taskKey: (runtime.taskRuntime as TaskRuntimeV2 | undefined)?.taskKey,
+              ...(runtime.taskSnapshot.taskKey === "session" ? {} : { taskKey: runtime.taskSnapshot.taskKey }),
               branchAnchorId: branchAnchorId(branch),
             },
           )
@@ -1350,8 +1566,13 @@ export default function primeContext(pi: ExtensionAPI): void {
   });
   hooks.add("session_start");
 
-  pi.on("before_agent_start", (event, ctx) => {
+  pi.on("before_agent_start", async (event, ctx) => {
     if (runtime.mode === "off") return;
+    runtime.exactRepeat = resetExactRepeatHintState(runtime.exactRepeat, {
+      taskKey: runtime.taskSnapshot.taskKey,
+      contextEpoch: runtime.exactRepeat.contextEpoch,
+    });
+    runtime.recentAttempts = [];
     const fullBranch = ctx.sessionManager.getBranch() as BranchEntryLike[];
     const providerBranch = providerVisibleBranchEntries(fullBranch);
     const goal = activeGoalFromBranch(fullBranch);
@@ -1362,23 +1583,31 @@ export default function primeContext(pi: ExtensionAPI): void {
         { type: "message", message: { role: "user", content: event.prompt } },
       ]);
       if (incomingSelection && incomingSelection.taskKey !== currentSelection?.taskKey) {
-        const preview = previewTaskContract(
-          createTaskRuntime({ taskKey: "", objective: event.prompt, source: "user" }),
-          event.prompt,
-          acceptanceClassifier(ctx.cwd),
-        ).runtime;
-        const child = childAnchorContext(event.prompt);
-        const input = {
-          objective: event.prompt,
-          runtime: preview,
-          snapshot: runtime.snapshot,
-          ...(child ? { child } : {}),
-        };
-        if (!event.prompt.trim() || !taskAnchorHasDurableState(input, event.prompt)) {
+        if (!event.prompt.trim()) {
           runtime.control.expectedAnchor = undefined;
           return;
         }
-        const anchor = renderPrimeContextAnchor(input);
+        runtime.taskSnapshot = createTaskSnapshotV2(
+          incomingSelection.taskKey,
+          event.prompt,
+          incomingSelection.rootUserEntryId,
+        );
+        const content = renderPrimeContextTask(runtime.taskSnapshot, { objectiveVisible: true });
+        if (!content) {
+          runtime.control.expectedAnchor = undefined;
+          return;
+        }
+        const child = childAnchorContext(event.prompt);
+        const rendered = renderPrimeContextAnchor({
+          task: runtime.taskSnapshot,
+          ...(child ? { child } : {}),
+        });
+        const skillSupplement = await taskSkillSupplement(event, ctx);
+        const anchor = {
+          ...rendered,
+          content: skillSupplement ? `${content}\n\n${skillSupplement}` : content,
+          details: { ...rendered.details, ...(skillSupplement ? { skillSupplement } : {}) },
+        };
         runtime.control.expectedAnchor = anchor;
         return {
           message: {
@@ -1391,40 +1620,62 @@ export default function primeContext(pi: ExtensionAPI): void {
       }
     }
     const branch = scopeBranchToGoal(fullBranch, goal);
-    const selection = refreshTaskContract(branch, goal, ctx.cwd);
+    const selection = refreshTaskSelection(branch, goal);
     if (!selection) {
       runtime.control.expectedAnchor = undefined;
       return;
     }
-    const base = runtime.taskRuntime ?? createTaskRuntime(selection);
-    const preview = /<goal_context>/i.test(event.prompt)
-      ? base
-      : previewTaskContract(base, event.prompt, acceptanceClassifier(ctx.cwd)).runtime;
     const objective = goal?.objective?.trim() || taskObjective(branch, selection, event.prompt);
-    const child = childAnchorContext(event.prompt || objective);
-    const input = {
-      taskKey: selection.taskKey,
-      objective,
-      runtime: preview,
-      snapshot: runtime.snapshot,
-      ...(child ? { child } : {}),
-    };
-    const visiblePrompt = latestBranchUserText(providerBranch) || event.prompt;
-    if (!input.objective.trim() || !taskAnchorHasDurableState(input, visiblePrompt)) {
+    if (!objective.trim()) {
       runtime.control.expectedAnchor = undefined;
       return;
     }
-    const anchor = renderPrimeContextAnchor(input);
-    runtime.control.expectedAnchor = anchor;
-    const unscoped = selection.source === "user" && selection.rootUserEntryId
-      ? { content: anchor.content, afterEntryId: selection.rootUserEntryId }
+    const loadedTask = loadLatestTaskSnapshotV2(fullBranch, selection.taskKey);
+    if (loadedTask) runtime.taskSnapshot = loadedTask;
+    else if (runtime.taskSnapshot.taskKey !== selection.taskKey) {
+      runtime.taskSnapshot = createTaskSnapshotV2(selection.taskKey, objective, selection.rootUserEntryId);
+    } else if (!runtime.taskSnapshot.objective) {
+      runtime.taskSnapshot = {
+        ...runtime.taskSnapshot,
+        objective,
+        ...(selection.rootUserEntryId ? { objectiveSourceEntryId: selection.rootUserEntryId } : {}),
+      };
+    }
+    const visiblePrompt = latestBranchUserText(providerBranch) || event.prompt;
+    const content = renderPrimeContextTask(runtime.taskSnapshot, {
+      objectiveVisible: visiblePrompt.includes(objective),
+    });
+    if (!content) {
+      runtime.control.expectedAnchor = undefined;
+      return;
+    }
+    const child = childAnchorContext(event.prompt || objective);
+    const rendered = renderPrimeContextAnchor({
+      task: runtime.taskSnapshot,
+      ...(child ? { child } : {}),
+    });
+    const lookupUnscoped = selection.source === "user" && selection.rootUserEntryId
+      ? { content, afterEntryId: selection.rootUserEntryId }
       : undefined;
     const persisted = latestProviderVisibleControlMessage(
       fullBranch,
       PRIME_CONTEXT_ANCHOR_TYPE,
-      anchor.details.taskKey,
-      unscoped,
+      rendered.details.taskKey,
+      lookupUnscoped,
     );
+    const persistedSupplement = record(persisted?.details)?.skillSupplement;
+    const skillSupplement = typeof persistedSupplement === "string"
+      ? persistedSupplement
+      : persisted ? "" : await taskSkillSupplement(event, ctx);
+    const anchor = {
+      ...rendered,
+      content: skillSupplement ? `${content}\n\n${skillSupplement}` : content,
+      details: { ...rendered.details, ...(skillSupplement ? { skillSupplement } : {}) },
+    };
+    runtime.control.expectedAnchor = anchor;
+    const unscoped = selection.source === "user" && selection.rootUserEntryId
+      ? { content: anchor.content, afterEntryId: selection.rootUserEntryId }
+      : undefined;
     const positionallyScopedUnscoped = unscoped !== undefined && persisted?.details?.taskKey === undefined;
     if (!runtime.control.needsAnchorRefresh && sameAnchor(persisted, anchor, positionallyScopedUnscoped)) return;
     return {
@@ -1442,19 +1693,33 @@ export default function primeContext(pi: ExtensionAPI): void {
     if (runtime.mode === "off") return;
     runtime.lifecycle.agentRun += 1;
     runtime.lifecycle.turnIndex = 0;
+    runtime.lifecycle.turnStartedAt = undefined;
+    runtime.toolStartedAt.clear();
     runtime.exchanges.clearPending();
-    runtime.projectedRecoveryToolCallIds.clear();
-    runtime.projectedImageRefs.clear();
-    await installUserBashViews(ctx);
   });
   hooks.add("agent_start");
 
   pi.on("turn_start", async (event, ctx) => {
     if (runtime.mode === "off") return;
     runtime.lifecycle.turnIndex = event.turnIndex;
-    await installUserBashViews(ctx);
+    runtime.lifecycle.turnStartedAt = Date.now();
+    beginAuxiliaryTurn(runtime.auxiliary, String(event.turnIndex));
   });
   hooks.add("turn_start");
+
+  pi.on("user_bash_end", async (event: UserBashEndPayload, ctx: ExtensionContext) => {
+    if (runtime.mode === "off") return;
+    runtime.sourceMessages.set(event.entryId, {
+      role: "bashExecution",
+      command: event.command,
+      output: event.output,
+      ...(event.exitCode === undefined ? {} : { exitCode: event.exitCode }),
+      ...(event.cancelled === undefined ? {} : { cancelled: event.cancelled }),
+      ...(event.fullOutputPath === undefined ? {} : { fullOutputPath: event.fullOutputPath }),
+    });
+    await installUserBashViews(ctx, event);
+  });
+  hooks.add("user_bash_end");
 
   pi.on("model_select", (event) => {
     if (runtime.mode === "off") return;
@@ -1464,134 +1729,46 @@ export default function primeContext(pi: ExtensionAPI): void {
       : runtime.lifecycle.selectedModelKey;
     runtime.lifecycle.selectedModelKey = modelKey;
     runtime.lifecycle.replayMetadataPagingEligible = previousKey !== undefined && previousKey !== modelKey;
+    if (previousKey !== undefined && previousKey !== modelKey) advanceProjectionEpoch();
   });
   hooks.add("model_select");
 
-  pi.on("session_before_compact", async (event, ctx) => {
-    if (runtime.mode === "off" || event.customInstructions || event.preparation.isSplitTurn ||
-      event.preparation.turnPrefixMessages.length > 0 || !runtime.taskRuntime) return;
-    await installUserBashViews(ctx);
-    const messages = event.preparation.messagesToSummarize as unknown as ContextMessageLike[];
-    const entryRefs = messages.flatMap((message, messageIndex) => {
-      const id = message && typeof message === "object" ? runtime.projectedRefs.get(message as object) : undefined;
-      return id ? [{ messageIndex, entryId: id }] : [];
-    });
-    if (entryRefs.length !== messages.length) return;
-    const compactBranch = ((event.branchEntries ?? ctx.sessionManager.getBranch()) ?? []) as unknown as BranchEntryLike[];
-    const compactFold = resolveFoldApplication(
-      compactBranch,
-      runtime.taskRuntime.fold,
-      runtime.taskRuntime.taskKey,
-    );
-    const compactProjection = projectModelContext({
-      purpose: "compaction",
-      messages,
-      entryRefs,
-      fixedViews: runtime.fixedViews,
-      fold: runtime.taskRuntime.fold,
-      foldMessageEntryId: compactFold?.foldMessageEntryId,
-      foldPrefixEntryIds: compactFold?.prefixEntryIds,
-      sourceMessages: branchSourceMessages(compactBranch),
-      activeModelKey: runtime.lifecycle.selectedModelKey,
-    });
-    const files = fileLists(event.preparation.fileOps);
-    const state = renderPrimeContextState(runtime.taskRuntime, runtime.snapshot).content;
-    const anchor = runtime.control.expectedAnchor?.content ?? renderPrimeContextAnchor({
-      taskKey: runtime.taskRuntime.taskKey,
-      objective: runtime.taskRuntime.objective ?? runtime.taskRuntime.taskKey,
-      runtime: runtime.taskRuntime,
-      snapshot: runtime.snapshot,
-    }).content;
-    const summary = deterministicFastSummary({
-      messages: compactProjection.messages,
-      entryRefs: compactProjection.entryRefs ?? entryRefs,
-      fixedViews: runtime.fixedViews,
-      previousSummary: event.preparation.previousSummary,
-      anchor,
-      state,
-      hiddenSteering: runtime.taskRuntime.steeringDeltas,
-      fileOps: files,
-      sourceMessages: branchSourceMessages(compactBranch),
-    });
-    if (!summary) return;
-    return {
-      compaction: {
-        summary,
-        firstKeptEntryId: event.preparation.firstKeptEntryId,
-        tokensBefore: event.preparation.tokensBefore,
-        details: files,
-      },
-    };
-  });
+  pi.on("session_before_compact", () => undefined);
   hooks.add("session_before_compact");
 
-  pi.on("session_before_tree", async (event, ctx) => {
-    if (runtime.mode === "off" || !event.preparation.userWantsSummary ||
-      event.preparation.customInstructions || !runtime.taskRuntime) return;
-    await installUserBashViews(ctx);
-    const entries = branchProjectionEntries(event.preparation.entriesToSummarize as unknown as BranchEntryLike[]);
-    if (entries.length === 0) return;
-    const files = treeFixedFileLists(entries, runtime.fixedViews);
-    if (!files) return;
-    const foldApplication = resolveFoldApplication(
-      ctx.sessionManager.getBranch() as BranchEntryLike[],
-      runtime.taskRuntime.fold,
-      runtime.taskRuntime.taskKey,
-    );
-    const projected = projectFoldCandidateMessages(
-      entries,
-      runtime.fixedViews,
-      "branch-summary",
-      runtime.taskRuntime.fold,
-      foldApplication?.foldMessageEntryId,
-      foldApplication?.prefixEntryIds,
-    );
-    const summary = deterministicFastSummary({
-      messages: projected.messages,
-      entryRefs: projected.entryRefs,
-      fixedViews: runtime.fixedViews,
-      anchor: runtime.control.expectedAnchor?.content ?? renderPrimeContextAnchor({
-        taskKey: runtime.taskRuntime.taskKey,
-        objective: runtime.taskRuntime.objective ?? runtime.taskRuntime.taskKey,
-        runtime: runtime.taskRuntime,
-        snapshot: runtime.snapshot,
-      }).content,
-      state: renderPrimeContextState(runtime.taskRuntime, runtime.snapshot).content,
-      hiddenSteering: runtime.taskRuntime.steeringDeltas,
-      fileOps: files,
-      sourceMessages: projected.sourceMessages,
-    });
-    if (!summary) return;
-    return { summary: { summary, details: files } };
-  });
+  pi.on("session_before_tree", () => undefined);
   hooks.add("session_before_tree");
 
   pi.on("session_compact", async (_event, ctx) => {
     clearControlState(true);
+    runtime.exactRepeat = createExactRepeatHintState(runtime.taskSnapshot.taskKey, runtime.exactRepeat.contextEpoch + 1);
+    runtime.recentAttempts = [];
     runtime.fixedViews.clear();
     reloadSelectedBranch(ctx, true);
     runtime.archive?.recordBranchRuntimeReload();
     const branch = ctx.sessionManager.getBranch() as BranchEntryLike[];
-    const allowed = visibleFixedToolCallIds(branch, runtime.taskRuntime?.fold, runtime.taskRuntime?.taskKey);
+    const allowed = visibleFixedToolCallIds(branch);
     installFixedViews(await runtime.archive?.loadFixedExchangeViews(ctx.signal).catch(() => []) ?? [], true, allowed);
   });
   hooks.add("session_compact");
 
   pi.on("session_tree", async (_event, ctx) => {
     clearControlState(true);
+    runtime.exactRepeat = createExactRepeatHintState(runtime.taskSnapshot.taskKey, runtime.exactRepeat.contextEpoch + 1);
+    runtime.recentAttempts = [];
     runtime.fixedViews.clear();
     reloadSelectedBranch(ctx);
     runtime.archive?.recordBranchRuntimeReload();
     const branch = ctx.sessionManager.getBranch() as BranchEntryLike[];
-    const allowed = visibleFixedToolCallIds(branch, runtime.taskRuntime?.fold, runtime.taskRuntime?.taskKey);
+    const allowed = visibleFixedToolCallIds(branch);
     installFixedViews(await runtime.archive?.loadFixedExchangeViews(ctx.signal).catch(() => []) ?? [], true, allowed);
-    await installUserBashViews(ctx);
   });
   hooks.add("session_tree");
 
   pi.on("tool_execution_start", (event) => {
     if (runtime.mode === "off") return;
     const exchange = runtime.exchanges.start(event);
+    runtime.toolStartedAt.set(event.toolCallId, Date.now());
     exchange.replayOriginKey = runtime.lifecycle.selectedModelKey;
   });
   hooks.add("tool_execution_start");
@@ -1600,8 +1777,10 @@ export default function primeContext(pi: ExtensionAPI): void {
     if (runtime.mode === "off") return;
     const branch = ctx.sessionManager.getBranch() as BranchEntryLike[];
     runtime.branchAnchorId = branchAnchorId(branch);
-    runtime.archive?.setBranchScope(runtime.taskRuntime?.taskKey, branchScopeIds(branch), [
-      ...observationRefs(branch), ...runtime.snapshot.pinnedObservationIds,
+    runtime.archive?.setBranchScope(
+      runtime.taskSnapshot.taskKey === "session" ? undefined : runtime.taskSnapshot.taskKey,
+      branchScopeIds(branch), [
+      ...observationRefs(branch), ...runtime.taskSnapshot.pinnedObservationIds,
     ]);
     const toolSchema = pi.getAllTools?.().find((tool) => tool.name === event.toolName)?.parameters;
     runtime.exchanges.noteCall(event, ctx.cwd, toolSchema);
@@ -1610,6 +1789,15 @@ export default function primeContext(pi: ExtensionAPI): void {
 
   pi.on("tool_result", async (event, ctx) => {
     if (runtime.mode === "off") return;
+    const startedAt = runtime.toolStartedAt.get(event.toolCallId);
+    runtime.toolStartedAt.delete(event.toolCallId);
+    if (startedAt !== undefined) {
+      const latency = Math.max(0, Date.now() - startedAt);
+      runtime.auxiliary.economics.recentMeanToolLatencyMs = rollingMean(
+        runtime.auxiliary.economics.recentMeanToolLatencyMs,
+        latency,
+      );
+    }
     try {
       const content = event.content as (TextContent | ImageContent)[];
       const archiveResult = shouldArchiveToolResult(event.toolName);
@@ -1622,31 +1810,21 @@ export default function primeContext(pi: ExtensionAPI): void {
           ctx.signal?.throwIfAborted();
         }
       }
-      // All summaries, capsules, and exact bytes come from the same immutable
-      // snapshot. The public complete-output path may change after tool_result.
-      const resolvedText = await resolveArchiveText(
-        content,
-        archiveResult && runtime.archive ? frozenResultPath : fullOutputPath,
-        ctx.signal,
-      );
-      const parts = archiveResult ? typedObservationParts(event) : [];
-      const visibleResult = visibleToolResultText(content, resolvedText.large ? 64 * 1024 : Number.POSITIVE_INFINITY);
+      // Freeze mutable complete output here. Interpretation is deferred until the
+      // host supplies the canonical finalized exchange at turn_end.
+      const visibleResult = visibleToolResultText(content, 1024 * 1024);
       const exchange = runtime.exchanges.noteResult(
         event,
         ctx.cwd,
-        resolvedText.text,
+        visibleResult.text,
         {
-          source: resolvedText.source,
-          parts: archiveResult ? parts : [],
-          retainResultText: archiveResult,
+          retainResultText: false,
           visibleResultText: visibleResult.text,
           visibleResultBytes: visibleResult.textBytes,
           visibleResultTruncated: visibleResult.truncated,
           visibleResultTail: visibleResult.tail,
           visibleResultSamples: visibleResult.samples,
-          outcomeText: resolvedText.outcomeText,
-          resultSummary: resolvedText,
-          large: resolvedText.large,
+          large: visibleResult.truncated,
         },
       );
       exchange.frozenResultPath = frozenResultPath;
@@ -1668,24 +1846,90 @@ export default function primeContext(pi: ExtensionAPI): void {
     const providerBranch = providerVisibleBranchEntries(fullBranch);
     const goal = activeGoalFromBranch(fullBranch);
     const branch = scopeBranchToGoal(fullBranch, goal);
-    const selection = refreshTaskContract(branch, goal, ctx.cwd);
+    const selection = refreshTaskSelection(branch, goal);
+    if (selection) {
+      const loadedTask = loadLatestTaskSnapshotV2(fullBranch, selection.taskKey);
+      if (loadedTask) runtime.taskSnapshot = loadedTask;
+      else if (runtime.taskSnapshot.taskKey !== selection.taskKey) {
+        runtime.taskSnapshot = createTaskSnapshotV2(
+          selection.taskKey,
+          runtime.taskSnapshot.objective ?? selection.objective,
+          selection.rootUserEntryId,
+        );
+      }
+    }
     runtime.control.expectedAnchor = currentTaskAnchor(
       branch,
       selection,
       latestBranchUserText(providerBranch),
     );
-    const persistedState = runtime.taskRuntime
-      ? latestProviderVisibleControlMessage(
-        fullBranch,
-        PRIME_CONTEXT_STATE_TYPE,
-        runtime.taskRuntime.taskKey,
-      )?.content
-      : undefined;
-    const stateBefore = persistedState ?? runtime.control.lastStateContent ??
-      (runtime.taskRuntime ? renderPrimeContextState(runtime.taskRuntime, runtime.snapshot).content : undefined);
     const contextUsage = ctx.getContextUsage();
-    const exchanges = runtime.exchanges.finishTurn(event.message, event.toolResults);
+    if (!Array.isArray(event.exchanges)) {
+      throw new Error(
+        `Prime Context requires patched prime-agent@0.9.1 finalized exchanges. Run: prime-context-patch-agent "$(npm root -g)/prime-agent"`,
+      );
+    }
+    const taskSnapshotBefore = structuredClone(runtime.taskSnapshot);
+    const toolSchemas = new Map(
+      (pi.getAllTools?.() ?? []).map((tool) => [tool.name, tool.parameters] as const),
+    );
+    for (const source of runtime.exchanges.pendingFullOutputSources()) {
+      try {
+        const resolved = await resolveArchiveText([], source.path, ctx.signal);
+        runtime.exchanges.noteResolvedFullOutput(source.toolCallId, resolved);
+      } catch {
+        ctx.signal?.throwIfAborted();
+      }
+    }
+    const exchangeFacts = buildExchangeFacts({
+      exchanges: event.exchanges,
+      executionMode: event.toolExecution,
+      pendingFullOutputs: runtime.exchanges.pendingFullOutputCaptures(),
+      cwd: ctx.cwd,
+      toolSchemas,
+    });
+    let exactRepeatHint: string | undefined;
+    if (runtime.exactRepeat.taskKey !== runtime.taskSnapshot.taskKey) runtime.recentAttempts = [];
+    for (const facts of exchangeFacts) {
+      const observed = observeExactRepeatHint(runtime.exactRepeat, facts, {
+        taskKey: runtime.taskSnapshot.taskKey,
+        contextEpoch: runtime.exactRepeat.contextEpoch,
+      });
+      runtime.exactRepeat = observed.state;
+      if (observed.hint) exactRepeatHint = observed.hint;
+      runtime.recentAttempts.push({
+        action: boundedStallAction(facts),
+        decisiveObservation: decisiveStallObservation(facts),
+      });
+      runtime.recentAttempts = runtime.recentAttempts.slice(-4);
+    }
+    const stallSignature = hasStrongExactRepeat(runtime.exactRepeat)
+      ? "repeat-after-hint"
+      : detectStallSignature(runtime.recentAttempts);
+    const nextTaskSnapshot = applyProgressEffects(runtime.taskSnapshot, exchangeFacts);
+    const taskUpdate = renderPrimeContextUpdate(taskSnapshotBefore, nextTaskSnapshot);
+
+    const finalizedById = new Map(event.exchanges.map((exchange) => [exchange.toolCallId, exchange]));
+    const factsById = new Map(exchangeFacts.map((facts) => [facts.toolCallId, facts]));
+    const exchanges = runtime.exchanges.finishTurn(
+      event.message,
+      event.exchanges.map((exchange) => exchange.result),
+      event.exchanges,
+    );
     for (const exchange of exchanges) {
+      const canonicalFacts = factsById.get(exchange.toolCallId);
+      if (canonicalFacts) runtime.exchanges.noteCanonicalFacts(exchange, canonicalFacts);
+      const finalized = finalizedById.get(exchange.toolCallId);
+      if (finalized) {
+        exchange.sourceOrder = finalized.sourceOrder;
+        exchange.modelInput = finalized.originalInput && typeof finalized.originalInput === "object"
+          ? structuredClone(finalized.originalInput) as Record<string, unknown>
+          : {};
+        exchange.executedInput = finalized.executedInput && typeof finalized.executedInput === "object"
+          ? structuredClone(finalized.executedInput) as Record<string, unknown>
+          : undefined;
+        exchange.rawResult = finalized.result;
+      }
       if (!exchange.rawResult) continue;
       const finalEvent = {
         ...exchange.rawResult,
@@ -1695,13 +1939,11 @@ export default function primeContext(pi: ExtensionAPI): void {
       } as unknown as ToolResultEvent;
       const finalContent = finalEvent.content as (TextContent | ImageContent)[];
       const finalTypedParts = typedObservationParts(finalEvent);
-      runtime.exchanges.noteFinalDetails(exchange, finalEvent.isError, finalEvent.details);
-      if (!typedObservationPartsEqual(exchange.archiveParts ?? [], finalTypedParts)) {
+      if (exchange.archiveParts && !typedObservationPartsEqual(exchange.archiveParts, finalTypedParts)) {
         exchange.persistedResultChanged = true;
-        exchange.archiveParts = finalTypedParts;
       }
+      exchange.archiveParts = finalTypedParts;
       const finalPath = resultFullOutputPath(exchange.rawResult.details);
-      if (exchange.persistedResultChanged) exchange.archiveParts = finalTypedParts;
       const finalVisibleSource = visiblePartSource(finalContent);
       if (exchange.frozenVisibleResultSource &&
         !await partSourcesEqual(exchange.frozenVisibleResultSource, finalVisibleSource, ctx.signal)) {
@@ -1709,7 +1951,23 @@ export default function primeContext(pi: ExtensionAPI): void {
         exchange.persistedResultChanged = true;
         exchange.persistedCanonicalResultChanged = true;
       }
-      if (!shouldArchiveToolResult(exchange.toolName) || !exchange.persistedCanonicalResultChanged) continue;
+      if (!shouldArchiveToolResult(exchange.toolName)) continue;
+      if (!exchange.persistedCanonicalResultChanged && exchange.resultSummary) {
+        const canonicalPart: ObservationPartInput = {
+          name: "result",
+          kind: "result",
+          mediaType: "text/plain; charset=utf-8",
+          source: exchange.resultSummary.partSource ?? { kind: "text", text: exchange.resultSummary.text },
+        };
+        const facts = factsById.get(exchange.toolCallId);
+        if (facts) runtime.exchanges.noteCanonicalResult(
+          exchange,
+          exchange.resultSummary,
+          [canonicalPart, ...finalTypedParts],
+          facts,
+        );
+        continue;
+      }
       let canonicalFrozenPath: string | undefined;
       if (!exchange.persistedTextChanged && finalPath && runtime.archive) {
         try {
@@ -1749,196 +2007,109 @@ export default function primeContext(pi: ExtensionAPI): void {
         mediaType: "text/plain; charset=utf-8",
         source: resolved.partSource ?? { kind: "text", text: resolved.text },
       };
-      runtime.exchanges.noteCanonicalResult(
+      const facts = factsById.get(exchange.toolCallId);
+      if (facts) runtime.exchanges.noteCanonicalResult(
         exchange,
         resolved,
-        finalEvent.isError,
-        finalEvent.details,
         [canonicalPart, ...finalTypedParts],
+        facts,
       );
     }
 
-    if (runtime.archive) {
-      for (const exchange of exchanges) {
-        if (!shouldArchiveToolResult(exchange.toolName) || !exchange.rawResult || !exchange.resultSummary) continue;
-        const content = Array.isArray(exchange.rawResult.content)
-          ? exchange.rawResult.content as (TextContent | ImageContent)[]
-          : [];
-        const metadata = runtime.exchanges.toObservationMetadata(exchange, {
-          taskKey: runtime.taskRuntime?.taskKey,
-          goalId: runtime.taskRuntime?.goalId,
-          branchAnchorId: runtime.branchAnchorId,
-          turnSequence: runtime.taskRuntime === undefined ? undefined : runtime.taskRuntime.turnSequence + 1,
-          requirementsRevision: runtime.taskRuntime?.requirementsRevision,
-          workspaceRevisionAtStart: runtime.taskRuntime?.workspaceRevision,
-        });
-        if (!metadata) continue;
-        const archived = await runtime.archive.archiveVisibleContent(
-          content,
-          exchange.toolName,
-          exchange.outcome?.isError ?? false,
-          adaptiveMinTextBytes(runtime.config.minTextBytes, contextUsage),
-          runtime.config.capsuleMaxBytes,
-          ctx.signal,
-          exchange.resultSummary,
-          contextUsage,
-          metadata,
-          exchange.archiveParts ?? [],
-        );
-        if (archived?.observation.envelope?.resultCapsule) {
-          exchange.admittedCapsule = archived.observation.envelope.resultCapsule;
-        }
-        if (archived) {
-          const images = archived.observation.envelope
-            ? imageRefsForEnvelope(archived.observation.envelope)
-            : projectedImageRefs(archived.observation.id, content);
-          if (images.length > 0) setPendingImages(runtime, exchange.toolCallId, images);
-        }
-      }
-    }
 
-    let completedArchives;
-    let createdFold: ReturnType<typeof renderPrimeContextFold> | undefined;
-    if (!runtime.taskRuntime) {
-      completedArchives = exchanges.flatMap((exchange) => {
-        const metadata = runtime.exchanges.toObservationMetadata(exchange, {
-          branchAnchorId: runtime.branchAnchorId,
-        });
-        return metadata ? [{
-          metadata,
-          toolName: exchange.toolName,
-          isError: exchange.outcome?.isError ?? false,
-          source: exchange.archiveSource,
-          parts: exchange.archiveParts,
-          resultText: exchange.resultText,
-          largeResult: exchange.largeResult,
-          resultSummary: exchange.resultSummary,
-          admittedCapsule: exchange.admittedCapsule,
-          sourceOrder: exchange.sourceOrder,
-          replayProtected: exchange.replayProtected,
-          replayOriginKey: exchange.replayProtected ? exchange.replayOriginKey ?? "unknown" : undefined,
-          ...(exchange.persistedCall ? {
-            persistedModelInput: exchange.modelInput,
-            persistedRawCall: exchange.rawCall,
-            persistedRawResult: exchange.rawResult,
-            resultChangedAfterHook: exchange.persistedResultChanged,
-            canonicalResultChangedAfterHook: exchange.persistedCanonicalResultChanged,
-          } : {}),
-        }] : [];
+    if (event.toolExecution !== "parallel" && event.toolExecution !== "sequential") {
+      throw new Error("Prime Context requires Prime Agent turn_end.toolExecution support.");
+    }
+    const completedArchives = exchanges.flatMap((exchange) => {
+      if (!shouldCommitExchangeArchive(exchange, runtime.config.capsuleMaxBytes)) return [];
+      const metadata = runtime.exchanges.toObservationMetadata(exchange, {
+        ...(runtime.taskSnapshot.taskKey === "session" ? {} : { taskKey: runtime.taskSnapshot.taskKey }),
+        branchAnchorId: runtime.branchAnchorId,
       });
+      return metadata ? [{
+        metadata,
+        toolName: exchange.toolName,
+        isError: exchange.outcome?.isError ?? false,
+        source: exchange.archiveSource,
+        parts: exchange.archiveParts,
+        resultText: exchange.resultText,
+        largeResult: exchange.largeResult,
+        resultSummary: exchange.resultSummary,
+        admittedCapsule: exchange.admittedCapsule,
+        sourceOrder: exchange.sourceOrder,
+        replayProtected: exchange.replayProtected,
+        replayOriginKey: exchange.replayProtected ? exchange.replayOriginKey ?? "unknown" : undefined,
+        ...(exchange.persistedCall ? {
+          persistedModelInput: exchange.modelInput,
+          persistedRawCall: exchange.rawCall,
+          persistedRawResult: exchange.rawResult,
+          resultChangedAfterHook: exchange.persistedResultChanged,
+          canonicalResultChangedAfterHook: exchange.persistedCanonicalResultChanged,
+        } : {}),
+      }] : [];
+    });
+
+
+    let turnHint: string | undefined;
+    if (exactRepeatHint) {
+      turnHint = EXACT_REPEAT_HINT;
+    } else if (stallSignature) {
+      turnHint = await runStallRecovery(ctx).catch(() => undefined) ?? EXACT_REPEAT_HINT;
     } else {
-      if (event.toolExecution !== "parallel" && event.toolExecution !== "sequential") {
-        throw new Error("Prime Context requires Prime Agent turn_end.toolExecution support.");
-      }
-      const reduced = reduceTurn(runtime.taskRuntime, exchanges, {
-        toolExecution: event.toolExecution,
-      });
-      runtime.taskRuntime = reduced.runtime;
-      runtime.readiness = reduced.readiness;
-      const currentFold = runtime.taskRuntime.fold;
-      const currentFoldApplication = resolveFoldApplication(
-        fullBranch,
-        currentFold,
-        runtime.taskRuntime.taskKey,
-      );
-      const rawEntryIds = fullBranch.flatMap((entry) => entry.id ? [entry.id] : []);
-      const exactRawOrder = rawEntryIds.length === fullBranch.length &&
-        new Set(rawEntryIds).size === rawEntryIds.length &&
-        (!currentFold || currentFoldApplication !== undefined);
-      const fold = exactRawOrder ? selectFoldGeneration(
-        branchProjectionEntries(providerModelBranchEntries(fullBranch)),
-        runtime.fixedViews,
-        contextUsage,
-        currentFold,
-        (generation, throughEntryId) =>
-          renderPrimeContextFold(runtime.taskRuntime!, runtime.snapshot, generation, throughEntryId).content,
-        {
-          entryIds: rawEntryIds,
-          ...(currentFoldApplication
-            ? { currentFoldMessageEntryId: currentFoldApplication.foldMessageEntryId }
-            : {}),
-        },
-      ) : undefined;
-      if (fold) {
-        if (!currentFold || fold.generation > currentFold.generation) runtime.archive?.recordFoldGeneration();
-        runtime.taskRuntime = { ...runtime.taskRuntime, fold };
-        createdFold = renderPrimeContextFold(
-          runtime.taskRuntime,
-          runtime.snapshot,
-          fold.generation,
-          fold.throughEntryId,
-        );
-      }
-      pi.appendEntry(RUNTIME_STATE_ENTRY_TYPE, runtime.taskRuntime);
-      const revisions = new Map(reduced.exchangeRevisions.map((revision) => [revision.toolCallId, revision]));
-      completedArchives = exchanges.flatMap((exchange) => {
-        const revision = revisions.get(exchange.toolCallId);
-        const metadata = runtime.exchanges.toObservationMetadata(exchange, {
-          taskKey: reduced.runtime.taskKey,
-          goalId: reduced.runtime.goalId,
-          branchAnchorId: runtime.branchAnchorId,
-          turnSequence: reduced.runtime.turnSequence,
-          requirementsRevision: reduced.runtime.requirementsRevision,
-          workspaceRevisionAtStart: revision?.workspaceRevisionAtStart,
-          workspaceRevisionAtResult: revision?.workspaceRevisionAtResult,
-        });
-        return metadata ? [{
-          metadata,
-          toolName: exchange.toolName,
-          isError: exchange.outcome?.isError ?? false,
-          source: exchange.archiveSource,
-          parts: exchange.archiveParts,
-          resultText: exchange.resultText,
-          largeResult: exchange.largeResult,
-          resultSummary: exchange.resultSummary,
-          admittedCapsule: exchange.admittedCapsule,
-          sourceOrder: exchange.sourceOrder,
-          replayProtected: exchange.replayProtected,
-          replayOriginKey: exchange.replayProtected ? exchange.replayOriginKey ?? "unknown" : undefined,
-          ...(exchange.persistedCall ? {
-            persistedModelInput: exchange.modelInput,
-            persistedRawCall: exchange.rawCall,
-            persistedRawResult: exchange.rawResult,
-            resultChangedAfterHook: exchange.persistedResultChanged,
-            canonicalResultChangedAfterHook: exchange.persistedCanonicalResultChanged,
-          } : {}),
-        }] : [];
-      });
+      await distillLargestExchange(exchangeFacts, completedArchives, contextUsage, ctx).catch(() => false);
     }
 
     const controlMessages: ContextMessageLike[] = [];
     if (runtime.control.needsAnchorRefresh && runtime.control.expectedAnchor) {
       controlMessages.push(persistentControlMessage(PRIME_CONTEXT_ANCHOR_TYPE, runtime.control.expectedAnchor));
     }
-    if (runtime.taskRuntime) {
-      const stateAfter = renderPrimeContextState(runtime.taskRuntime, runtime.snapshot);
-      if (stateAfter.content !== stateBefore) {
-        controlMessages.push(persistentControlMessage(PRIME_CONTEXT_STATE_TYPE, stateAfter));
-        runtime.control.lastStateContent = stateAfter.content;
-      }
-      if (createdFold) controlMessages.push(persistentControlMessage(PRIME_CONTEXT_FOLD_TYPE, createdFold));
+
+    if (turnHint) {
+      controlMessages.push({
+        role: "custom",
+        customType: "prime-context.hint",
+        content: turnHint,
+        display: false,
+        details: { schema: "prime-context.hint/v1", taskKey: runtime.taskSnapshot.taskKey },
+        timestamp: Date.now(),
+      });
     }
 
-    // Archive completion is independent from the synchronous control result.
+    let archiveCommitted = true;
     if (runtime.archive && completedArchives.length > 0) {
       try {
-        await runtime.archive.finalizeExchanges(completedArchives, ctx.signal, {
+        const installedViews = await runtime.archive.finalizeExchanges(completedArchives, ctx.signal, {
           budgetBytes: fixedExchangeBudgetBytes(contextUsage),
           capsuleMaxBytes: runtime.config.capsuleMaxBytes,
+          archiveAdmissionBytes: runtime.config.minTextBytes,
+          contextEpoch: runtime.projectionEpoch + 1,
         });
-        const ids = completedArchives.map((completed) => completed.metadata.exchangeId);
-        for (const completed of completedArchives) {
-          const record = await runtime.archive.findObservation(completed.metadata.exchangeId, ctx.signal, true);
-          const images = record.envelope ? imageRefsForEnvelope(record.envelope) : [];
-          const toolCallId = completed.metadata.toolCallId;
-          if (toolCallId && images.length > 0) setPendingImages(runtime, toolCallId, images);
-          else if (toolCallId) clearPendingImages(runtime, toolCallId);
+        for (const view of installedViews) {
+          const images = view.images ?? [];
+          if (images.length > 0) setPendingImages(runtime, view.toolCallId, images);
+          else clearPendingImages(runtime, view.toolCallId);
         }
-        installFixedViews(await runtime.archive.loadFixedExchangeViews(ctx.signal, ids));
+        installFixedViews(installedViews);
       } catch {
+        archiveCommitted = false;
         // Raw session messages remain the provider view when batch finalization fails.
       }
     }
+
+    if (taskUpdate && archiveCommitted) {
+      runtime.taskSnapshot = nextTaskSnapshot;
+      pi.appendEntry(SNAPSHOT_ENTRY_TYPE, runtime.taskSnapshot);
+      const taskMessage: ContextMessageLike = {
+        role: "custom",
+        customType: PRIME_CONTEXT_UPDATE_TYPE,
+        content: taskUpdate,
+        display: false,
+        details: { schema: "prime-context.task-update/v1", taskKey: runtime.taskSnapshot.taskKey },
+        timestamp: Date.now(),
+      };
+      const anchorOffset = runtime.control.needsAnchorRefresh && runtime.control.expectedAnchor ? 1 : 0;
+      controlMessages.splice(anchorOffset, 0, taskMessage);
+      }
 
     if (runtime.archive) {
       for (const exchange of exchanges) {
@@ -1946,13 +2117,6 @@ export default function primeContext(pi: ExtensionAPI): void {
         await runtime.archive.removeFrozenTextSource(exchange.frozenResultPath).catch(() => undefined);
         exchange.frozenResultPath = undefined;
       }
-    }
-
-    for (const [toolCallId, images] of runtime.pendingImages) {
-      if (!runtime.fixedViews.get(toolCallId)?.images?.length ||
-        !images.every((image) => runtime.consumedImageRefs.has(image.ref) ||
-          !PROVIDER_IMAGE_MIME_TYPES.has(image.mimeType.toLowerCase()))) continue;
-      clearPendingImages(runtime, toolCallId);
     }
 
     return controlMessages.length > 0 ? { messages: controlMessages } : undefined;
@@ -1967,176 +2131,115 @@ export default function primeContext(pi: ExtensionAPI): void {
   }, ctx: ExtensionContext) => {
     if (runtime.mode === "off") return;
     const purpose = event.purpose as ContextPurpose;
-    const selectedBranch = ctx.sessionManager.getBranch() as BranchEntryLike[];
-    let temporaryAnchorText: string | undefined;
-    if (purpose === "provider") {
-      const providerBranch = providerVisibleBranchEntries(selectedBranch);
-      const goal = activeGoalFromBranch(selectedBranch);
-      const branch = scopeBranchToGoal(selectedBranch, goal);
-      const selection = refreshTaskContract(branch, goal, ctx.cwd);
-      const anchor = currentTaskAnchor(
-        branch,
-        selection,
-        latestBranchUserText(providerBranch),
-      );
-      runtime.control.expectedAnchor = anchor;
-      const unscoped = anchor && selection?.source === "user" && selection.rootUserEntryId
-        ? { content: anchor.content, afterEntryId: selection.rootUserEntryId }
-        : undefined;
-      const persisted = anchor
-        ? latestProviderVisibleControlMessage(
-          selectedBranch,
-          PRIME_CONTEXT_ANCHOR_TYPE,
-          anchor.details.taskKey,
-          unscoped,
-        )
-        : undefined;
-      const positionallyScopedUnscoped = unscoped !== undefined && persisted?.details?.taskKey === undefined;
-      if (!anchor || sameAnchor(persisted, anchor, positionallyScopedUnscoped)) {
-        runtime.control.structuralBoundary = false;
-        runtime.control.needsAnchorRefresh = false;
-      } else if (runtime.control.structuralBoundary || runtime.control.needsAnchorRefresh) {
-        runtime.control.structuralBoundary = false;
-        runtime.control.needsAnchorRefresh = true;
-        temporaryAnchorText = anchor.content;
-      }
-      runtime.archive?.noteContextTurn(goal !== undefined);
-    }
     const refs = event.entryRefs as ContextEntryRef[] | undefined;
-    const foldApplication = resolveFoldApplication(
-      selectedBranch,
-      runtime.taskRuntime?.fold,
-      runtime.taskRuntime?.taskKey,
-    );
-    const projected = projectModelContext({
+    const toolSetRevision = activeToolSetRevision(pi);
+    if (runtime.projectionToolSetRevision === undefined) {
+      runtime.projectionToolSetRevision = toolSetRevision;
+    } else if (runtime.projectionToolSetRevision !== toolSetRevision) {
+      runtime.projectionToolSetRevision = toolSetRevision;
+      advanceProjectionEpoch();
+    }
+    const projectionInput = {
       purpose,
       messages: event.messages as unknown as ContextMessageLike[],
       entryRefs: refs,
       fixedViews: runtime.fixedViews,
-      fold: runtime.taskRuntime?.fold,
-      foldMessageEntryId: foldApplication?.foldMessageEntryId,
-      foldPrefixEntryIds: foldApplication?.prefixEntryIds,
-      sourceMessages: branchSourceMessages(selectedBranch),
-      recoveryLeases: runtime.recoveryLeases,
-      pendingImages: runtime.pendingImages,
-      consumedImageRefs: runtime.consumedImageRefs,
-      activeModelKey: runtime.lifecycle.selectedModelKey,
-    });
-    if (purpose === "provider") {
-      for (const id of projected.shownRecoveryToolCallIds ?? []) runtime.projectedRecoveryToolCallIds.add(id);
-      for (const message of projected.messages) {
-        if (message.role === "toolResult" && typeof message.toolCallId === "string" &&
-            runtime.recoveryUtilities.has(message.toolCallId)) {
-          runtime.projectedRecoveryToolCallIds.add(message.toolCallId);
+      sourceMessages: refs === undefined ? undefined : (() => {
+        const sourceMessages = new Map(runtime.sourceMessages);
+        for (const ref of refs) {
+          const message = event.messages[ref.messageIndex];
+          if (message && !sourceMessages.has(ref.entryId)) sourceMessages.set(ref.entryId, message);
         }
-      }
-      for (const ref of projected.shownImageRefs ?? []) runtime.projectedImageRefs.add(ref);
-    }
-    const messages = temporaryAnchorText
-      ? appendProviderTextMessage(projected.messages, temporaryAnchorText)
-      : projected.messages;
-    for (const ref of projected.entryRefs ?? []) {
-      const message = messages[ref.messageIndex];
-      if (message && typeof message === "object") runtime.projectedRefs.set(message as object, ref.entryId);
-    }
-    if (purpose === "provider") {
-      const effectiveRefs = projected.entryRefs ?? refs ?? [];
-      const previous = runtime.lastProviderProjection;
-      const foldGeneration = runtime.taskRuntime?.fold?.generation ?? 0;
-      const extendedStableGeneration = Boolean(
-        previous && previous.foldGeneration === foldGeneration &&
-        effectiveRefs.length > previous.entryCount && previous.entryCount > 0 &&
-        effectiveRefs[previous.entryCount - 1]?.entryId === previous.lastEntryId
-      );
-      runtime.archive?.recordProviderProjection(
-        utf8Bytes(JSON.stringify(messages)),
-        extendedStableGeneration,
-      );
-      runtime.lastProviderProjection = {
-        entryCount: effectiveRefs.length,
-        ...(effectiveRefs.at(-1)?.entryId ? { lastEntryId: effectiveRefs.at(-1)!.entryId } : {}),
-        foldGeneration,
-      };
-    }
+        return sourceMessages;
+      })(),
+      pendingImages: runtime.pendingImages,
+      activeModelKey: runtime.lifecycle.selectedModelKey,
+      contextEpoch: runtime.projectionEpoch,
+    };
+    const projected = purpose === "provider" || purpose === "budget"
+      ? buildProviderRepresentation({
+          ...projectionInput,
+          purpose,
+          epochId: runtime.projectionEpoch,
+          modelKey: runtime.lifecycle.selectedModelKey ?? "unselected",
+          toolSetRevision,
+          cache: runtime.projectionCache,
+        })
+      : projectModelContext(projectionInput);
+    const messages = projected.messages;
     const messagesChanged = messages !== event.messages;
     const refsChanged = projected.entryRefs !== undefined && (
       refs === undefined || projected.entryRefs.length !== refs.length ||
       projected.entryRefs.some((ref, index) => ref.messageIndex !== refs[index]?.messageIndex || ref.entryId !== refs[index]?.entryId)
     );
-    if (!messagesChanged && !refsChanged) return;
+    if (!messagesChanged && !refsChanged && projected.projectionIdentity === undefined) return;
     return {
-      messages: messages as typeof event.messages,
-      ...(projected.entryRefs === undefined ? {} : { entryRefs: projected.entryRefs }),
+      ...(messagesChanged ? { messages: messages as typeof event.messages } : {}),
+      ...(projected.entryRefs === undefined || !refsChanged ? {} : { entryRefs: projected.entryRefs }),
+      ...(projected.projectionIdentity === undefined ? {} : {
+        projectionIdentity: projected.projectionIdentity,
+      }),
     };
   });
   hooks.add("model_context");
 
-  pi.on("message_end", async (event, ctx) => {
-    if (runtime.mode === "off" || event.message.role !== "assistant") return;
-    runtime.archive?.recordUsage(event.message.usage ?? {});
-    const successful = event.message.stopReason !== "error" && event.message.stopReason !== "aborted";
-    if (successful) {
-      for (const id of runtime.projectedRecoveryToolCallIds) {
-        const utility = runtime.recoveryUtilities.get(id);
-        if (utility) {
-          runtime.archive?.recordRecovery(
-            utility.useful,
-            utility.subjectKeys,
-            utility.exposedBytes,
-            utility.inspectRecallHit,
-          );
-          runtime.recoveryUtilities.delete(id);
-        }
-        runtime.recoveryLeases.delete(id);
-      }
-      const imageBytes = new Map<string, number>();
-      for (const view of runtime.fixedViews.values()) {
-        for (const image of view.images ?? []) imageBytes.set(image.ref, image.bytes);
-      }
-      for (const images of runtime.pendingImages.values()) {
-        for (const image of images) imageBytes.set(image.ref, image.bytes);
-      }
-      let projectedMediaBytes = 0;
-      for (const ref of runtime.projectedImageRefs) {
-        if (!runtime.consumedImageRefs.has(ref)) projectedMediaBytes += imageBytes.get(ref) ?? 0;
-        runtime.consumedImageRefs.add(ref);
-      }
-      if (projectedMediaBytes > 0) runtime.archive?.recordTypedMediaProjection(projectedMediaBytes);
-      while (runtime.consumedImageRefs.size > CONSUMED_IMAGE_REF_MAX) {
-        const oldest = runtime.consumedImageRefs.values().next().value as string | undefined;
-        if (!oldest) break;
-        runtime.consumedImageRefs.delete(oldest);
-      }
+  pi.on("message_end", (event) => {
+    if (runtime.mode === "off") return;
+    const message = record(event.message);
+    if (message?.role !== "assistant") return;
+    const usage = record(message.usage);
+    if (!usage) return;
+    const input = [usage.input, usage.cacheRead, usage.cacheWrite]
+      .filter((value): value is number => typeof value === "number" && Number.isFinite(value))
+      .reduce((total, value) => total + Math.max(0, value), 0);
+    if (input > 0) runtime.auxiliary.economics.latestProviderInputTokens = input;
+    if (typeof usage.output === "number" && Number.isFinite(usage.output) && usage.output >= 0) {
+      runtime.auxiliary.economics.conservativeMainOutputTokens = Math.max(512, rollingMean(
+        runtime.auxiliary.economics.conservativeMainOutputTokens,
+        usage.output,
+      ));
     }
-    runtime.projectedRecoveryToolCallIds.clear();
-    runtime.projectedImageRefs.clear();
-    if (runtime.archive) await runtime.archive.flushSessionState(ctx.signal).catch(() => undefined);
+    const totalCost = record(usage.cost)?.total;
+    if (typeof totalCost === "number" && Number.isFinite(totalCost) && totalCost >= 0) {
+      runtime.auxiliary.economics.recentMeanSolverCallCost = rollingMean(
+        runtime.auxiliary.economics.recentMeanSolverCallCost,
+        totalCost,
+      );
+    }
+    if (runtime.lifecycle.turnStartedAt !== undefined) {
+      runtime.auxiliary.economics.recentMeanSolverLatencyMs = rollingMean(
+        runtime.auxiliary.economics.recentMeanSolverLatencyMs,
+        Math.max(0, Date.now() - runtime.lifecycle.turnStartedAt),
+      );
+      runtime.lifecycle.turnStartedAt = undefined;
+    }
   });
   hooks.add("message_end");
 
   const actions: PrimeContextActions = {
     getMode: () => runtime.mode,
     setMode: (mode) => {
+      if (runtime.mode !== mode) advanceProjectionEpoch();
       runtime.mode = mode;
+      setAutomaticRefinementEnabled?.(mode === "on" ? false : undefined);
     },
     getArchive: () => runtime.archive,
-    getSnapshot: () => runtime.snapshot,
-    getTaskRuntime: () => runtime.taskRuntime,
-    getReadiness: () => runtime.readiness,
+    getSnapshot: () => runtime.taskSnapshot,
     updateSnapshot: (changes: SnapshotChanges): SnapshotUpdateResult => {
-      const result = applySnapshotChanges(runtime.snapshot, changes);
+      const result = applySnapshotChanges(runtime.taskSnapshot, changes);
       if (result.ok && result.changed) {
+        runtime.taskSnapshot = result.snapshot;
         pi.appendEntry(SNAPSHOT_ENTRY_TYPE, result.snapshot);
-        runtime.snapshot = result.snapshot;
       }
       return result;
     },
     getReadMaxBytes: () => runtime.config.readMaxBytes,
     consumeConfigWarnings: () => runtime.configWarnings.splice(0),
     hooksLoaded: () => requiredHooksLoaded(hooks),
-    clearFixedViews: () => runtime.fixedViews.clear(),
-    registerRecoveryLease,
-    registerRecoveryUtility,
+    clearFixedViews: () => {
+      if (runtime.fixedViews.size > 0) advanceProjectionEpoch();
+      runtime.fixedViews.clear();
+    },
     resolveRecallSources: async (scope: RecallScope, signal?: AbortSignal) => {
       signal?.throwIfAborted();
       const recall = runtime.sessionRecall;
@@ -2156,6 +2259,186 @@ export default function primeContext(pi: ExtensionAPI): void {
     },
   };
 
+  const compileKnowledge = async (
+    request: LearnCommandRequest,
+    ctx: ExtensionContext,
+    automatic: boolean,
+    automaticOutcome: TaskOutcome = "unknown",
+  ): Promise<string> => {
+      if (runtime.mode === "off") throw new Error("Prime Context is disabled.");
+      if (!ctx.model || !ctx.modelRegistry) throw new Error("No registered model is available for learning.");
+      const messagesFromEntries = (entries: readonly BranchEntryLike[]): AgentMessage[] => entries.flatMap((entry) => {
+        if (entry.type !== "message") return [];
+        const role = record(entry.message)?.role;
+        return role === "user" || role === "assistant" || role === "toolResult"
+          ? [entry.message as AgentMessage]
+          : [];
+      });
+      const topic = request.topic;
+      const episodes = [];
+      if (request.from.length === 0) {
+        const fullBranch = ctx.sessionManager.getBranch() as BranchEntryLike[];
+        const branch = scopeBranchToGoal(fullBranch, activeGoalFromBranch(fullBranch));
+        const messages = messagesFromEntries(branch);
+        if (messages.length === 0) throw new Error("The current selected branch has no learning episode.");
+        episodes.push({ task: topic, taskOutcome: automatic ? automaticOutcome : "unknown", messages });
+      } else {
+        for (const source of [...new Set(request.from)]) {
+          const sessionFile = resolve(ctx.cwd, source);
+          const info = await stat(sessionFile);
+          if (!info.isFile() || info.size > 16 * 1024 * 1024) {
+            throw new Error(`Learning session file must be a regular file of at most 16 MiB: ${source}`);
+          }
+          const entries = (await readFile(sessionFile, "utf8")).split(/\r?\n/u).flatMap((line) => {
+            if (!line.trim()) return [];
+            try {
+              const value = JSON.parse(line) as BranchEntryLike;
+              return value && typeof value === "object" ? [value] : [];
+            } catch {
+              throw new Error(`Invalid JSONL session file: ${source}`);
+            }
+          });
+          const messages = messagesFromEntries(entries);
+          if (messages.length === 0) throw new Error(`Session file has no learning episode: ${source}`);
+          const task = entries.flatMap((entry) => entry.type === "message" && record(entry.message)?.role === "user"
+            ? [messageText(record(entry.message)?.content)]
+            : []).find(Boolean) ?? topic;
+          episodes.push({ task, taskOutcome: "unknown" as const, messages });
+        }
+      }
+      const hooks = createModelResolutionHooks({
+        currentModel: () => ctx.model,
+        modelRegistry: ctx.modelRegistry,
+      });
+      const resolved = await resolveAuxiliaryModel("knowledge-compile", runtime.config, hooks);
+      if (!resolved) throw new Error("The configured learning model could not be resolved or authenticated.");
+      const complete = async (call: KnowledgeCompilerCall) => {
+        if (automatic) {
+          const prompt = {
+            kind: "knowledge-compile" as const,
+            systemPrompt: call.systemPrompt,
+            userPrompt: call.prompt,
+            context: {
+              systemPrompt: call.systemPrompt,
+              messages: [{ role: "user" as const, content: call.prompt, timestamp: Date.now() }],
+            },
+            maxOutputTokens: call.maxOutputTokens,
+            estimatedInputTokens: Math.ceil(utf8Bytes(`${call.systemPrompt}\n${call.prompt}`) / 4),
+          };
+          runtime.auxiliary.economics.currentMainInputUnitCost = ctx.model?.cost.input;
+          runtime.auxiliary.economics.currentMainOutputUnitCost = ctx.model?.cost.output;
+          runtime.auxiliary.economics.latestProviderInputTokens = ctx.getContextUsage?.()?.totalTokens;
+          const execution = await executeTrackedAuxiliary({
+            runtime: runtime.auxiliary,
+            prompt,
+            auth: resolved,
+            signal: call.signal ?? ctx.signal,
+            plan: {
+              kind: "knowledge-compile",
+              model: resolved.model,
+              blocking: false,
+              estimatedInputTokens: prompt.estimatedInputTokens,
+              maxOutputTokens: prompt.maxOutputTokens,
+              estimatedPromptTokensSaved: 4_000,
+              estimatedMainTurnsAvoided: 0.5,
+              estimatedToolCallsAvoided: 0,
+              completionRisk: "low",
+              estimatedCriticalPathMsSaved: 0,
+              estimatedAuxiliaryLatencyMs: 2_000,
+            },
+            parseOutput: (text) => text,
+          });
+          if (execution.status !== "success" || !execution.output) throw new Error(execution.reason);
+          return {
+            text: execution.output,
+            provider: resolved.model.provider,
+            model: resolved.model.id,
+            inputTokens: execution.usage?.input,
+            outputTokens: execution.usage?.output,
+            cost: execution.usage?.cost,
+          };
+        }
+        const message = await completeSimple(resolved.model, {
+          systemPrompt: call.systemPrompt,
+          messages: [{ role: "user", content: call.prompt, timestamp: Date.now() }],
+        }, {
+          apiKey: resolved.apiKey,
+          headers: resolved.headers,
+          maxTokens: call.maxOutputTokens,
+          reasoning: "off",
+          signal: call.signal ?? ctx.signal,
+          timeoutMs: 60_000,
+          maxRetries: 0,
+        });
+        if (message.stopReason === "error" || message.stopReason === "aborted") {
+          throw new Error(message.errorMessage ?? `Learning completion ${message.stopReason}.`);
+        }
+        return {
+          text: message.content.flatMap((block) => block.type === "text" ? [block.text] : []).join("\n").trim(),
+          provider: message.provider,
+          model: message.model,
+          inputTokens: message.usage.input,
+          outputTokens: message.usage.output,
+          cost: message.usage.cost.total,
+        };
+      };
+      const result = await runKnowledgeCompiler({
+        topic,
+        episodes,
+        library: runtime.skillLibrary,
+        automatic,
+      }, {
+        libraryPath: resolveSkillLibraryPath(ctx.cwd, runtime.config.libraryPath),
+        complete,
+        signal: ctx.signal,
+      });
+      return result.message;
+  };
+
+  pi.on("agent_end", (event, ctx) => {
+    if (runtime.mode === "off" || runtime.config.autoLearn !== "utility-gated" ||
+        runtime.autoLearnInFlight || !ctx.model || !ctx.modelRegistry) return;
+    const finalAssistant = [...event.messages].reverse().find((message) => message.role === "assistant");
+    if (!finalAssistant || finalAssistant.content.some((block) => block.type === "toolCall")) return;
+    const observations = runtime.taskSnapshot.actionableObservations;
+    const branch = ctx.sessionManager.getBranch() as BranchEntryLike[];
+    const selectedSkill = branch.some((entry) => {
+      const details = record(entry.details);
+      return entry.type === "custom_message" && entry.customType === PRIME_CONTEXT_ANCHOR_TYPE &&
+        details?.taskKey === runtime.taskSnapshot.taskKey && typeof details.skillSupplement === "string";
+    });
+    const hasFailure = observations.some((observation) => /\b(?:fail(?:ed|ure)?|error)\b/iu.test(observation.text));
+    const latestUser = [...branch].reverse().find((entry) =>
+      entry.type === "message" && record(entry.message)?.role === "user"
+    );
+    const userFeedback = messageText(record(latestUser?.message)?.content);
+    const taskOutcome = explicitUserTaskOutcome(userFeedback);
+    if (taskOutcome === "unknown") return;
+    const explicitCorrection = /\b(?:instead|general rule|procedure|always|never)\b/iu.test(userFeedback);
+    if (!(explicitCorrection || (selectedSkill && hasFailure && taskOutcome === "success"))) return;
+    const taskKey = runtime.taskSnapshot.taskKey;
+    if (runtime.autoLearnedTaskKeys.has(taskKey)) return;
+    runtime.autoLearnedTaskKeys.add(taskKey);
+    runtime.autoLearnInFlight = true;
+    void compileKnowledge({
+      topic: runtime.taskSnapshot.objective ?? runtime.taskSnapshot.focus ?? "current task procedure",
+      from: [],
+    }, ctx, true, taskOutcome).catch(() => undefined).finally(() => {
+      runtime.autoLearnInFlight = false;
+    });
+  });
+  hooks.add("agent_end");
+
+  pi.on("session_shutdown", () => {
+    finalizeAuxiliaryTask(runtime.auxiliary);
+    persistBenchmarkAccounting();
+    runtime.autoLearnInFlight = false;
+    setAutomaticRefinementEnabled?.(undefined);
+  });
+  hooks.add("session_shutdown");
+
   registerPrimeContextTool(pi, actions);
-  registerPrimeContextCommands(pi, actions);
+  registerPrimeContextCommands(pi, actions, {
+    learn: (request, ctx) => compileKnowledge(request, ctx, false),
+  });
 }

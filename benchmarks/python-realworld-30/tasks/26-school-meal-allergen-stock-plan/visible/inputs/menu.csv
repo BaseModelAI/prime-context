@@ -1,0 +1,5 @@
+date,meal,option_id,recipe_id,planned_servings
+2026-09-01,lunch,A,pizza,10
+2026-09-01,lunch,B,bean_bowl,8
+2026-09-02,lunch,A,pizza,6
+2026-09-02,lunch,B,pasta,5

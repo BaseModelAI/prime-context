@@ -1,0 +1,41 @@
+{
+  "schema": "prime-context.python-realworld-task/v1",
+  "id": 17,
+  "slug": "contract-clause-index",
+  "title": "Contract Clause Index and Comparison",
+  "pressure": "M",
+  "timeout_seconds": 1200,
+  "editable_paths": [
+    "solution/",
+    "output/"
+  ],
+  "initial_prompt": "Read TASK.md and complete the requested workflow using only the Python standard library.",
+  "stages": [
+    {
+      "id": "initial",
+      "inject": "visible/",
+      "message": "Read TASK.md and complete the requested workflow using only the Python standard library.",
+      "compact_after": true
+    },
+    {
+      "id": "review-set",
+      "inject": "stages/review-set/",
+      "message": "`inputs/review_set.csv` names 18 contracts under renewal review. Generate `output/comparison.md` grouping conflicting renewal windows, liability caps, and governing-law states, with source line ranges for each statement.",
+      "compact_after": false
+    },
+    {
+      "id": "late-contracts",
+      "inject": "stages/late-contracts/",
+      "message": "Some newly added agreements in `inputs/contracts-late/` have headings wrapped across two lines. Include that directory and update the parser without weakening the line citations. A wrapped heading's citation starts at its first heading line.",
+      "compact_after": false
+    }
+  ],
+  "judge_command": [
+    "python3.12",
+    "-E",
+    "-S",
+    "judge.py",
+    "--workspace",
+    "{workspace}"
+  ]
+}

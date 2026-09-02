@@ -2,12 +2,16 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve, join } from "node:path";
 
-const SUPPORTED_VERSION = "0.8.1";
+const SUPPORTED_VERSION = "0.9.1";
 const argv = process.argv.slice(2);
 const checkOnly = argv.includes("--check");
-const positional = argv.filter((arg) => arg !== "--check");
+const stockOnly = argv.includes("--check-stock");
+if (checkOnly && stockOnly) {
+  throw new Error("choose either --check or --check-stock");
+}
+const positional = argv.filter((arg) => arg !== "--check" && arg !== "--check-stock");
 if (positional.length > 1) {
-  throw new Error("usage: patch-prime-agent.mjs [--check] [prime-agent-root]");
+  throw new Error("usage: patch-prime-agent.mjs [--check|--check-stock] [prime-agent-root]");
 }
 const root = resolve(
   positional[0] ?? process.env.PRIME_AGENT_ROOT ?? "/usr/local/lib/node_modules/prime-agent",
@@ -21,13 +25,38 @@ function occurrences(text, value) {
   return text.split(value).length - 1;
 }
 
+const stockVirtualFiles = new Map();
+const pendingWrites = new Map();
+
+function readCurrentText(path) {
+  const diskText = readFileSync(path, "utf8");
+  return stockOnly
+    ? stockVirtualFiles.get(path) ?? diskText
+    : pendingWrites.get(path) ?? diskText;
+}
+
 function applyPatches(relativePath, patches) {
   const path = join(root, relativePath);
-  let text = readFileSync(path, "utf8");
+  const diskText = readFileSync(path, "utf8");
+  let text = readCurrentText(path);
   let changed = false;
 
-  for (const { name, before, after } of patches) {
+  if (stockOnly) {
+    for (const { name, before, after, supersededBy } of patches) {
+      const afterCount = occurrences(diskText, after);
+      const beforeCount = occurrences(diskText, before);
+      const embeddedBeforeCount = occurrences(after, before);
+      const supersededCount = supersededBy ? occurrences(diskText, supersededBy) : 0;
+      if ((afterCount === 1 && beforeCount === embeddedBeforeCount) ||
+          (afterCount === 0 && supersededBy && supersededCount === 1)) {
+        throw new Error(`${relativePath}: found patched ${name} in stock host`);
+      }
+    }
+  }
+
+  for (const { name, before, after, supersededBy } of patches) {
     const afterCount = occurrences(text, after);
+    if (afterCount === 0 && supersededBy && occurrences(text, supersededBy) === 1) continue;
     if (afterCount === 1) {
       const beforeCount = occurrences(text, before);
       const embeddedBeforeCount = occurrences(after, before);
@@ -52,9 +81,12 @@ function applyPatches(relativePath, patches) {
     changed = true;
   }
 
-  if (changed) {
-    writeFileSync(path, text);
-    console.log(`patched ${relativePath}`);
+  if (stockOnly) {
+    stockVirtualFiles.set(path, text);
+    console.log(`stock ${relativePath}`);
+  } else if (changed) {
+    pendingWrites.set(path, text);
+    console.log(`planned ${relativePath}`);
   } else {
     console.log(`ok ${relativePath}`);
   }
@@ -74,9 +106,354 @@ if (piCorePackage.version !== SUPPORTED_VERSION) {
   );
 }
 
+// A saved-session resume is also a fresh worker launch opportunity. Without launchEnv,
+// the supervisor cannot safely replace a live worker whose descriptor is already failed.
+applyPatches("dist/modes/agents-view/agents-view-mode.js", [
+  {
+    name: "Agents View resume launch environment import",
+    before:
+      'import { collectDaemonClientEnv, isUnknownDaemonCommandError, } from "../daemon/daemon-protocol.js";',
+    after:
+      'import { collectDaemonClientEnv, collectDaemonLaunchEnv, isUnknownDaemonCommandError, } from "../daemon/daemon-protocol.js";',
+  },
+  {
+    name: "Agents View resume fresh worker launch environment",
+    before: `        config: createAgentsViewResumeConfig(config, overrideCwd),
+        sessionPath: summary.sessionFile,`,
+    after: `        config: createAgentsViewResumeConfig(config, overrideCwd),
+        sessionPath: summary.sessionFile,
+        launchEnv: collectDaemonLaunchEnv(),`,
+  },
+]);
+
+// Send the supervisor hello as soon as its owned socket accepts a client. Command handling
+// remains gated on `ready`; delaying the hello behind worker adoption makes healthy clients
+// classify a slow recovery as stale and launch competing replacement supervisors.
+applyPatches("dist/modes/daemon/daemon-supervisor.js", [
+  {
+    name: "daemon hello before worker adoption completes",
+    before: `        void this.ready.then(() => {
+            if (!client.socket.destroyed && this.clients.has(client)) {
+                this.write(client, {
+                    type: "daemon_hello",
+                    socketPath: this.socketPath,
+                    protocol: DAEMON_PROTOCOL_INFO,
+                    schemaId: DAEMON_SCHEMA_ID,
+                    schemaRevision: DAEMON_SCHEMA_REVISION,
+                    appVersion: VERSION,
+                    runtime: getDaemonRuntimeIdentity(),
+                    supervisorGeneration: this.generation,
+                    supervisorOwnerToken: this.ownership?.record.token,
+                    supervisorPid: process.pid,
+                    supervisorProcessStartId: this.ownership?.record.processStartId,
+                    supervisorSocketPath: this.ownership?.record.socketPath,
+                    clientId: client.id,
+                    serverCapabilities: SUPERVISOR_SERVER_CAPABILITIES,
+                });
+            }
+        }, () => client.socket.destroy());`,
+    after: `        if (!client.socket.destroyed && this.clients.has(client)) {
+            this.write(client, {
+                type: "daemon_hello",
+                socketPath: this.socketPath,
+                protocol: DAEMON_PROTOCOL_INFO,
+                schemaId: DAEMON_SCHEMA_ID,
+                schemaRevision: DAEMON_SCHEMA_REVISION,
+                appVersion: VERSION,
+                runtime: getDaemonRuntimeIdentity(),
+                supervisorGeneration: this.generation,
+                supervisorOwnerToken: this.ownership?.record.token,
+                supervisorPid: process.pid,
+                supervisorProcessStartId: this.ownership?.record.processStartId,
+                supervisorSocketPath: this.ownership?.record.socketPath,
+                clientId: client.id,
+                serverCapabilities: SUPERVISOR_SERVER_CAPABILITIES,
+            });
+        }`,
+  },
+  {
+    name: "session worker V8 heap sized for large persistent sessions",
+    supersededBy: 'const workerHeapOption = "--max-old-space-size=16384";',
+    before: `        delete workerEnvironment.RLM_DEPTH;
+        await this.assertRecoveryAllowed();`,
+    after: `        delete workerEnvironment.RLM_DEPTH;
+        workerEnvironment.NODE_OPTIONS = [workerEnvironment.NODE_OPTIONS, "--max-old-space-size=16384"]
+            .filter(Boolean)
+            .join(" ");
+        await this.assertRecoveryAllowed();`,
+  },
+  {
+    name: "session worker heap option is not duplicated",
+    supersededBy: 'NODE_OPTIONS?.split(" ").includes(workerHeapOption)',
+    before: `        delete workerEnvironment.RLM_DEPTH;
+        workerEnvironment.NODE_OPTIONS = [workerEnvironment.NODE_OPTIONS, "--max-old-space-size=16384"]
+            .filter(Boolean)
+            .join(" ");
+        await this.assertRecoveryAllowed();`,
+    after: `        delete workerEnvironment.RLM_DEPTH;
+        const workerHeapOption = "--max-old-space-size=16384";
+        if (!workerEnvironment.NODE_OPTIONS?.split(/\s+/).includes(workerHeapOption)) {
+            workerEnvironment.NODE_OPTIONS = [workerEnvironment.NODE_OPTIONS, workerHeapOption]
+                .filter(Boolean)
+                .join(" ");
+        }
+        await this.assertRecoveryAllowed();`,
+  },
+  {
+    name: "session worker heap option tokenization is literal-safe",
+    before: `        if (!workerEnvironment.NODE_OPTIONS?.split(/s+/).includes(workerHeapOption)) {`,
+    after: `        if (!workerEnvironment.NODE_OPTIONS?.split(" ").includes(workerHeapOption)) {`,
+  },
+  {
+    name: "large worker attach uses long-running request timeout",
+    before: `                            env: command.env ?? collectDaemonClientEnv(),
+                        });`,
+    after: `                            env: command.env ?? collectDaemonClientEnv(),
+                        }, WORKER_REQUEST_TIMEOUT_MS);`,
+  },
+  {
+    name: "in-flight snapshot invalidation keeps dedupe ownership",
+    before: `                        if (match.worker.snapshotLoads.get(snapshotLoadKey) !== loading) {
+                            throw new SnapshotLoadInvalidatedError("Session snapshot changed during attach");
+                        }`,
+    after: `                        const loadInvalidated = match.worker.invalidatedSnapshotLoads?.delete(snapshotLoadKey) === true;
+                        if (match.worker.snapshotLoads.get(snapshotLoadKey) !== loading || loadInvalidated) {
+                            throw new SnapshotLoadInvalidatedError("Session snapshot changed during attach");
+                        }`,
+  },
+  {
+    name: "snapshot invalidation marks rather than abandons active loads",
+    before: `        worker.snapshotLoads.delete(\`\${activeSessionId}:chunked\`);
+        worker.snapshotLoads.delete(\`\${activeSessionId}:full\`);`,
+    after: `        worker.invalidatedSnapshotLoads ??= new Set();
+        for (const key of [\`\${activeSessionId}:chunked\`, \`\${activeSessionId}:full\`]) {
+            if (worker.snapshotLoads.has(key)) worker.invalidatedSnapshotLoads.add(key);
+        }`,
+  },
+  {
+    name: "completed snapshot load clears invalidation tombstone",
+    before: `                        finally {
+                            if (match.worker.snapshotLoads.get(snapshotLoadKey) === loading) {
+                                match.worker.snapshotLoads.delete(snapshotLoadKey);
+                            }
+                        }`,
+    after: `                        finally {
+                            match.worker.invalidatedSnapshotLoads?.delete(snapshotLoadKey);
+                            if (match.worker.snapshotLoads.get(snapshotLoadKey) === loading) {
+                                match.worker.snapshotLoads.delete(snapshotLoadKey);
+                            }
+                        }`,
+  },
+  {
+    name: "failed snapshot load clears invalidation tombstone",
+    before: `                    }, () => {
+                        if (match.worker.snapshotLoads.get(snapshotLoadKey) === loading) {
+                            match.worker.snapshotLoads.delete(snapshotLoadKey);
+                        }
+                    });`,
+    after: `                    }, () => {
+                        match.worker.invalidatedSnapshotLoads?.delete(snapshotLoadKey);
+                        if (match.worker.snapshotLoads.get(snapshotLoadKey) === loading) {
+                            match.worker.snapshotLoads.delete(snapshotLoadKey);
+                        }
+                    });`,
+  },
+  {
+    name: "duplicate snapshot chunks compare encoded buffers directly",
+    before: `                        const chunk = JSON.parse(frame.payload.toString("utf8"));
+                        if (chunk.type !== "session_snapshot_chunk" ||
+                            chunk.activeSessionId !== activeSessionId ||
+                            chunk.snapshotId !== generation.transcript.snapshotId ||
+                            chunk.index !== duplicateIndex ||
+                            !generation.transcript.readChunk(duplicateIndex).equals(Buffer.from(frame.payload))) {`,
+    after: `                        const encodedChunk = Buffer.from(frame.payload);
+                        if (!generation.transcript.readChunk(duplicateIndex).equals(encodedChunk)) {`,
+  },
+  {
+    name: "child passivation sweeps never evict top-level workers",
+    before: `        const candidates = [...refreshed].filter((worker) => canEvictWorker(this.workerEvictionSnapshot(worker), idleEvictionMinutes, now));`,
+    after: `        // This timer exists to passivate completed child sessions. Top-level workers
+        // must remain resident even when their UI client temporarily disconnects.
+        const candidates = [];`,
+  },
+]);
+
+applyPatches("dist/modes/daemon/daemon-mode.js", [
+  {
+    name: "worker child passivation keeps an in-flight tombstone",
+    before: `                case "worker_passivate_idle_children": {
+                    const count = await this.passivateIdleChildren(command.idleEvictionMinutes, command.now, command.limit);
+                    this.writeWorkerSuccess(client, command, { count });
+                    return;
+                }`,
+    after: `                case "worker_passivate_idle_children": {
+                    let passivation = this.idleChildPassivation;
+                    if (!passivation) {
+                        passivation = this.passivateIdleChildren(command.idleEvictionMinutes, command.now, command.limit);
+                        this.idleChildPassivation = passivation;
+                        void passivation.then(() => {
+                            if (this.idleChildPassivation === passivation) this.idleChildPassivation = undefined;
+                        }, () => {
+                            if (this.idleChildPassivation === passivation) this.idleChildPassivation = undefined;
+                        });
+                    }
+                    const count = await passivation;
+                    this.writeWorkerSuccess(client, command, { count });
+                    return;
+                }`,
+  },
+]);
+
+applyPatches("dist/modes/agent-connection/daemon-agent-connection.js", [
+  {
+    name: "public attach uses long-running request timeout",
+    before: `            resumeCursor: this.lastEventCursor === undefined
+                ? undefined
+                : {
+                    activeSessionId: this.activeSessionId,
+                    ...this.lastEventCursor,
+                },
+        }, undefined, options);`,
+    after: `            resumeCursor: this.lastEventCursor === undefined
+                ? undefined
+                : {
+                    activeSessionId: this.activeSessionId,
+                    ...this.lastEventCursor,
+                },
+        }, DAEMON_LONG_RUNNING_REQUEST_TIMEOUT_MS, options);`,
+  },
+  {
+    name: "snapshot assembly timeout follows transfer progress",
+    before: `    getSnapshotAssembly(snapshotId) {
+        const existing = this.snapshotAssemblies.get(snapshotId);
+        if (existing) {
+            return existing;
+        }
+        let resolveSnapshot;
+        let rejectSnapshot;
+        const promise = new Promise((resolve, reject) => {
+            resolveSnapshot = resolve;
+            rejectSnapshot = reject;
+        });
+        void promise.catch(() => undefined);
+        const timeout = setTimeout(() => {
+            const current = this.snapshotAssemblies.get(snapshotId);
+            if (current) {
+                current.reject(new Error(\`Timed out waiting for snapshot \${snapshotId}\`));
+                this.snapshotAssemblies.delete(snapshotId);
+                this.ignoreSnapshotId(snapshotId);
+            }
+        }, this.options.snapshotTimeoutMs ?? DAEMON_SNAPSHOT_TIMEOUT_MS);
+        timeout.unref();
+        const assembly = {
+            chunks: new Map(),
+            promise,
+            resolve: resolveSnapshot,
+            reject: rejectSnapshot,
+            timeout,
+        };
+        this.snapshotAssemblies.set(snapshotId, assembly);
+        return assembly;
+    }`,
+    after: `    refreshSnapshotAssemblyTimeout(snapshotId, assembly) {
+        clearTimeout(assembly.timeout);
+        assembly.timeout = setTimeout(() => {
+            const current = this.snapshotAssemblies.get(snapshotId);
+            if (current === assembly) {
+                current.reject(new Error(\`Timed out waiting for snapshot \${snapshotId}\`));
+                this.snapshotAssemblies.delete(snapshotId);
+                this.ignoreSnapshotId(snapshotId);
+            }
+        }, this.options.snapshotTimeoutMs ?? DAEMON_SNAPSHOT_TIMEOUT_MS);
+        assembly.timeout.unref();
+    }
+    getSnapshotAssembly(snapshotId) {
+        const existing = this.snapshotAssemblies.get(snapshotId);
+        if (existing) {
+            return existing;
+        }
+        let resolveSnapshot;
+        let rejectSnapshot;
+        const promise = new Promise((resolve, reject) => {
+            resolveSnapshot = resolve;
+            rejectSnapshot = reject;
+        });
+        void promise.catch(() => undefined);
+        const assembly = {
+            chunks: new Map(),
+            promise,
+            resolve: resolveSnapshot,
+            reject: rejectSnapshot,
+            timeout: undefined,
+        };
+        this.snapshotAssemblies.set(snapshotId, assembly);
+        this.refreshSnapshotAssemblyTimeout(snapshotId, assembly);
+        return assembly;
+    }`,
+  },
+  {
+    name: "snapshot begin refreshes inactivity timeout",
+    before: `            const assembly = this.getSnapshotAssembly(message.snapshotId);
+            assembly.begin = message;
+            return;`,
+    after: `            const assembly = this.getSnapshotAssembly(message.snapshotId);
+            assembly.begin = message;
+            this.refreshSnapshotAssemblyTimeout(message.snapshotId, assembly);
+            return;`,
+  },
+  {
+    name: "snapshot chunk refreshes inactivity timeout",
+    before: `            this.getSnapshotAssembly(message.snapshotId).chunks.set(message.index, message.messages);
+            return;`,
+    after: `            const assembly = this.getSnapshotAssembly(message.snapshotId);
+            assembly.chunks.set(message.index, message.messages);
+            this.refreshSnapshotAssemblyTimeout(message.snapshotId, assembly);
+            return;`,
+  },
+]);
+
+// Bound memory-heavy resident RLM sessions. Completed children stay addressable through the
+// daemon's passive registry after idle eviction; callers can wait or delete one before spawning more.
+applyPatches("dist/core/agent-session.js", [
+  {
+    name: "resident RLM child memory limit",
+    supersededBy: "residentRlmChildCount >= 1",
+    before: `        if (this._rlmDepth >= this._rlmMaxDepth) {
+            throw new Error(\`RLM recursion depth limit reached (RLM_DEPTH=\${this._rlmDepth}, RLM_MAX_DEPTH=\${this._rlmMaxDepth})\`);
+        }
+        if (requestedSessionName) {`,
+    after: `        if (this._rlmDepth >= this._rlmMaxDepth) {
+            throw new Error(\`RLM recursion depth limit reached (RLM_DEPTH=\${this._rlmDepth}, RLM_MAX_DEPTH=\${this._rlmMaxDepth})\`);
+        }
+        const residentRlmChildCount = this._unsettledRlmChildRuns.size + this._rlmChildSessions.size;
+        if (residentRlmChildCount >= 4) {
+            throw new Error(
+                \`RLM resident child limit reached (\${residentRlmChildCount}/4). Wait for idle passivation or delete a completed subagent before spawning another.\`,
+            );
+        }
+        if (requestedSessionName) {`,
+  },
+  {
+    name: "resident RLM child limit tightened for large sessions",
+    before: `        const residentRlmChildCount = this._unsettledRlmChildRuns.size + this._rlmChildSessions.size;
+        if (residentRlmChildCount >= 4) {
+            throw new Error(
+                \`RLM resident child limit reached (\${residentRlmChildCount}/4). Wait for idle passivation or delete a completed subagent before spawning another.\`,
+            );
+        }`,
+    after: `        const residentRlmChildCount = this._unsettledRlmChildRuns.size + this._rlmChildSessions.size;
+        if (residentRlmChildCount >= 1) {
+            throw new Error(
+                \`RLM resident child limit reached (\${residentRlmChildCount}/1). Wait for idle passivation or delete the completed subagent before spawning another.\`,
+            );
+        }`,
+  },
+]);
+
 applyPatches("node_modules/@earendil-works/pi-agent-core/dist/agent-loop.js", [
   {
     name: "turn_end mode for failed assistant response",
+    supersededBy: 'toolExecution: config.toolExecution ?? "parallel", exchanges: []',
     before: '                await emit({ type: "turn_end", message, toolResults: [] });',
     after: `                const turnEndResult = await emit({ type: "turn_end", message, toolResults: [], toolExecution: config.toolExecution ?? "parallel" });
                 for (const turnEndMessage of turnEndResult?.messages ?? []) {
@@ -88,6 +465,7 @@ applyPatches("node_modules/@earendil-works/pi-agent-core/dist/agent-loop.js", [
   },
   {
     name: "effective mode captured from the executed batch",
+    supersededBy: "                exchanges.push(...executedToolBatch.exchanges);",
     before: `            const toolCalls = message.content.filter((c) => c.type === "toolCall");
             const toolResults = [];
             hasMoreToolCalls = false;
@@ -105,6 +483,7 @@ applyPatches("node_modules/@earendil-works/pi-agent-core/dist/agent-loop.js", [
   },
   {
     name: "turn_end effective mode",
+    supersededBy: 'toolResults, toolExecution, exchanges });',
     before: '            await emit({ type: "turn_end", message, toolResults });',
     after: `            const turnEndResult = await emit({ type: "turn_end", message, toolResults, toolExecution });
             for (const turnEndMessage of turnEndResult?.messages ?? []) {
@@ -116,6 +495,7 @@ applyPatches("node_modules/@earendil-works/pi-agent-core/dist/agent-loop.js", [
   },
   {
     name: "mode returned by the selected tool execution branch",
+    supersededBy: 'return withToolExchanges(batch, toolCalls, "sequential");',
     before: `    if (config.toolExecution === "sequential" || hasSequentialToolCall) {
         return executeToolCallsSequential(currentContext, assistantMessage, toolCalls, config, signal, emit);
     }
@@ -126,6 +506,116 @@ applyPatches("node_modules/@earendil-works/pi-agent-core/dist/agent-loop.js", [
     }
     const batch = await executeToolCallsParallel(currentContext, assistantMessage, toolCalls, config, signal, emit);
     return { ...batch, toolExecution: "parallel" };`,
+  },
+]);
+
+applyPatches("node_modules/@earendil-works/pi-agent-core/dist/agent-loop.js", [
+  {
+    name: "finalized exchanges on failed assistant turn",
+    before: '                const turnEndResult = await emit({ type: "turn_end", message, toolResults: [], toolExecution: config.toolExecution ?? "parallel" });',
+    after: '                const turnEndResult = await emit({ type: "turn_end", message, toolResults: [], toolExecution: config.toolExecution ?? "parallel", exchanges: [] });',
+  },
+  {
+    name: "finalized exchange batch bridge",
+    before: `    if (config.toolExecution === "sequential" || hasSequentialToolCall) {
+        const batch = await executeToolCallsSequential(currentContext, assistantMessage, toolCalls, config, signal, emit);
+        return { ...batch, toolExecution: "sequential" };
+    }
+    const batch = await executeToolCallsParallel(currentContext, assistantMessage, toolCalls, config, signal, emit);
+    return { ...batch, toolExecution: "parallel" };
+}`,
+    after: `    if (config.toolExecution === "sequential" || hasSequentialToolCall) {
+        const batch = await executeToolCallsSequential(currentContext, assistantMessage, toolCalls, config, signal, emit);
+        return withToolExchanges(batch, toolCalls, "sequential");
+    }
+    const batch = await executeToolCallsParallel(currentContext, assistantMessage, toolCalls, config, signal, emit);
+    return withToolExchanges(batch, toolCalls, "parallel");
+}
+function withToolExchanges(batch, toolCalls, toolExecution) {
+    const exchanges = batch.messages.map((result, sourceOrder) => {
+        const original = toolCalls[sourceOrder];
+        const finalized = batch.finalizedCalls[sourceOrder];
+        return {
+            sourceOrder,
+            toolCallId: original.id,
+            toolName: original.name,
+            originalInput: original.arguments,
+            ...(finalized?.executedInput === undefined ? {} : { executedInput: finalized.executedInput }),
+            result,
+        };
+    });
+    return { messages: batch.messages, terminate: batch.terminate, toolExecution, exchanges };
+}`,
+  },
+  {
+    name: "executed normalized input captured",
+    before: `    return {
+        toolCall: prepared.toolCall,
+        result,
+        isError,
+    };`,
+    after: `    return {
+        toolCall: prepared.toolCall,
+        executedInput: prepared.args,
+        result,
+        isError,
+    };`,
+  },
+  {
+    name: "sequential finalized calls returned",
+    before: `    return {
+        messages,
+        terminate: shouldTerminateToolBatch(finalizedCalls),
+    };
+}
+async function executeToolCallsParallel`,
+    after: `    return {
+        messages,
+        finalizedCalls,
+        terminate: shouldTerminateToolBatch(finalizedCalls),
+    };
+}
+async function executeToolCallsParallel`,
+  },
+  {
+    name: "parallel finalized calls returned",
+    before: `    return {
+        messages,
+        terminate: shouldTerminateToolBatch(orderedFinalizedCalls),
+    };
+}
+function shouldTerminateToolBatch`,
+    after: `    return {
+        messages,
+        finalizedCalls: orderedFinalizedCalls,
+        terminate: shouldTerminateToolBatch(orderedFinalizedCalls),
+    };
+}
+function shouldTerminateToolBatch`,
+  },
+  {
+    name: "finalized exchange event accumulator",
+    before: `            const toolResults = [];
+            let toolExecution = config.toolExecution ?? "parallel";
+            hasMoreToolCalls = false;
+            if (toolCalls.length > 0) {
+                const executedToolBatch = await executeToolCalls(currentContext, message, config, signal, emit);
+                toolExecution = executedToolBatch.toolExecution;
+                toolResults.push(...executedToolBatch.messages);`,
+    after: `            const toolResults = [];
+            const exchanges = [];
+            let toolExecution = config.toolExecution ?? "parallel";
+            hasMoreToolCalls = false;
+            if (toolCalls.length > 0) {
+                const executedToolBatch = await executeToolCalls(currentContext, message, config, signal, emit);
+                toolExecution = executedToolBatch.toolExecution;
+                toolResults.push(...executedToolBatch.messages);
+                exchanges.push(...executedToolBatch.exchanges);`,
+  },
+  {
+    name: "turn end includes finalized exchanges",
+    before: `            const turnEndResult = await emit({ type: "turn_end", message, toolResults, toolExecution });`,
+    after: `            const turnEndResult = await emit({ type: "turn_end", message, toolResults, toolExecution, exchanges });`,
   },
 ]);
 
@@ -143,6 +633,7 @@ export interface AgentEventResult {
   },
   {
     name: "pi-agent-core turn_end declaration",
+    supersededBy: "    exchanges: readonly FinalizedToolExchange[];",
     before: `    type: "turn_end";
     message: AgentMessage;
     toolResults: ToolResultMessage[];
@@ -155,6 +646,33 @@ export interface AgentEventResult {
   },
 ]);
 
+
+applyPatches("node_modules/@earendil-works/pi-agent-core/dist/types.d.ts", [
+  {
+    name: "finalized tool exchange declaration",
+    before: `/** Result returned by awaited agent event listeners. */`,
+    after: `/** A final source-ordered tool exchange after all supported result replacements. */
+export interface FinalizedToolExchange {
+    sourceOrder: number;
+    toolCallId: string;
+    toolName: string;
+    originalInput: unknown;
+    executedInput?: unknown;
+    result: ToolResultMessage;
+}
+/** Result returned by awaited agent event listeners. */`,
+  },
+  {
+    name: "agent turn end finalized exchanges declaration",
+    before: `    toolResults: ToolResultMessage[];
+    toolExecution: ToolExecutionMode;
+}`,
+    after: `    toolResults: ToolResultMessage[];
+    toolExecution: ToolExecutionMode;
+    exchanges: readonly FinalizedToolExchange[];
+}`,
+  },
+]);
 
 applyPatches("node_modules/@earendil-works/pi-agent-core/dist/agent-loop.d.ts", [
   {
@@ -289,6 +807,7 @@ applyPatches("dist/core/agent-session.js", [
   },
   {
     name: "extension turn_end mode bridge",
+    supersededBy: "                exchanges: event.exchanges,",
     before: `                message: event.message,
                 toolResults: event.toolResults,
             };`,
@@ -342,9 +861,199 @@ applyPatches("dist/core/agent-session.js", [
   },
 ]);
 
+applyPatches("dist/core/agent-session.js", [
+  {
+    name: "extension finalized exchange bridge",
+    before: `                toolResults: event.toolResults,
+                toolExecution: event.toolExecution,
+            };`,
+    after: `                toolResults: event.toolResults,
+                toolExecution: event.toolExecution,
+                exchanges: event.exchanges,
+            };`,
+  },
+]);
+
+applyPatches("dist/core/agent-session.js", [
+  {
+    name: "await normal user bash persistence event",
+    before: `            if (!options?.transient) {
+                this.recordBashResult(command, result, options);
+            }`,
+    after: `            if (!options?.transient) {
+                await this.recordBashResult(command, result, options);
+            }`,
+  },
+  {
+    name: "await extension supplied user bash persistence event",
+    before: `                record(result);
+                return {
+                    exitCode: result.exitCode,`,
+    after: `                await record(result);
+                return {
+                    exitCode: result.exitCode,`,
+  },
+  {
+    name: "await cancelled user bash persistence event",
+    before: `                record({
+                    output: "",
+                    exitCode: undefined,`,
+    after: `                await record({
+                    output: "",
+                    exitCode: undefined,`,
+  },
+  {
+    name: "await failed user bash persistence event",
+    before: `            record({
+                output: \`bash failed: \${errorMessage}\`,`,
+    after: `            await record({
+                output: \`bash failed: \${errorMessage}\`,`,
+  },
+  {
+    name: "async user bash recorder closure",
+    before: `        const record = transient
+            ? () => { }
+            : (result) => this.recordBashResult(command, result, { excludeFromContext });`,
+    after: `        const record = transient
+            ? async () => { }
+            : async (result) => this.recordBashResult(command, result, { excludeFromContext });`,
+  },
+  {
+    name: "direct finalized user bash event",
+    before: `    recordBashResult(command, result, options) {
+        const bashMessage = {`,
+    after: `    async _emitUserBashEnd(entryId, bashMessage) {
+        await this._extensionRunner.emit({
+            type: "user_bash_end",
+            entryId,
+            command: bashMessage.command,
+            output: bashMessage.output,
+            isError: bashMessage.exitCode !== 0 || bashMessage.cancelled === true,
+            exitCode: bashMessage.exitCode,
+            cancelled: bashMessage.cancelled,
+            truncated: bashMessage.truncated,
+            fullOutputPath: bashMessage.fullOutputPath,
+        });
+    }
+    async recordBashResult(command, result, options) {
+        const bashMessage = {`,
+  },
+  {
+    name: "emit finalized user bash after direct persistence",
+    before: `            this.agent.state.messages.push(bashMessage);
+            this.sessionManager.appendMessage(bashMessage);
+        }
+    }`,
+    after: `            this.agent.state.messages.push(bashMessage);
+            const entryId = this.sessionManager.appendMessage(bashMessage);
+            await this._emitUserBashEnd(entryId, bashMessage);
+        }
+    }`,
+  },
+  {
+    name: "await pending bash flush before validation",
+    before: `        if (policy.flushPendingBashBeforeValidation)
+            this._flushPendingBashMessages();`,
+    after: `        if (policy.flushPendingBashBeforeValidation)
+            await this._flushPendingBashMessages();`,
+  },
+  {
+    name: "await pending bash flush after validation",
+    before: `        if (!policy.flushPendingBashBeforeValidation)
+            this._flushPendingBashMessages();`,
+    after: `        if (!policy.flushPendingBashBeforeValidation)
+            await this._flushPendingBashMessages();`,
+  },
+  {
+    name: "emit finalized pending user bash events",
+    before: `    _flushPendingBashMessages() {
+        if (this._pendingBashMessages.length === 0)
+            return;
+        for (const bashMessage of this._pendingBashMessages) {
+            this.agent.state.messages.push(bashMessage);
+            this.sessionManager.appendMessage(bashMessage);
+        }
+        this._pendingBashMessages = [];
+    }`,
+    after: `    async _flushPendingBashMessages() {
+        if (this._pendingBashMessages.length === 0)
+            return;
+        for (const bashMessage of this._pendingBashMessages) {
+            this.agent.state.messages.push(bashMessage);
+            const entryId = this.sessionManager.appendMessage(bashMessage);
+            await this._emitUserBashEnd(entryId, bashMessage);
+        }
+        this._pendingBashMessages = [];
+    }`,
+  },
+]);
+
+applyPatches("dist/core/extensions/runner.js", [
+  {
+    name: "automatic refinement override action",
+    before: `    getContextUsageFn = () => undefined;
+    compactFn = () => { };`,
+    after: `    getContextUsageFn = () => undefined;
+    setAutomaticRefinementEnabledFn = () => { };
+    compactFn = () => { };`,
+  },
+  {
+    name: "bind automatic refinement override",
+    before: `        this.getContextUsageFn = contextActions.getContextUsage;
+        this.compactFn = contextActions.compact;`,
+    after: `        this.getContextUsageFn = contextActions.getContextUsage;
+        this.setAutomaticRefinementEnabledFn = contextActions.setAutomaticRefinementEnabled;
+        this.compactFn = contextActions.compact;`,
+  },
+  {
+    name: "automatic refinement extension context method",
+    before: `            compact: (options) => {
+                runner.assertActive();`,
+    after: `            setAutomaticRefinementEnabled: (enabled) => {
+                runner.assertActive();
+                runner.setAutomaticRefinementEnabledFn(enabled);
+            },
+            compact: (options) => {
+                runner.assertActive();`,
+  },
+]);
+
+applyPatches("dist/core/agent-session.js", [
+  {
+    name: "automatic refinement override state",
+    before: `    _refinePlanInFlight;
+`,
+    after: `    _refinePlanInFlight;
+    _automaticRefinementEnabled;
+`,
+  },
+  {
+    name: "bind automatic refinement override action",
+    before: `            getContextUsage: () => this.getContextUsage(),
+            compact: (options) => {`,
+    after: `            getContextUsage: () => this.getContextUsage(),
+            setAutomaticRefinementEnabled: (enabled) => this.setAutomaticRefinementEnabled(enabled),
+            compact: (options) => {`,
+  },
+  {
+    name: "automatic refinement override gate",
+    supersededBy: "this._scheduledAutoRefineTimers.clear();\n    }\n    _autoRefineAllowedForSession",
+    before: `    _autoRefineAllowedForSession() {
+        return this._rlmDepth === 0 && this._localHarnessStateDir() !== undefined;
+    }`,
+    after: `    setAutomaticRefinementEnabled(enabled) {
+        this._automaticRefinementEnabled = enabled;
+    }
+    _autoRefineAllowedForSession() {
+        return this._automaticRefinementEnabled !== false && this._rlmDepth === 0 && this._localHarnessStateDir() !== undefined;
+    }`,
+  },
+]);
+
 applyPatches("dist/core/extensions/types.d.ts", [
   {
     name: "extension turn_end declaration",
+    supersededBy: "    exchanges: readonly FinalizedToolExchange[];",
     before: `    turnIndex: number;
     message: AgentMessage;
     toolResults: ToolResultMessage[];
@@ -368,6 +1077,76 @@ applyPatches("dist/core/extensions/types.d.ts", [
     before: '    on(event: "turn_end", handler: ExtensionHandler<TurnEndEvent>): void;',
     after:
       '    on(event: "turn_end", handler: ExtensionHandler<TurnEndEvent, TurnEndEventResult>): void;',
+  },
+]);
+
+applyPatches("dist/core/extensions/types.d.ts", [
+  {
+    name: "extension finalized exchange declaration",
+    before: `interface TurnEndEvent {`,
+    after: `export interface FinalizedToolExchange {
+    sourceOrder: number;
+    toolCallId: string;
+    toolName: string;
+    originalInput: unknown;
+    executedInput?: unknown;
+    result: ToolResultMessage;
+}
+interface TurnEndEvent {`,
+  },
+  {
+    name: "extension turn end exchanges declaration",
+    before: `    toolResults: ToolResultMessage[];
+    toolExecution: ToolExecutionMode;
+}`,
+    after: `    toolResults: ToolResultMessage[];
+    toolExecution: ToolExecutionMode;
+    exchanges: readonly FinalizedToolExchange[];
+}`,
+  },
+]);
+
+applyPatches("dist/core/extensions/types.d.ts", [
+  {
+    name: "user bash end event declaration",
+    before: `/** Source of user input */`,
+    after: `/** Fired after a user Bash message is finalized and persisted. */
+export interface UserBashEndEvent {
+    type: "user_bash_end";
+    entryId: string;
+    command: string;
+    output: string;
+    isError: boolean;
+    exitCode?: number | null;
+    cancelled?: boolean;
+    truncated?: boolean;
+    fullOutputPath?: string;
+    details?: unknown;
+}
+/** Source of user input */`,
+  },
+  {
+    name: "user bash end event union",
+    before: ` | UserBashEvent | InputEvent | ToolCallEvent`,
+    after: ` | UserBashEvent | UserBashEndEvent | InputEvent | ToolCallEvent`,
+  },
+  {
+    name: "user bash end extension overload",
+    before: `    on(event: "user_bash", handler: ExtensionHandler<UserBashEvent, UserBashEventResult>): void;
+    on(event: "input",`,
+    after: `    on(event: "user_bash", handler: ExtensionHandler<UserBashEvent, UserBashEventResult>): void;
+    on(event: "user_bash_end", handler: ExtensionHandler<UserBashEndEvent>): void;
+    on(event: "input",`,
+  },
+]);
+
+applyPatches("dist/core/extensions/types.d.ts", [
+  {
+    name: "automatic refinement override declaration",
+    before: `    /** Trigger compaction without awaiting completion. */`,
+    after: `    /** Override automatic refinement for the active extension lifecycle; undefined releases the override. */
+    setAutomaticRefinementEnabled(enabled: boolean | undefined): void;
+    /** Trigger compaction without awaiting completion. */`,
   },
 ]);
 
@@ -396,6 +1175,7 @@ applyPatches("dist/core/extensions/runner.d.ts", [
 applyPatches("dist/core/extensions/index.d.ts", [
   {
     name: "extension turn_end result export",
+    supersededBy: "FinalizedToolExchange, TurnEndEvent, TurnEndEventResult",
     before: "TreePreparation, TurnEndEvent, TurnStartEvent",
     after: "TreePreparation, TurnEndEvent, TurnEndEventResult, TurnStartEvent",
   },
@@ -404,6 +1184,7 @@ applyPatches("dist/core/extensions/index.d.ts", [
 applyPatches("dist/index.d.ts", [
   {
     name: "root turn_end result export",
+    supersededBy: "FinalizedToolExchange, TurnEndEvent, TurnEndEventResult",
     before: "ToolResultEvent, TurnEndEvent, TurnStartEvent",
     after: "ToolResultEvent, TurnEndEvent, TurnEndEventResult, TurnStartEvent",
   },
@@ -414,6 +1195,7 @@ applyPatches("dist/index.d.ts", [
 applyPatches("dist/core/messages.js", [
   {
     name: "provider-visible conversion result and entry-ref remapping",
+    supersededBy: "messages: convertedMessages,",
     before: `        .filter((m) => m !== undefined);
 }
 //# sourceMappingURL=messages.js.map`,
@@ -682,6 +1464,7 @@ import { convertToLlmWithEntryRefs } from "../messages.js";`,
   },
   {
     name: "purpose-aware raw and model context projection pipeline",
+    supersededBy: "const previousMessages = currentMessages;",
     before: `    async emitContext(messages) {
         const ctx = this.createContext();
         let currentMessages = structuredClone(messages);
@@ -1207,6 +1990,7 @@ applyPatches("dist/core/extensions/types.d.ts", [
   },
   {
     name: "public context purpose and entry refs",
+    supersededBy: "\"provider\" | \"budget\" | \"compaction\"",
     before: `/** Fired before each LLM call. Can modify messages. */
 export interface ContextEvent {
     type: "context";
@@ -1239,6 +2023,7 @@ export interface ModelContextEvent {
   },
   {
     name: "context result refs and model result",
+    supersededBy: "projectionIdentity?: string;",
     before: `export interface ContextEventResult {
     messages?: AgentMessage[];
 }
@@ -1286,6 +2071,7 @@ applyPatches("dist/core/extensions/runner.d.ts", [
   },
   {
     name: "purpose-aware projection runner declarations",
+    supersededBy: "projectionIdentity?: string;",
     before: `    emitContext(messages: AgentMessage[]): Promise<AgentMessage[]>;`,
     after: `    emitContext(messages: AgentMessage[], purpose?: ContextPurpose, entryRefs?: ContextEntryRef[]): Promise<AgentMessage[]>;
     projectContext(messages: AgentMessage[], purpose: ContextPurpose, entryRefs?: ContextEntryRef[], transformModelMessages?: (messages: Message[]) => Message[] | Promise<Message[]>): Promise<{
@@ -1319,6 +2105,7 @@ applyPatches("dist/core/agent-session.js", [
   },
   {
     name: "projected threshold context tokens",
+    supersededBy: '_projectContext("budget", messages',
     before: `    _getThresholdContextTokens(assistantMessage, compactionTimestamp) {
         const messages = this.agent.state.messages;
         const estimate = estimateContextTokens(messages);
@@ -1623,12 +2410,381 @@ applyPatches("dist/core/agent-session.js", [
 ]);
 
 let activeBundledCliFiles;
+applyPatches("dist/core/extensions/index.d.ts", [
+  {
+    name: "extension finalized exchange export",
+    before: "TreePreparation, TurnEndEvent,",
+    after: "TreePreparation, FinalizedToolExchange, TurnEndEvent,",
+  },
+]);
+
+applyPatches("dist/index.d.ts", [
+  {
+    name: "root finalized exchange export",
+    before: "ToolResultEvent, TurnEndEvent,",
+    after: "ToolResultEvent, FinalizedToolExchange, TurnEndEvent,",
+  },
+]);
+
+applyPatches("dist/core/extensions/index.d.ts", [
+  {
+    name: "extension user bash end export",
+    before: "UserBashEvent, UserBashEventResult,",
+    after: "UserBashEvent, UserBashEndEvent, UserBashEventResult,",
+  },
+]);
+applyPatches("dist/index.d.ts", [
+  {
+    name: "root user bash end export",
+    before: "UserBashEvent, UserBashEventResult,",
+    after: "UserBashEvent, UserBashEndEvent, UserBashEventResult,",
+  },
+]);
+
+applyPatches("dist/core/messages.js", [
+  {
+    name: "avoid full converted message clone",
+    before: `        messages: structuredClone(convertedMessages),`,
+    after: `        messages: convertedMessages,`,
+  },
+]);
+
+applyPatches("dist/core/extensions/runner.js", [
+  {
+    name: "conservative extension entry ref invalidation",
+    before: `                    if (handlerResult.messages !== undefined) {
+                        const previousCount = currentMessages.length;
+                        currentMessages = handlerResult.messages;
+                        if (handlerResult.entryRefs !== undefined) {
+                            currentEntryRefs = handlerResult.entryRefs;
+                        }
+                        else if (currentMessages.length !== previousCount) {
+                            currentEntryRefs = undefined;
+                        }
+                    }`,
+    after: `                    if (handlerResult.messages !== undefined) {
+                        const previousMessages = currentMessages;
+                        currentMessages = handlerResult.messages;
+                        if (handlerResult.entryRefs !== undefined) {
+                            currentEntryRefs = handlerResult.entryRefs;
+                        }
+                        else if (currentMessages !== previousMessages) {
+                            currentEntryRefs = undefined;
+                        }
+                    }`,
+  },
+  {
+    name: "conservative host transform entry ref invalidation",
+    before: `            const previousCount = model.messages.length;
+            const transformedMessages = await transformModelMessages(model.messages);
+            model = {
+                messages: transformedMessages,
+                entryRefs: transformedMessages.length === previousCount ? model.entryRefs : undefined,
+            };`,
+    after: `            const previousMessages = model.messages;
+            const transformedMessages = await transformModelMessages(previousMessages);
+            model = {
+                messages: transformedMessages,
+                entryRefs: transformedMessages === previousMessages ? model.entryRefs : undefined,
+            };`,
+  },
+]);
+
+applyPatches("dist/core/extensions/types.d.ts", [
+  {
+    name: "provider context estimate fields",
+    supersededBy: "projectedMessageCount?: number;",
+    before: `    /** Context usage as percentage of context window, or null if tokens is unknown. */
+    percent: number | null;
+}`,
+    after: `    /** Context usage as percentage of context window, or null if tokens is unknown. */
+    percent: number | null;
+    /** Provider-bound projected message tokens in the cached next-request estimate. */
+    messageTokens?: number;
+    /** Effective system-prompt tokens in the cached next-request estimate. */
+    systemTokens?: number;
+    /** Active tool-definition tokens in the cached next-request estimate. */
+    toolTokens?: number;
+    /** Sum of message, system, and tool tokens. */
+    totalTokens?: number;
+    projectedMessageCount?: number;
+}`,
+  },
+  {
+    name: "budget context purpose declaration",
+    before: `export type ContextPurpose = "provider" | "compaction" | "branch-summary" | "refine";`,
+    after: `export type ContextPurpose = "provider" | "budget" | "compaction" | "branch-summary" | "refine";`,
+  },
+  {
+    name: "readonly model context contract",
+    before: `    messages: Message[];
+    entryRefs?: ContextEntryRef[];
+}`,
+    after: `    messages: readonly Message[];
+    entryRefs?: readonly ContextEntryRef[];
+}`,
+  },
+]);
+
+applyPatches("dist/core/agent-session.js", [
+  {
+    name: "budget purpose for provider-bound threshold estimate",
+    supersededBy: `_projectContext("budget", messages,`,
+    before: `        const projected = await this._projectContext("compaction", messages, this.sessionManager.getContextEntryRefs(messages));`,
+    after: `        const projected = await this._projectContext("budget", messages, this.sessionManager.getContextEntryRefs(messages));`,
+  },
+  {
+    name: "complete provider-bound threshold estimate",
+    supersededBy: "this._providerContextEstimate = {",
+    before: `        const projected = await this._projectContext("budget", messages, this.sessionManager.getContextEntryRefs(messages));
+        return projected.messages.reduce((total, message) => total + estimateTokens(message), 0);`,
+    after: `        const projected = await this._projectContext("budget", messages, this.sessionManager.getContextEntryRefs(messages));
+        const messageTokens = projected.messages.reduce((total, message) => total + estimateTokens(message), 0);
+        const systemPrompt = this.agent.state.systemPrompt ?? "";
+        const tools = this.agent.state.tools.map(({ name, description, parameters }) => ({ name, description, parameters }));
+        const toolSignature = JSON.stringify(tools);
+        const systemTokens = Math.ceil(systemPrompt.length / 4);
+        const toolTokens = Math.ceil(toolSignature.length / 4);
+        const totalTokens = systemTokens + toolTokens + messageTokens;
+        this._providerContextEstimate = {
+            messageTokens,
+            systemTokens,
+            toolTokens,
+            totalTokens,
+            projectedMessageCount: projected.messages.length,
+            sourceMessageCount: messages.length,
+            sourceLastMessage: messages.at(-1),
+            systemPrompt,
+            toolSignature,
+        };
+        return totalTokens;`,
+  },
+  {
+    name: "same-epoch provider usage anchor",
+    supersededBy: "usageAnchored = false;",
+    before: `        const projected = await this._projectContext("budget", messages, this.sessionManager.getContextEntryRefs(messages));
+        const messageTokens = projected.messages.reduce((total, message) => total + estimateTokens(message), 0);
+        const systemPrompt = this.agent.state.systemPrompt ?? "";
+        const tools = this.agent.state.tools.map(({ name, description, parameters }) => ({ name, description, parameters }));
+        const toolSignature = JSON.stringify(tools);
+        const systemTokens = Math.ceil(systemPrompt.length / 4);
+        const toolTokens = Math.ceil(toolSignature.length / 4);
+        const totalTokens = systemTokens + toolTokens + messageTokens;
+        this._providerContextEstimate = {
+            messageTokens,
+            systemTokens,
+            toolTokens,
+            totalTokens,
+            projectedMessageCount: projected.messages.length,
+            sourceMessageCount: messages.length,
+            sourceLastMessage: messages.at(-1),
+            systemPrompt,
+            toolSignature,
+        };
+        return totalTokens;`,
+    after: `        const sourceEntryRefs = this.sessionManager.getContextEntryRefs(messages);
+        const projected = await this._projectContext("budget", messages, sourceEntryRefs);
+        const fullMessageTokens = projected.messages.reduce((total, message) => total + estimateTokens(message), 0);
+        const systemPrompt = this.agent.state.systemPrompt ?? "";
+        const tools = this.agent.state.tools.map(({ name, description, parameters }) => ({ name, description, parameters }));
+        const toolSignature = JSON.stringify(tools);
+        const systemTokens = Math.ceil(systemPrompt.length / 4);
+        const toolTokens = Math.ceil(toolSignature.length / 4);
+        let messageTokens = fullMessageTokens;
+        let totalTokens = systemTokens + toolTokens + messageTokens;
+        let usageAnchored = false;
+        const usageAnchorMessage = estimate.lastUsageIndex === null ? undefined : messages[estimate.lastUsageIndex];
+        const usageAnchor = usageAnchorMessage?.role === "assistant" ? usageAnchorMessage.usage : undefined;
+        const previousPromptTokens = usageAnchor
+            ? Math.max(0, usageAnchor.input ?? 0) + Math.max(0, usageAnchor.cacheRead ?? 0) + Math.max(0, usageAnchor.cacheWrite ?? 0)
+            : 0;
+        const previousEstimate = this._providerContextEstimate;
+        if (estimate.lastUsageIndex !== null && previousPromptTokens > 0 &&
+            previousEstimate?.systemPrompt === systemPrompt && previousEstimate.toolSignature === toolSignature) {
+            const anchorEntryId = sourceEntryRefs.find((ref) => ref.messageIndex === estimate.lastUsageIndex)?.entryId;
+            const projectedAnchorIndex = anchorEntryId === undefined
+                ? undefined
+                : projected.entryRefs?.find((ref) => ref.entryId === anchorEntryId)?.messageIndex;
+            if (projectedAnchorIndex !== undefined) {
+                const suffixTokens = projected.messages.slice(projectedAnchorIndex + 1)
+                    .reduce((total, message) => total + estimateTokens(message), 0);
+                totalTokens = previousPromptTokens + suffixTokens;
+                messageTokens = Math.max(0, totalTokens - systemTokens - toolTokens);
+                usageAnchored = true;
+            }
+        }
+        this._providerContextEstimate = {
+            messageTokens,
+            systemTokens,
+            toolTokens,
+            totalTokens,
+            projectedMessageCount: projected.messages.length,
+            sourceMessageCount: messages.length,
+            sourceLastMessage: messages.at(-1),
+            systemPrompt,
+            toolSignature,
+            usageAnchored,
+        };
+        return totalTokens;`,
+  },
+  {
+    name: "provider prompt usage excludes billed output",
+    supersededBy: "const previousPromptTokens = usageAnchor",
+    before: `        const sourceEntryRefs = this.sessionManager.getContextEntryRefs(messages);
+        const projected = await this._projectContext("budget", messages, sourceEntryRefs);
+        const fullMessageTokens = projected.messages.reduce((total, message) => total + estimateTokens(message), 0);
+        const systemPrompt = this.agent.state.systemPrompt ?? "";
+        const tools = this.agent.state.tools.map(({ name, description, parameters }) => ({ name, description, parameters }));
+        const toolSignature = JSON.stringify(tools);
+        const systemTokens = Math.ceil(systemPrompt.length / 4);
+        const toolTokens = Math.ceil(toolSignature.length / 4);
+        let messageTokens = fullMessageTokens;
+        let totalTokens = systemTokens + toolTokens + messageTokens;
+        let usageAnchored = false;
+        const previousEstimate = this._providerContextEstimate;
+        if (estimate.lastUsageIndex !== null && estimate.usageTokens > 0 &&
+            previousEstimate?.systemPrompt === systemPrompt && previousEstimate.toolSignature === toolSignature) {
+            const anchorEntryId = sourceEntryRefs.find((ref) => ref.messageIndex === estimate.lastUsageIndex)?.entryId;
+            const projectedAnchorIndex = anchorEntryId === undefined
+                ? undefined
+                : projected.entryRefs?.find((ref) => ref.entryId === anchorEntryId)?.messageIndex;
+            if (projectedAnchorIndex !== undefined) {
+                const suffixTokens = projected.messages.slice(projectedAnchorIndex + 1)
+                    .reduce((total, message) => total + estimateTokens(message), 0);
+                totalTokens = estimate.usageTokens + suffixTokens;
+                messageTokens = Math.max(0, totalTokens - systemTokens - toolTokens);
+                usageAnchored = true;
+            }
+        }
+        this._providerContextEstimate = {
+            messageTokens,
+            systemTokens,
+            toolTokens,
+            totalTokens,
+            projectedMessageCount: projected.messages.length,
+            sourceMessageCount: messages.length,
+            sourceLastMessage: messages.at(-1),
+            systemPrompt,
+            toolSignature,
+            usageAnchored,
+        };
+        return totalTokens;`,
+    after: `        const sourceEntryRefs = this.sessionManager.getContextEntryRefs(messages);
+        const projected = await this._projectContext("budget", messages, sourceEntryRefs);
+        const fullMessageTokens = projected.messages.reduce((total, message) => total + estimateTokens(message), 0);
+        const systemPrompt = this.agent.state.systemPrompt ?? "";
+        const tools = this.agent.state.tools.map(({ name, description, parameters }) => ({ name, description, parameters }));
+        const toolSignature = JSON.stringify(tools);
+        const systemTokens = Math.ceil(systemPrompt.length / 4);
+        const toolTokens = Math.ceil(toolSignature.length / 4);
+        let messageTokens = fullMessageTokens;
+        let totalTokens = systemTokens + toolTokens + messageTokens;
+        let usageAnchored = false;
+        const usageAnchorMessage = estimate.lastUsageIndex === null ? undefined : messages[estimate.lastUsageIndex];
+        const usageAnchor = usageAnchorMessage?.role === "assistant" ? usageAnchorMessage.usage : undefined;
+        const previousPromptTokens = usageAnchor
+            ? Math.max(0, usageAnchor.input ?? 0) + Math.max(0, usageAnchor.cacheRead ?? 0) + Math.max(0, usageAnchor.cacheWrite ?? 0)
+            : 0;
+        const previousEstimate = this._providerContextEstimate;
+        if (estimate.lastUsageIndex !== null && previousPromptTokens > 0 &&
+            previousEstimate?.systemPrompt === systemPrompt && previousEstimate.toolSignature === toolSignature) {
+            const anchorEntryId = sourceEntryRefs.find((ref) => ref.messageIndex === estimate.lastUsageIndex)?.entryId;
+            const projectedAnchorIndex = anchorEntryId === undefined
+                ? undefined
+                : projected.entryRefs?.find((ref) => ref.entryId === anchorEntryId)?.messageIndex;
+            if (projectedAnchorIndex !== undefined) {
+                const suffixTokens = projected.messages.slice(projectedAnchorIndex + 1)
+                    .reduce((total, message) => total + estimateTokens(message), 0);
+                totalTokens = previousPromptTokens + suffixTokens;
+                messageTokens = Math.max(0, totalTokens - systemTokens - toolTokens);
+                usageAnchored = true;
+            }
+        }
+        this._providerContextEstimate = {
+            messageTokens,
+            systemTokens,
+            toolTokens,
+            totalTokens,
+            projectedMessageCount: projected.messages.length,
+            sourceMessageCount: messages.length,
+            sourceLastMessage: messages.at(-1),
+            systemPrompt,
+            toolSignature,
+            usageAnchored,
+        };
+        return totalTokens;`,
+  },
+  {
+    name: "synchronous cached provider context usage",
+    supersededBy: "const providerEstimate = this._providerContextEstimate;",
+    before: `        // After compaction, the last assistant usage reflects pre-compaction context size.
+        // We can only trust usage from an assistant that responded after the latest compaction.
+        // If no such assistant exists, context token count is unknown until the next LLM response.
+        const branchEntries = this.sessionManager.getBranch();
+        const latestCompaction = getLatestCompactionEntry(branchEntries);
+        if (latestCompaction) {
+            // Check if there's a valid assistant usage after the compaction boundary
+            const compactionIndex = branchEntries.lastIndexOf(latestCompaction);
+            let hasPostCompactionUsage = false;
+            for (let i = branchEntries.length - 1; i > compactionIndex; i--) {
+                const entry = branchEntries[i];
+                if (entry.type === "message" && entry.message.role === "assistant") {
+                    const assistant = entry.message;
+                    if (assistant.stopReason !== "aborted" && assistant.stopReason !== "error") {
+                        const contextTokens = calculateContextTokens(assistant.usage);
+                        if (contextTokens > 0) {
+                            hasPostCompactionUsage = true;
+                        }
+                        break;
+                    }
+                }
+            }
+            if (!hasPostCompactionUsage) {
+                return { tokens: null, contextWindow, percent: null };
+            }
+        }
+        const estimate = estimateContextTokens(this.messages);
+        const percent = (estimate.tokens / contextWindow) * 100;
+        return {
+            tokens: estimate.tokens,
+            contextWindow,
+            percent,
+        };`,
+    after: `        const messages = this.agent.state.messages;
+        const systemPrompt = this.agent.state.systemPrompt ?? "";
+        const tools = this.agent.state.tools.map(({ name, description, parameters }) => ({ name, description, parameters }));
+        const toolSignature = JSON.stringify(tools);
+        const providerEstimate = this._providerContextEstimate;
+        const cacheValid = providerEstimate !== undefined &&
+            providerEstimate.sourceMessageCount === messages.length &&
+            providerEstimate.sourceLastMessage === messages.at(-1) &&
+            providerEstimate.systemPrompt === systemPrompt &&
+            providerEstimate.toolSignature === toolSignature;
+        const messageTokens = cacheValid
+            ? providerEstimate.messageTokens
+            : messages.reduce((total, message) => total + estimateTokens(message), 0);
+        const systemTokens = cacheValid ? providerEstimate.systemTokens : Math.ceil(systemPrompt.length / 4);
+        const toolTokens = cacheValid ? providerEstimate.toolTokens : Math.ceil(toolSignature.length / 4);
+        const totalTokens = messageTokens + systemTokens + toolTokens;
+        return {
+            tokens: totalTokens,
+            contextWindow,
+            percent: (totalTokens / contextWindow) * 100,
+            messageTokens,
+            systemTokens,
+            toolTokens,
+            totalTokens,
+            projectedMessageCount: cacheValid ? providerEstimate.projectedMessageCount : messages.length,
+        };`,
+  },
+]);
+
 function findActiveBundledCliFiles() {
   if (activeBundledCliFiles) {
     return activeBundledCliFiles;
   }
   const bundleRoot = join(root, "dist/bundle");
-  const cli = readFileSync(join(bundleRoot, "cli.js"), "utf8");
+  const cli = readCurrentText(join(bundleRoot, "cli.js"));
   const cliMainMatch = cli.match(/import\("\.\/(cli-main-[^"/]+\.js)"\)/);
   if (!cliMainMatch) {
     throw new Error("dist/bundle/cli.js: could not find bundled CLI main import");
@@ -1641,7 +2797,7 @@ function findActiveBundledCliFiles() {
       continue;
     }
     visited.add(file);
-    const text = readFileSync(join(bundleRoot, file), "utf8");
+    const text = readCurrentText(join(bundleRoot, file));
     for (const match of text.matchAll(/["']\.\/([^"'/]+\.js)["']/g)) {
       if (existsSync(join(bundleRoot, match[1])) && !visited.has(match[1])) {
         pending.push(match[1]);
@@ -1655,7 +2811,7 @@ function findActiveBundledCliFiles() {
 function findActiveBundledCliChunk(label, markers) {
   const bundleRoot = join(root, "dist/bundle");
   const candidates = findActiveBundledCliFiles().filter((file) => {
-    const text = readFileSync(join(bundleRoot, file), "utf8");
+    const text = readCurrentText(join(bundleRoot, file));
     return markers.every((marker) => text.includes(marker));
   });
   if (candidates.length !== 1) {
@@ -1679,11 +2835,321 @@ function findBundledProviderChunk() {
   ]);
 }
 
+applyPatches(findBundledProviderChunk(), [
+  {
+    name: "bundled Agents View resume fresh worker launch environment",
+    before: `    config: createAgentsViewResumeConfig(config, overrideCwd),
+    sessionPath: summary.sessionFile
+  });`,
+    after: `    config: createAgentsViewResumeConfig(config, overrideCwd),
+    sessionPath: summary.sessionFile,
+    launchEnv: collectDaemonLaunchEnv()
+  });`,
+  },
+  {
+    name: "bundled daemon hello before worker adoption completes",
+    before: `    void this.ready.then(() => {
+      if (!client.socket.destroyed && this.clients.has(client)) {
+        this.write(client, {
+          type: "daemon_hello",
+          socketPath: this.socketPath,
+          protocol: DAEMON_PROTOCOL_INFO,
+          schemaId: DAEMON_SCHEMA_ID,
+          schemaRevision: DAEMON_SCHEMA_REVISION,
+          appVersion: VERSION,
+          runtime: getDaemonRuntimeIdentity(),
+          supervisorGeneration: this.generation,
+          supervisorOwnerToken: this.ownership?.record.token,
+          supervisorPid: process.pid,
+          supervisorProcessStartId: this.ownership?.record.processStartId,
+          supervisorSocketPath: this.ownership?.record.socketPath,
+          clientId: client.id,
+          serverCapabilities: SUPERVISOR_SERVER_CAPABILITIES
+        });
+      }
+    }, () => client.socket.destroy());`,
+    after: `    if (!client.socket.destroyed && this.clients.has(client)) {
+      this.write(client, {
+        type: "daemon_hello",
+        socketPath: this.socketPath,
+        protocol: DAEMON_PROTOCOL_INFO,
+        schemaId: DAEMON_SCHEMA_ID,
+        schemaRevision: DAEMON_SCHEMA_REVISION,
+        appVersion: VERSION,
+        runtime: getDaemonRuntimeIdentity(),
+        supervisorGeneration: this.generation,
+        supervisorOwnerToken: this.ownership?.record.token,
+        supervisorPid: process.pid,
+        supervisorProcessStartId: this.ownership?.record.processStartId,
+        supervisorSocketPath: this.ownership?.record.socketPath,
+        clientId: client.id,
+        serverCapabilities: SUPERVISOR_SERVER_CAPABILITIES
+      });
+    }`,
+  },
+  {
+    name: "bundled session worker V8 heap sized for large persistent sessions",
+    supersededBy: 'const workerHeapOption = "--max-old-space-size=16384";',
+    before: `    delete workerEnvironment.RLM_DEPTH;
+    await this.assertRecoveryAllowed();`,
+    after: `    delete workerEnvironment.RLM_DEPTH;
+    workerEnvironment.NODE_OPTIONS = [workerEnvironment.NODE_OPTIONS, "--max-old-space-size=16384"].filter(Boolean).join(" ");
+    await this.assertRecoveryAllowed();`,
+  },
+  {
+    name: "bundled session worker heap option is not duplicated",
+    supersededBy: 'NODE_OPTIONS?.split(" ").includes(workerHeapOption)',
+    before: `    delete workerEnvironment.RLM_DEPTH;
+    workerEnvironment.NODE_OPTIONS = [workerEnvironment.NODE_OPTIONS, "--max-old-space-size=16384"].filter(Boolean).join(" ");
+    await this.assertRecoveryAllowed();`,
+    after: `    delete workerEnvironment.RLM_DEPTH;
+    const workerHeapOption = "--max-old-space-size=16384";
+    if (!workerEnvironment.NODE_OPTIONS?.split(/\s+/).includes(workerHeapOption)) {
+      workerEnvironment.NODE_OPTIONS = [workerEnvironment.NODE_OPTIONS, workerHeapOption].filter(Boolean).join(" ");
+    }
+    await this.assertRecoveryAllowed();`,
+  },
+  {
+    name: "bundled session worker heap option tokenization is literal-safe",
+    before: `    if (!workerEnvironment.NODE_OPTIONS?.split(/s+/).includes(workerHeapOption)) {`,
+    after: `    if (!workerEnvironment.NODE_OPTIONS?.split(" ").includes(workerHeapOption)) {`,
+  },
+]);
+
+applyPatches(findBundledProviderChunk(), [
+  {
+    name: "bundled large worker attach uses long-running request timeout",
+    before: `              env: command.env ?? collectDaemonClientEnv()
+            });`,
+    after: `              env: command.env ?? collectDaemonClientEnv()
+            }, WORKER_REQUEST_TIMEOUT_MS);`,
+  },
+  {
+    name: "bundled in-flight snapshot invalidation keeps dedupe ownership",
+    before: `            if (match2.worker.snapshotLoads.get(snapshotLoadKey) !== loading) {
+              throw new SnapshotLoadInvalidatedError("Session snapshot changed during attach");
+            }`,
+    after: `            const loadInvalidated = match2.worker.invalidatedSnapshotLoads?.delete(snapshotLoadKey) === true;
+            if (match2.worker.snapshotLoads.get(snapshotLoadKey) !== loading || loadInvalidated) {
+              throw new SnapshotLoadInvalidatedError("Session snapshot changed during attach");
+            }`,
+  },
+  {
+    name: "bundled snapshot invalidation marks rather than abandons active loads",
+    before: `    worker.snapshotLoads.delete(\`\${activeSessionId}:chunked\`);
+    worker.snapshotLoads.delete(\`\${activeSessionId}:full\`);`,
+    after: `    worker.invalidatedSnapshotLoads ??= /* @__PURE__ */ new Set();
+    for (const key of [\`\${activeSessionId}:chunked\`, \`\${activeSessionId}:full\`]) {
+      if (worker.snapshotLoads.has(key)) worker.invalidatedSnapshotLoads.add(key);
+    }`,
+  },
+  {
+    name: "bundled completed snapshot load clears invalidation tombstone",
+    before: `            } finally {
+              if (match2.worker.snapshotLoads.get(snapshotLoadKey) === loading) {
+                match2.worker.snapshotLoads.delete(snapshotLoadKey);
+              }
+            }`,
+    after: `            } finally {
+              match2.worker.invalidatedSnapshotLoads?.delete(snapshotLoadKey);
+              if (match2.worker.snapshotLoads.get(snapshotLoadKey) === loading) {
+                match2.worker.snapshotLoads.delete(snapshotLoadKey);
+              }
+            }`,
+  },
+  {
+    name: "bundled failed snapshot load clears invalidation tombstone",
+    before: `          }, () => {
+            if (match2.worker.snapshotLoads.get(snapshotLoadKey) === loading) {
+              match2.worker.snapshotLoads.delete(snapshotLoadKey);
+            }
+          });`,
+    after: `          }, () => {
+            match2.worker.invalidatedSnapshotLoads?.delete(snapshotLoadKey);
+            if (match2.worker.snapshotLoads.get(snapshotLoadKey) === loading) {
+              match2.worker.snapshotLoads.delete(snapshotLoadKey);
+            }
+          });`,
+  },
+  {
+    name: "bundled duplicate snapshot chunks compare encoded buffers directly",
+    before: `            const chunk = JSON.parse(frame.payload.toString("utf8"));
+            if (chunk.type !== "session_snapshot_chunk" || chunk.activeSessionId !== activeSessionId || chunk.snapshotId !== generation.transcript.snapshotId || chunk.index !== duplicateIndex || !generation.transcript.readChunk(duplicateIndex).equals(Buffer.from(frame.payload))) {`,
+    after: `            const encodedChunk = Buffer.from(frame.payload);
+            if (!generation.transcript.readChunk(duplicateIndex).equals(encodedChunk)) {`,
+  },
+  {
+    name: "bundled child passivation sweeps never evict top-level workers",
+    before: `    const candidates = [...refreshed].filter((worker) => canEvictWorker(this.workerEvictionSnapshot(worker), idleEvictionMinutes, now));`,
+    after: `    const candidates = [];`,
+  },
+  {
+    name: "bundled worker child passivation keeps an in-flight tombstone",
+    before: `        case "worker_passivate_idle_children": {
+          const count = await this.passivateIdleChildren(command.idleEvictionMinutes, command.now, command.limit);
+          this.writeWorkerSuccess(client, command, { count });
+          return;
+        }`,
+    after: `        case "worker_passivate_idle_children": {
+          let passivation = this.idleChildPassivation;
+          if (!passivation) {
+            passivation = this.passivateIdleChildren(command.idleEvictionMinutes, command.now, command.limit);
+            this.idleChildPassivation = passivation;
+            void passivation.then(() => {
+              if (this.idleChildPassivation === passivation) this.idleChildPassivation = void 0;
+            }, () => {
+              if (this.idleChildPassivation === passivation) this.idleChildPassivation = void 0;
+            });
+          }
+          const count = await passivation;
+          this.writeWorkerSuccess(client, command, { count });
+          return;
+        }`,
+  },
+  {
+    name: "bundled public attach uses long-running request timeout",
+    before: `      resumeCursor: this.lastEventCursor === void 0 ? void 0 : {
+        activeSessionId: this.activeSessionId,
+        ...this.lastEventCursor
+      }
+    }, void 0, options);`,
+    after: `      resumeCursor: this.lastEventCursor === void 0 ? void 0 : {
+        activeSessionId: this.activeSessionId,
+        ...this.lastEventCursor
+      }
+    }, DAEMON_LONG_RUNNING_REQUEST_TIMEOUT_MS, options);`,
+  },
+  {
+    name: "bundled snapshot assembly timeout follows transfer progress",
+    before: `  getSnapshotAssembly(snapshotId) {
+    const existing = this.snapshotAssemblies.get(snapshotId);
+    if (existing) {
+      return existing;
+    }
+    let resolveSnapshot;
+    let rejectSnapshot;
+    const promise = new Promise((resolve19, reject) => {
+      resolveSnapshot = resolve19;
+      rejectSnapshot = reject;
+    });
+    void promise.catch(() => void 0);
+    const timeout = setTimeout(() => {
+      const current = this.snapshotAssemblies.get(snapshotId);
+      if (current) {
+        current.reject(new Error(\`Timed out waiting for snapshot \${snapshotId}\`));
+        this.snapshotAssemblies.delete(snapshotId);
+        this.ignoreSnapshotId(snapshotId);
+      }
+    }, this.options.snapshotTimeoutMs ?? DAEMON_SNAPSHOT_TIMEOUT_MS);
+    timeout.unref();
+    const assembly = {
+      chunks: /* @__PURE__ */ new Map(),
+      promise,
+      resolve: resolveSnapshot,
+      reject: rejectSnapshot,
+      timeout
+    };
+    this.snapshotAssemblies.set(snapshotId, assembly);
+    return assembly;
+  }`,
+    after: `  refreshSnapshotAssemblyTimeout(snapshotId, assembly) {
+    clearTimeout(assembly.timeout);
+    assembly.timeout = setTimeout(() => {
+      const current = this.snapshotAssemblies.get(snapshotId);
+      if (current === assembly) {
+        current.reject(new Error(\`Timed out waiting for snapshot \${snapshotId}\`));
+        this.snapshotAssemblies.delete(snapshotId);
+        this.ignoreSnapshotId(snapshotId);
+      }
+    }, this.options.snapshotTimeoutMs ?? DAEMON_SNAPSHOT_TIMEOUT_MS);
+    assembly.timeout.unref();
+  }
+  getSnapshotAssembly(snapshotId) {
+    const existing = this.snapshotAssemblies.get(snapshotId);
+    if (existing) {
+      return existing;
+    }
+    let resolveSnapshot;
+    let rejectSnapshot;
+    const promise = new Promise((resolve19, reject) => {
+      resolveSnapshot = resolve19;
+      rejectSnapshot = reject;
+    });
+    void promise.catch(() => void 0);
+    const assembly = {
+      chunks: /* @__PURE__ */ new Map(),
+      promise,
+      resolve: resolveSnapshot,
+      reject: rejectSnapshot,
+      timeout: void 0
+    };
+    this.snapshotAssemblies.set(snapshotId, assembly);
+    this.refreshSnapshotAssemblyTimeout(snapshotId, assembly);
+    return assembly;
+  }`,
+  },
+  {
+    name: "bundled snapshot begin refreshes inactivity timeout",
+    before: `      const assembly = this.getSnapshotAssembly(message.snapshotId);
+      assembly.begin = message;
+      return;`,
+    after: `      const assembly = this.getSnapshotAssembly(message.snapshotId);
+      assembly.begin = message;
+      this.refreshSnapshotAssemblyTimeout(message.snapshotId, assembly);
+      return;`,
+  },
+  {
+    name: "bundled snapshot chunk refreshes inactivity timeout",
+    before: `      this.getSnapshotAssembly(message.snapshotId).chunks.set(message.index, message.messages);
+      return;`,
+    after: `      const assembly = this.getSnapshotAssembly(message.snapshotId);
+      assembly.chunks.set(message.index, message.messages);
+      this.refreshSnapshotAssemblyTimeout(message.snapshotId, assembly);
+      return;`,
+  },
+]);
+
+applyPatches(findBundledCliChunk(), [
+  {
+    name: "bundled resident RLM child memory limit",
+    supersededBy: "residentRlmChildCount >= 1",
+    before: `    if (this._rlmDepth >= this._rlmMaxDepth) {
+      throw new Error(\`RLM recursion depth limit reached (RLM_DEPTH=\${this._rlmDepth}, RLM_MAX_DEPTH=\${this._rlmMaxDepth})\`);
+    }
+    if (requestedSessionName) {`,
+    after: `    if (this._rlmDepth >= this._rlmMaxDepth) {
+      throw new Error(\`RLM recursion depth limit reached (RLM_DEPTH=\${this._rlmDepth}, RLM_MAX_DEPTH=\${this._rlmMaxDepth})\`);
+    }
+    const residentRlmChildCount = this._unsettledRlmChildRuns.size + this._rlmChildSessions.size;
+    if (residentRlmChildCount >= 4) {
+      throw new Error(
+        \`RLM resident child limit reached (\${residentRlmChildCount}/4). Wait for idle passivation or delete a completed subagent before spawning another.\`
+      );
+    }
+    if (requestedSessionName) {`,
+  },
+  {
+    name: "bundled resident RLM child limit tightened for large sessions",
+    before: `    const residentRlmChildCount = this._unsettledRlmChildRuns.size + this._rlmChildSessions.size;
+    if (residentRlmChildCount >= 4) {
+      throw new Error(
+        \`RLM resident child limit reached (\${residentRlmChildCount}/4). Wait for idle passivation or delete a completed subagent before spawning another.\`
+      );
+    }`,
+    after: `    const residentRlmChildCount = this._unsettledRlmChildRuns.size + this._rlmChildSessions.size;
+    if (residentRlmChildCount >= 1) {
+      throw new Error(
+        \`RLM resident child limit reached (\${residentRlmChildCount}/1). Wait for idle passivation or delete the completed subagent before spawning another.\`
+      );
+    }`,
+  },
+]);
 
 // Step G bundle parity: active CLI runtime and provider-construction chunks.
 applyPatches(findBundledCliChunk(), [
   {
     name: "bundled provider-visible conversion and exact entry-ref filtering",
+    supersededBy: "messages: convertedMessages,",
     before: `  }).filter((m2) => m2 !== void 0);
 }
 
@@ -1887,6 +3353,7 @@ function getDefaultSessionDir`,
   },
   {
     name: "bundled purpose-aware raw and model projection pipeline",
+    supersededBy: "const previousMessages = currentMessages;",
     before: `  async emitContext(messages) {
     const ctx = this.createContext();
     let currentMessages = structuredClone(messages);
@@ -2245,6 +3712,7 @@ function getDefaultSessionDir`,
 applyPatches(findBundledCliChunk(), [
   {
     name: "bundled projected threshold context tokens",
+    supersededBy: '_projectContext("budget", messages',
     before: `  _getThresholdContextTokens(assistantMessage, compactionTimestamp) {
     const messages = this.agent.state.messages;
     const estimate = estimateContextTokens(messages);
@@ -2602,6 +4070,7 @@ applyPatches(findBundledProviderChunk(), [
 applyPatches(findBundledCliChunk(), [
   {
     name: "bundled turn_end mode for failed assistant response",
+    supersededBy: "toolExecution: config.toolExecution ?? \"parallel\", exchanges: []",
     before: '        await emit({ type: "turn_end", message, toolResults: [] });',
     after: `        const turnEndResult = await emit({ type: "turn_end", message, toolResults: [], toolExecution: config.toolExecution ?? "parallel" });
         for (const turnEndMessage of turnEndResult?.messages ?? []) {
@@ -2613,6 +4082,7 @@ applyPatches(findBundledCliChunk(), [
   },
   {
     name: "bundled effective mode captured from the executed batch",
+    supersededBy: "        exchanges.push(...executedToolBatch.exchanges);",
     before: `      const toolCalls = message.content.filter((c) => c.type === "toolCall");
       const toolResults = [];
       hasMoreToolCalls = false;
@@ -2630,6 +4100,7 @@ applyPatches(findBundledCliChunk(), [
   },
   {
     name: "bundled turn_end effective mode",
+    supersededBy: "toolResults, toolExecution, exchanges });",
     before: '      await emit({ type: "turn_end", message, toolResults });',
     after: `      const turnEndResult = await emit({ type: "turn_end", message, toolResults, toolExecution });
       for (const turnEndMessage of turnEndResult?.messages ?? []) {
@@ -2641,6 +4112,7 @@ applyPatches(findBundledCliChunk(), [
   },
   {
     name: "bundled mode returned by the selected tool execution branch",
+    supersededBy: "return withToolExchanges(batch, toolCalls, \"sequential\");",
     before: `  if (config.toolExecution === "sequential" || hasSequentialToolCall) {
     return executeToolCallsSequential(currentContext, assistantMessage, toolCalls, config, signal, emit);
   }
@@ -2654,6 +4126,7 @@ applyPatches(findBundledCliChunk(), [
   },
   {
     name: "bundled extension turn_end mode bridge",
+    supersededBy: "        exchanges: event.exchanges",
     before: `        message: event.message,
         toolResults: event.toolResults
       };`,
@@ -2785,8 +4258,854 @@ applyPatches(findBundledCliChunk(), [
       this._turnIndex++;
       return result;`,
   },
+  {
+    name: "bundled finalized exchanges on failed assistant turn",
+    before: '        const turnEndResult = await emit({ type: "turn_end", message, toolResults: [], toolExecution: config.toolExecution ?? "parallel" });',
+    after: '        const turnEndResult = await emit({ type: "turn_end", message, toolResults: [], toolExecution: config.toolExecution ?? "parallel", exchanges: [] });',
+  },
+  {
+    name: "bundled finalized exchange batch bridge",
+    before: `  if (config.toolExecution === "sequential" || hasSequentialToolCall) {
+    const batch = await executeToolCallsSequential(currentContext, assistantMessage, toolCalls, config, signal, emit);
+    return { ...batch, toolExecution: "sequential" };
+  }
+  const batch = await executeToolCallsParallel(currentContext, assistantMessage, toolCalls, config, signal, emit);
+  return { ...batch, toolExecution: "parallel" };
+}`,
+    after: `  if (config.toolExecution === "sequential" || hasSequentialToolCall) {
+    const batch = await executeToolCallsSequential(currentContext, assistantMessage, toolCalls, config, signal, emit);
+    return withToolExchanges(batch, toolCalls, "sequential");
+  }
+  const batch = await executeToolCallsParallel(currentContext, assistantMessage, toolCalls, config, signal, emit);
+  return withToolExchanges(batch, toolCalls, "parallel");
+}
+function withToolExchanges(batch, toolCalls, toolExecution) {
+  const exchanges = batch.messages.map((result, sourceOrder) => {
+    const original = toolCalls[sourceOrder];
+    const finalized = batch.finalizedCalls[sourceOrder];
+    return {
+      sourceOrder,
+      toolCallId: original.id,
+      toolName: original.name,
+      originalInput: original.arguments,
+      ...(finalized?.executedInput === void 0 ? {} : { executedInput: finalized.executedInput }),
+      result
+    };
+  });
+  return { messages: batch.messages, terminate: batch.terminate, toolExecution, exchanges };
+}`,
+  },
+  {
+    name: "bundled executed normalized input captured",
+    before: `  return {
+    toolCall: prepared.toolCall,
+    result,
+    isError
+  };
+}`,
+    after: `  return {
+    toolCall: prepared.toolCall,
+    executedInput: prepared.args,
+    result,
+    isError
+  };
+}`,
+  },
+  {
+    name: "bundled sequential finalized calls returned",
+    before: `  return {
+    messages,
+    terminate: shouldTerminateToolBatch(finalizedCalls)
+  };
+}
+async function executeToolCallsParallel`,
+    after: `  return {
+    messages,
+    finalizedCalls,
+    terminate: shouldTerminateToolBatch(finalizedCalls)
+  };
+}
+async function executeToolCallsParallel`,
+  },
+  {
+    name: "bundled parallel finalized calls returned",
+    before: `  return {
+    messages,
+    terminate: shouldTerminateToolBatch(orderedFinalizedCalls)
+  };
+}
+function shouldTerminateToolBatch`,
+    after: `  return {
+    messages,
+    finalizedCalls: orderedFinalizedCalls,
+    terminate: shouldTerminateToolBatch(orderedFinalizedCalls)
+  };
+}
+function shouldTerminateToolBatch`,
+  },
+  {
+    name: "bundled finalized exchange event accumulator",
+    before: `      const toolResults = [];
+      let toolExecution = config.toolExecution ?? "parallel";
+      hasMoreToolCalls = false;
+      if (toolCalls.length > 0) {
+        const executedToolBatch = await executeToolCalls(currentContext, message, config, signal, emit);
+        toolExecution = executedToolBatch.toolExecution;
+        toolResults.push(...executedToolBatch.messages);`,
+    after: `      const toolResults = [];
+      const exchanges = [];
+      let toolExecution = config.toolExecution ?? "parallel";
+      hasMoreToolCalls = false;
+      if (toolCalls.length > 0) {
+        const executedToolBatch = await executeToolCalls(currentContext, message, config, signal, emit);
+        toolExecution = executedToolBatch.toolExecution;
+        toolResults.push(...executedToolBatch.messages);
+        exchanges.push(...executedToolBatch.exchanges);`,
+  },
+  {
+    name: "bundled turn end includes finalized exchanges",
+    before: '      const turnEndResult = await emit({ type: "turn_end", message, toolResults, toolExecution });',
+    after: '      const turnEndResult = await emit({ type: "turn_end", message, toolResults, toolExecution, exchanges });',
+  },
+  {
+    name: "bundled extension finalized exchange bridge",
+    before: `        toolResults: event.toolResults,
+        toolExecution: event.toolExecution
+      };`,
+    after: `        toolResults: event.toolResults,
+        toolExecution: event.toolExecution,
+        exchanges: event.exchanges
+      };`,
+  },
+  {
+    name: "bundled await normal user bash persistence event",
+    before: `      if (!options?.transient) {
+        this.recordBashResult(command, result, options);
+      }`,
+    after: `      if (!options?.transient) {
+        await this.recordBashResult(command, result, options);
+      }`,
+  },
+  {
+    name: "bundled await extension supplied user bash persistence event",
+    before: `        record(result2);
+        return {
+          exitCode: result2.exitCode,`,
+    after: `        await record(result2);
+        return {
+          exitCode: result2.exitCode,`,
+  },
+  {
+    name: "bundled await cancelled user bash persistence event",
+    before: `        record({
+          output: "",
+          exitCode: void 0,`,
+    after: `        await record({
+          output: "",
+          exitCode: void 0,`,
+  },
+  {
+    name: "bundled await failed user bash persistence event",
+    before: `      record({
+        output: \`bash failed: \${errorMessage4}\`,`,
+    after: `      await record({
+        output: \`bash failed: \${errorMessage4}\`,`,
+  },
+  {
+    name: "bundled async user bash recorder closure",
+    before: `    const record = transient ? () => {
+    } : (result) => this.recordBashResult(command, result, { excludeFromContext });`,
+    after: `    const record = transient ? async () => {
+    } : async (result) => this.recordBashResult(command, result, { excludeFromContext });`,
+  },
+  {
+    name: "bundled direct finalized user bash event",
+    before: `  recordBashResult(command, result, options) {
+    const bashMessage = {`,
+    after: `  async _emitUserBashEnd(entryId, bashMessage) {
+    await this._extensionRunner.emit({
+      type: "user_bash_end",
+      entryId,
+      command: bashMessage.command,
+      output: bashMessage.output,
+      isError: bashMessage.exitCode !== 0 || bashMessage.cancelled === true,
+      exitCode: bashMessage.exitCode,
+      cancelled: bashMessage.cancelled,
+      truncated: bashMessage.truncated,
+      fullOutputPath: bashMessage.fullOutputPath
+    });
+  }
+  async recordBashResult(command, result, options) {
+    const bashMessage = {`,
+  },
+  {
+    name: "bundled emit finalized user bash after direct persistence",
+    before: `      this.agent.state.messages.push(bashMessage);
+      this.sessionManager.appendMessage(bashMessage);
+    }
+  }`,
+    after: `      this.agent.state.messages.push(bashMessage);
+      const entryId = this.sessionManager.appendMessage(bashMessage);
+      await this._emitUserBashEnd(entryId, bashMessage);
+    }
+  }`,
+  },
+  {
+    name: "bundled await pending bash flush before validation",
+    before: `    if (policy.flushPendingBashBeforeValidation)
+      this._flushPendingBashMessages();`,
+    after: `    if (policy.flushPendingBashBeforeValidation)
+      await this._flushPendingBashMessages();`,
+  },
+  {
+    name: "bundled await pending bash flush after validation",
+    before: `    if (!policy.flushPendingBashBeforeValidation)
+      this._flushPendingBashMessages();`,
+    after: `    if (!policy.flushPendingBashBeforeValidation)
+      await this._flushPendingBashMessages();`,
+  },
+  {
+    name: "bundled emit finalized pending user bash events",
+    before: `  _flushPendingBashMessages() {
+    if (this._pendingBashMessages.length === 0)
+      return;
+    for (const bashMessage of this._pendingBashMessages) {
+      this.agent.state.messages.push(bashMessage);
+      this.sessionManager.appendMessage(bashMessage);
+    }
+    this._pendingBashMessages = [];
+  }`,
+    after: `  async _flushPendingBashMessages() {
+    if (this._pendingBashMessages.length === 0)
+      return;
+    for (const bashMessage of this._pendingBashMessages) {
+      this.agent.state.messages.push(bashMessage);
+      const entryId = this.sessionManager.appendMessage(bashMessage);
+      await this._emitUserBashEnd(entryId, bashMessage);
+    }
+    this._pendingBashMessages = [];
+  }`,
+  },
+  {
+    name: "bundled automatic refinement override action",
+    before: `  getContextUsageFn = () => void 0;
+  compactFn = () => {`,
+    after: `  getContextUsageFn = () => void 0;
+  setAutomaticRefinementEnabledFn = () => {
+  };
+  compactFn = () => {`,
+  },
+  {
+    name: "bundled bind automatic refinement override",
+    before: `    this.getContextUsageFn = contextActions.getContextUsage;
+    this.compactFn = contextActions.compact;`,
+    after: `    this.getContextUsageFn = contextActions.getContextUsage;
+    this.setAutomaticRefinementEnabledFn = contextActions.setAutomaticRefinementEnabled;
+    this.compactFn = contextActions.compact;`,
+  },
+  {
+    name: "bundled automatic refinement extension context method",
+    before: `      compact: (options) => {
+        runner.assertActive();`,
+    after: `      setAutomaticRefinementEnabled: (enabled) => {
+        runner.assertActive();
+        runner.setAutomaticRefinementEnabledFn(enabled);
+      },
+      compact: (options) => {
+        runner.assertActive();`,
+  },
+  {
+    name: "bundled automatic refinement override state",
+    before: `  _refinePlanInFlight;
+`,
+    after: `  _refinePlanInFlight;
+  _automaticRefinementEnabled;
+`,
+  },
+  {
+    name: "bundled bind automatic refinement override action",
+    before: `      getContextUsage: () => this.getContextUsage(),
+      compact: (options) => {`,
+    after: `      getContextUsage: () => this.getContextUsage(),
+      setAutomaticRefinementEnabled: (enabled) => this.setAutomaticRefinementEnabled(enabled),
+      compact: (options) => {`,
+  },
+  {
+    name: "bundled automatic refinement override gate",
+    supersededBy: "this._scheduledAutoRefineTimers.clear();\n  }\n  _autoRefineAllowedForSession",
+    before: `  _autoRefineAllowedForSession() {
+    return this._rlmDepth === 0 && this._localHarnessStateDir() !== void 0;
+  }`,
+    after: `  setAutomaticRefinementEnabled(enabled) {
+    this._automaticRefinementEnabled = enabled;
+  }
+  _autoRefineAllowedForSession() {
+    return this._automaticRefinementEnabled !== false && this._rlmDepth === 0 && this._localHarnessStateDir() !== void 0;
+  }`,
+  },
+  {
+    name: "bundled avoid full converted message clone",
+    before: `    messages: structuredClone(convertedMessages),`,
+    after: `    messages: convertedMessages,`,
+  },
+  {
+    name: "bundled conservative extension entry ref invalidation",
+    before: `          if (handlerResult.messages !== void 0) {
+            const previousCount = currentMessages.length;
+            currentMessages = handlerResult.messages;
+            if (handlerResult.entryRefs !== void 0) {
+              currentEntryRefs = handlerResult.entryRefs;
+            } else if (currentMessages.length !== previousCount) {
+              currentEntryRefs = void 0;
+            }
+          }`,
+    after: `          if (handlerResult.messages !== void 0) {
+            const previousMessages = currentMessages;
+            currentMessages = handlerResult.messages;
+            if (handlerResult.entryRefs !== void 0) {
+              currentEntryRefs = handlerResult.entryRefs;
+            } else if (currentMessages !== previousMessages) {
+              currentEntryRefs = void 0;
+            }
+          }`,
+  },
+  {
+    name: "bundled conservative host transform entry ref invalidation",
+    before: `      const previousCount = model.messages.length;
+      const transformedMessages = await transformModelMessages(model.messages);
+      model = {
+        messages: transformedMessages,
+        entryRefs: transformedMessages.length === previousCount ? model.entryRefs : void 0
+      };`,
+    after: `      const previousMessages = model.messages;
+      const transformedMessages = await transformModelMessages(previousMessages);
+      model = {
+        messages: transformedMessages,
+        entryRefs: transformedMessages === previousMessages ? model.entryRefs : void 0
+      };`,
+  },
+  {
+    name: "bundled budget purpose for provider-bound threshold estimate",
+    supersededBy: `_projectContext("budget", messages,`,
+    before: `    const projected = await this._projectContext("compaction", messages, this.sessionManager.getContextEntryRefs(messages));`,
+    after: `    const projected = await this._projectContext("budget", messages, this.sessionManager.getContextEntryRefs(messages));`,
+  },
+  {
+    name: "bundled complete provider-bound threshold estimate",
+    supersededBy: "this._providerContextEstimate = {",
+    before: `    const projected = await this._projectContext("budget", messages, this.sessionManager.getContextEntryRefs(messages));
+    return projected.messages.reduce((total, message) => total + estimateTokens2(message), 0);`,
+    after: `    const projected = await this._projectContext("budget", messages, this.sessionManager.getContextEntryRefs(messages));
+    const messageTokens = projected.messages.reduce((total, message) => total + estimateTokens2(message), 0);
+    const systemPrompt = this.agent.state.systemPrompt ?? "";
+    const tools = this.agent.state.tools.map(({ name, description, parameters }) => ({ name, description, parameters }));
+    const toolSignature = JSON.stringify(tools);
+    const systemTokens = Math.ceil(systemPrompt.length / 4);
+    const toolTokens = Math.ceil(toolSignature.length / 4);
+    const totalTokens = systemTokens + toolTokens + messageTokens;
+    this._providerContextEstimate = {
+      messageTokens,
+      systemTokens,
+      toolTokens,
+      totalTokens,
+      projectedMessageCount: projected.messages.length,
+      sourceMessageCount: messages.length,
+      sourceLastMessage: messages.at(-1),
+      systemPrompt,
+      toolSignature
+    };
+    return totalTokens;`,
+  },
+  {
+    name: "bundled same-epoch provider usage anchor",
+    supersededBy: "let usageAnchored = false;",
+    before: `    const projected = await this._projectContext("budget", messages, this.sessionManager.getContextEntryRefs(messages));
+    const messageTokens = projected.messages.reduce((total, message) => total + estimateTokens2(message), 0);
+    const systemPrompt = this.agent.state.systemPrompt ?? "";
+    const tools = this.agent.state.tools.map(({ name, description, parameters }) => ({ name, description, parameters }));
+    const toolSignature = JSON.stringify(tools);
+    const systemTokens = Math.ceil(systemPrompt.length / 4);
+    const toolTokens = Math.ceil(toolSignature.length / 4);
+    const totalTokens = systemTokens + toolTokens + messageTokens;
+    this._providerContextEstimate = {
+      messageTokens,
+      systemTokens,
+      toolTokens,
+      totalTokens,
+      projectedMessageCount: projected.messages.length,
+      sourceMessageCount: messages.length,
+      sourceLastMessage: messages.at(-1),
+      systemPrompt,
+      toolSignature
+    };
+    return totalTokens;`,
+    after: `    const sourceEntryRefs = this.sessionManager.getContextEntryRefs(messages);
+    const projected = await this._projectContext("budget", messages, sourceEntryRefs);
+    const fullMessageTokens = projected.messages.reduce((total, message) => total + estimateTokens2(message), 0);
+    const systemPrompt = this.agent.state.systemPrompt ?? "";
+    const tools = this.agent.state.tools.map(({ name, description, parameters }) => ({ name, description, parameters }));
+    const toolSignature = JSON.stringify(tools);
+    const systemTokens = Math.ceil(systemPrompt.length / 4);
+    const toolTokens = Math.ceil(toolSignature.length / 4);
+    let messageTokens = fullMessageTokens;
+    let totalTokens = systemTokens + toolTokens + messageTokens;
+    let usageAnchored = false;
+    const usageAnchorMessage = estimate.lastUsageIndex === null ? void 0 : messages[estimate.lastUsageIndex];
+    const usageAnchor = usageAnchorMessage?.role === "assistant" ? usageAnchorMessage.usage : void 0;
+    const previousPromptTokens = usageAnchor ? Math.max(0, usageAnchor.input ?? 0) + Math.max(0, usageAnchor.cacheRead ?? 0) + Math.max(0, usageAnchor.cacheWrite ?? 0) : 0;
+    const previousEstimate = this._providerContextEstimate;
+    if (estimate.lastUsageIndex !== null && previousPromptTokens > 0 &&
+      previousEstimate?.systemPrompt === systemPrompt && previousEstimate.toolSignature === toolSignature) {
+      const anchorEntryId = sourceEntryRefs.find((ref) => ref.messageIndex === estimate.lastUsageIndex)?.entryId;
+      const projectedAnchorIndex = anchorEntryId === void 0 ? void 0 : projected.entryRefs?.find((ref) => ref.entryId === anchorEntryId)?.messageIndex;
+      if (projectedAnchorIndex !== void 0) {
+        const suffixTokens = projected.messages.slice(projectedAnchorIndex + 1).reduce((total, message) => total + estimateTokens2(message), 0);
+        totalTokens = previousPromptTokens + suffixTokens;
+        messageTokens = Math.max(0, totalTokens - systemTokens - toolTokens);
+        usageAnchored = true;
+      }
+    }
+    this._providerContextEstimate = {
+      messageTokens,
+      systemTokens,
+      toolTokens,
+      totalTokens,
+      projectedMessageCount: projected.messages.length,
+      sourceMessageCount: messages.length,
+      sourceLastMessage: messages.at(-1),
+      systemPrompt,
+      toolSignature,
+      usageAnchored
+    };
+    return totalTokens;`,
+  },
+  {
+    name: "bundled provider prompt usage excludes billed output",
+    supersededBy: "const previousPromptTokens = usageAnchor",
+    before: `    const sourceEntryRefs = this.sessionManager.getContextEntryRefs(messages);
+    const projected = await this._projectContext("budget", messages, sourceEntryRefs);
+    const fullMessageTokens = projected.messages.reduce((total, message) => total + estimateTokens2(message), 0);
+    const systemPrompt = this.agent.state.systemPrompt ?? "";
+    const tools = this.agent.state.tools.map(({ name, description, parameters }) => ({ name, description, parameters }));
+    const toolSignature = JSON.stringify(tools);
+    const systemTokens = Math.ceil(systemPrompt.length / 4);
+    const toolTokens = Math.ceil(toolSignature.length / 4);
+    let messageTokens = fullMessageTokens;
+    let totalTokens = systemTokens + toolTokens + messageTokens;
+    let usageAnchored = false;
+    const previousEstimate = this._providerContextEstimate;
+    if (estimate.lastUsageIndex !== null && estimate.usageTokens > 0 &&
+      previousEstimate?.systemPrompt === systemPrompt && previousEstimate.toolSignature === toolSignature) {
+      const anchorEntryId = sourceEntryRefs.find((ref) => ref.messageIndex === estimate.lastUsageIndex)?.entryId;
+      const projectedAnchorIndex = anchorEntryId === void 0 ? void 0 : projected.entryRefs?.find((ref) => ref.entryId === anchorEntryId)?.messageIndex;
+      if (projectedAnchorIndex !== void 0) {
+        const suffixTokens = projected.messages.slice(projectedAnchorIndex + 1).reduce((total, message) => total + estimateTokens2(message), 0);
+        totalTokens = estimate.usageTokens + suffixTokens;
+        messageTokens = Math.max(0, totalTokens - systemTokens - toolTokens);
+        usageAnchored = true;
+      }
+    }
+    this._providerContextEstimate = {
+      messageTokens,
+      systemTokens,
+      toolTokens,
+      totalTokens,
+      projectedMessageCount: projected.messages.length,
+      sourceMessageCount: messages.length,
+      sourceLastMessage: messages.at(-1),
+      systemPrompt,
+      toolSignature,
+      usageAnchored
+    };
+    return totalTokens;`,
+    after: `    const sourceEntryRefs = this.sessionManager.getContextEntryRefs(messages);
+    const projected = await this._projectContext("budget", messages, sourceEntryRefs);
+    const fullMessageTokens = projected.messages.reduce((total, message) => total + estimateTokens2(message), 0);
+    const systemPrompt = this.agent.state.systemPrompt ?? "";
+    const tools = this.agent.state.tools.map(({ name, description, parameters }) => ({ name, description, parameters }));
+    const toolSignature = JSON.stringify(tools);
+    const systemTokens = Math.ceil(systemPrompt.length / 4);
+    const toolTokens = Math.ceil(toolSignature.length / 4);
+    let messageTokens = fullMessageTokens;
+    let totalTokens = systemTokens + toolTokens + messageTokens;
+    let usageAnchored = false;
+    const usageAnchorMessage = estimate.lastUsageIndex === null ? void 0 : messages[estimate.lastUsageIndex];
+    const usageAnchor = usageAnchorMessage?.role === "assistant" ? usageAnchorMessage.usage : void 0;
+    const previousPromptTokens = usageAnchor ? Math.max(0, usageAnchor.input ?? 0) + Math.max(0, usageAnchor.cacheRead ?? 0) + Math.max(0, usageAnchor.cacheWrite ?? 0) : 0;
+    const previousEstimate = this._providerContextEstimate;
+    if (estimate.lastUsageIndex !== null && previousPromptTokens > 0 &&
+      previousEstimate?.systemPrompt === systemPrompt && previousEstimate.toolSignature === toolSignature) {
+      const anchorEntryId = sourceEntryRefs.find((ref) => ref.messageIndex === estimate.lastUsageIndex)?.entryId;
+      const projectedAnchorIndex = anchorEntryId === void 0 ? void 0 : projected.entryRefs?.find((ref) => ref.entryId === anchorEntryId)?.messageIndex;
+      if (projectedAnchorIndex !== void 0) {
+        const suffixTokens = projected.messages.slice(projectedAnchorIndex + 1).reduce((total, message) => total + estimateTokens2(message), 0);
+        totalTokens = previousPromptTokens + suffixTokens;
+        messageTokens = Math.max(0, totalTokens - systemTokens - toolTokens);
+        usageAnchored = true;
+      }
+    }
+    this._providerContextEstimate = {
+      messageTokens,
+      systemTokens,
+      toolTokens,
+      totalTokens,
+      projectedMessageCount: projected.messages.length,
+      sourceMessageCount: messages.length,
+      sourceLastMessage: messages.at(-1),
+      systemPrompt,
+      toolSignature,
+      usageAnchored
+    };
+    return totalTokens;`,
+  },
+  {
+    name: "bundled synchronous cached provider context usage",
+    supersededBy: "const providerEstimate = this._providerContextEstimate;",
+    before: `    const branchEntries2 = this.sessionManager.getBranch();
+    const latestCompaction = getLatestCompactionEntry(branchEntries2);
+    if (latestCompaction) {
+      const compactionIndex = branchEntries2.lastIndexOf(latestCompaction);
+      let hasPostCompactionUsage = false;
+      for (let i = branchEntries2.length - 1; i > compactionIndex; i--) {
+        const entry = branchEntries2[i];
+        if (entry.type === "message" && entry.message.role === "assistant") {
+          const assistant = entry.message;
+          if (assistant.stopReason !== "aborted" && assistant.stopReason !== "error") {
+            const contextTokens = calculateContextTokens(assistant.usage);
+            if (contextTokens > 0) {
+              hasPostCompactionUsage = true;
+            }
+            break;
+          }
+        }
+      }
+      if (!hasPostCompactionUsage) {
+        return { tokens: null, contextWindow, percent: null };
+      }
+    }
+    const estimate = estimateContextTokens(this.messages);
+    const percent = estimate.tokens / contextWindow * 100;
+    return {
+      tokens: estimate.tokens,
+      contextWindow,
+      percent
+    };`,
+    after: `    const messages = this.agent.state.messages;
+    const systemPrompt = this.agent.state.systemPrompt ?? "";
+    const tools = this.agent.state.tools.map(({ name, description, parameters }) => ({ name, description, parameters }));
+    const toolSignature = JSON.stringify(tools);
+    const providerEstimate = this._providerContextEstimate;
+    const cacheValid = providerEstimate !== void 0 &&
+      providerEstimate.sourceMessageCount === messages.length &&
+      providerEstimate.sourceLastMessage === messages.at(-1) &&
+      providerEstimate.systemPrompt === systemPrompt &&
+      providerEstimate.toolSignature === toolSignature;
+    const messageTokens = cacheValid ? providerEstimate.messageTokens : messages.reduce((total, message) => total + estimateTokens2(message), 0);
+    const systemTokens = cacheValid ? providerEstimate.systemTokens : Math.ceil(systemPrompt.length / 4);
+    const toolTokens = cacheValid ? providerEstimate.toolTokens : Math.ceil(toolSignature.length / 4);
+    const totalTokens = messageTokens + systemTokens + toolTokens;
+    return {
+      tokens: totalTokens,
+      contextWindow,
+      percent: totalTokens / contextWindow * 100,
+      messageTokens,
+      systemTokens,
+      toolTokens,
+      totalTokens,
+      projectedMessageCount: cacheValid ? providerEstimate.projectedMessageCount : messages.length
+    };`,
+  },
 ]);
 
+// Disabling automatic refinement invalidates and clears already pending automatic work.
+applyPatches("dist/core/agent-session.js", [
+  {
+    name: "clear pending automatic refinement work",
+    before: `    setAutomaticRefinementEnabled(enabled) {
+        this._automaticRefinementEnabled = enabled;
+    }`,
+    after: `    setAutomaticRefinementEnabled(enabled) {
+        this._automaticRefinementEnabled = enabled;
+        if (enabled !== false)
+            return;
+        this._autoRefineBranchVersion++;
+        this._autoRefineReviewAbort?.abort();
+        if (this._autoRefineInProgress)
+            this._refineAbortController?.abort();
+        this._pendingAutoRefineReview = undefined;
+        this._compactAutoRefinePending = false;
+        this._turnIntervalAutoRefinePending = false;
+        for (const timer of this._scheduledAutoRefineTimers)
+            clearTimeout(timer);
+        this._scheduledAutoRefineTimers.clear();
+    }`,
+  },
+]);
+
+applyPatches(findBundledCliChunk(), [
+  {
+    name: "bundled clear pending automatic refinement work",
+    before: `  setAutomaticRefinementEnabled(enabled) {
+    this._automaticRefinementEnabled = enabled;
+  }`,
+    after: `  setAutomaticRefinementEnabled(enabled) {
+    this._automaticRefinementEnabled = enabled;
+    if (enabled !== false)
+      return;
+    this._autoRefineBranchVersion++;
+    this._autoRefineReviewAbort?.abort();
+    if (this._autoRefineInProgress)
+      this._refineAbortController?.abort();
+    this._pendingAutoRefineReview = void 0;
+    this._compactAutoRefinePending = false;
+    this._turnIntervalAutoRefinePending = false;
+    for (const timer of this._scheduledAutoRefineTimers)
+      clearTimeout(timer);
+    this._scheduledAutoRefineTimers.clear();
+  }`,
+  },
+]);
+
+// Provider usage anchors may only cross the exact projection that produced them.
+applyPatches("dist/core/extensions/runner.js", [
+  {
+    name: "projection identity accumulator",
+    before: `        let currentMessages = messages;
+        let currentEntryRefs = entryRefs;
+        for (const ext of this.extensions) {`,
+    after: `        let currentMessages = messages;
+        let currentEntryRefs = entryRefs;
+        let currentProjectionIdentity;
+        for (const ext of this.extensions) {`,
+  },
+  {
+    name: "projection identity result propagation",
+    before: `                    else if (handlerResult.entryRefs !== undefined) {
+                        currentEntryRefs = handlerResult.entryRefs;
+                    }
+                }`,
+    after: `                    else if (handlerResult.entryRefs !== undefined) {
+                        currentEntryRefs = handlerResult.entryRefs;
+                    }
+                    if (typeof handlerResult.projectionIdentity === "string") {
+                        currentProjectionIdentity = handlerResult.projectionIdentity;
+                    }
+                    else if (handlerResult.messages !== undefined || handlerResult.entryRefs !== undefined) {
+                        currentProjectionIdentity = undefined;
+                    }
+                }`,
+  },
+  {
+    name: "projection identity runner return",
+    before: `        return { messages: currentMessages, entryRefs: currentEntryRefs };`,
+    after: `        return {
+            messages: currentMessages,
+            entryRefs: currentEntryRefs,
+            ...(currentProjectionIdentity === undefined ? {} : { projectionIdentity: currentProjectionIdentity }),
+        };`,
+  },
+]);
+
+applyPatches("dist/core/extensions/types.d.ts", [
+  {
+    name: "projection identity model context result type",
+    before: `export interface ModelContextEventResult {
+    messages?: Message[];
+    entryRefs?: ContextEntryRef[];
+}`,
+    after: `export interface ModelContextEventResult {
+    messages?: Message[];
+    entryRefs?: ContextEntryRef[];
+    projectionIdentity?: string;
+}`,
+  },
+]);
+
+applyPatches("dist/core/extensions/runner.d.ts", [
+  {
+    name: "projection identity runner result type",
+    before: `        messages: Message[];
+        entryRefs?: ContextEntryRef[];
+    }>;`,
+    after: `        messages: Message[];
+        entryRefs?: ContextEntryRef[];
+        projectionIdentity?: string;
+    }>;`,
+  },
+]);
+
+applyPatches("dist/core/agent-session.js", [
+  {
+    name: "provider anchor requires projection identity",
+    before: `        if (estimate.lastUsageIndex !== null && previousPromptTokens > 0 &&
+            previousEstimate?.systemPrompt === systemPrompt && previousEstimate.toolSignature === toolSignature) {`,
+    after: `        if (estimate.lastUsageIndex !== null && previousPromptTokens > 0 &&
+            projected.projectionIdentity !== undefined &&
+            previousEstimate?.projectionIdentity === projected.projectionIdentity &&
+            previousEstimate.systemPrompt === systemPrompt && previousEstimate.toolSignature === toolSignature) {`,
+  },
+  {
+    name: "cache provider projection identity",
+    before: `            toolSignature,
+            usageAnchored,
+        };`,
+    after: `            toolSignature,
+            projectionIdentity: projected.projectionIdentity,
+            usageAnchored,
+        };`,
+  },
+]);
+
+applyPatches(findBundledCliChunk(), [
+  {
+    name: "bundled projection identity accumulator",
+    before: `    let currentMessages = messages;
+    let currentEntryRefs = entryRefs;
+    for (const ext of this.extensions) {`,
+    after: `    let currentMessages = messages;
+    let currentEntryRefs = entryRefs;
+    let currentProjectionIdentity;
+    for (const ext of this.extensions) {`,
+  },
+  {
+    name: "bundled projection identity result propagation",
+    before: `          } else if (handlerResult.entryRefs !== void 0) {
+            currentEntryRefs = handlerResult.entryRefs;
+          }
+        } catch (err) {`,
+    after: `          } else if (handlerResult.entryRefs !== void 0) {
+            currentEntryRefs = handlerResult.entryRefs;
+          }
+          if (typeof handlerResult.projectionIdentity === "string") {
+            currentProjectionIdentity = handlerResult.projectionIdentity;
+          } else if (handlerResult.messages !== void 0 || handlerResult.entryRefs !== void 0) {
+            currentProjectionIdentity = void 0;
+          }
+        } catch (err) {`,
+  },
+  {
+    name: "bundled projection identity runner return",
+    before: `    return { messages: currentMessages, entryRefs: currentEntryRefs };`,
+    after: `    return {
+      messages: currentMessages,
+      entryRefs: currentEntryRefs,
+      ...currentProjectionIdentity === void 0 ? {} : { projectionIdentity: currentProjectionIdentity }
+    };`,
+  },
+  {
+    name: "bundled provider anchor requires projection identity",
+    before: `    if (estimate.lastUsageIndex !== null && previousPromptTokens > 0 &&
+      previousEstimate?.systemPrompt === systemPrompt && previousEstimate.toolSignature === toolSignature) {`,
+    after: `    if (estimate.lastUsageIndex !== null && previousPromptTokens > 0 &&
+      projected.projectionIdentity !== void 0 &&
+      previousEstimate?.projectionIdentity === projected.projectionIdentity &&
+      previousEstimate.systemPrompt === systemPrompt && previousEstimate.toolSignature === toolSignature) {`,
+  },
+  {
+    name: "bundled cache provider projection identity",
+    before: `      toolSignature,
+      usageAnchored
+    };`,
+    after: `      toolSignature,
+      projectionIdentity: projected.projectionIdentity,
+      usageAnchored
+    };`,
+  },
+]);
+
+applyPatches("dist/core/agent-session.js", [
+  {
+    name: "automatic refinement prompt state",
+    before: `            harnessState: this._loadMergedHarnessState(),`,
+    after: `            harnessState: Object.assign(this._loadMergedHarnessState(), {
+                automaticRefinementEnabled: this._automaticRefinementEnabled !== false,
+            }),`,
+  },
+]);
+
+applyPatches("dist/core/refinement/refinement.js", [
+  {
+    name: "empty harness prompt and automatic refinement mode",
+    before: `export function formatHarnessStateForPrompt(state, options = {}) {
+    const maxEntriesPerKind = options.maxEntriesPerKind ?? DEFAULT_OVERVIEW_ENTRY_LIMIT;`,
+    after: `export function formatHarnessStateForPrompt(state, options = {}) {
+    const savedEntryCount = Object.values(state.entries).reduce((total, entries) => total + Object.keys(entries).length, 0);
+    if (savedEntryCount === 0)
+        return "";
+    const automaticRefinementEnabled = state.automaticRefinementEnabled !== false;
+    const maxEntriesPerKind = options.maxEntriesPerKind ?? DEFAULT_OVERVIEW_ENTRY_LIMIT;`,
+  },
+  {
+    name: "capture concise harness entries",
+    before: `    ];
+    let totalEntries = 0;`,
+    after: `    ];
+    const genericLineCount = lines.length;
+    let totalEntries = 0;`,
+  },
+  {
+    name: "separate harness entries from refinement history",
+    before: `    if (totalEntries === 0) {`,
+    after: `    const conciseEntryLines = lines.slice(genericLineCount);
+    if (totalEntries === 0) {`,
+  },
+  {
+    name: "omit disabled automatic refinement prompt overhead",
+    before: `    return lines.join("\\n").trim();`,
+    after: `    if (!automaticRefinementEnabled)
+        return ["# Continual Harness State", "", "Saved entries:", "", ...conciseEntryLines].join("\\n").trim();
+    return lines.join("\\n").trim();`,
+  },
+]);
+
+applyPatches(findBundledCliChunk(), [
+  {
+    name: "bundled automatic refinement prompt state",
+    before: `      harnessState: this._loadMergedHarnessState(),`,
+    after: `      harnessState: Object.assign(this._loadMergedHarnessState(), {
+        automaticRefinementEnabled: this._automaticRefinementEnabled !== false
+      }),`,
+  },
+  {
+    name: "bundled empty harness prompt and automatic refinement mode",
+    before: `function formatHarnessStateForPrompt(state, options = {}) {
+  const maxEntriesPerKind = options.maxEntriesPerKind ?? DEFAULT_OVERVIEW_ENTRY_LIMIT;`,
+    after: `function formatHarnessStateForPrompt(state, options = {}) {
+  const savedEntryCount = Object.values(state.entries).reduce((total, entries) => total + Object.keys(entries).length, 0);
+  if (savedEntryCount === 0)
+    return "";
+  const automaticRefinementEnabled = state.automaticRefinementEnabled !== false;
+  const maxEntriesPerKind = options.maxEntriesPerKind ?? DEFAULT_OVERVIEW_ENTRY_LIMIT;`,
+  },
+  {
+    name: "bundled capture concise harness entries",
+    before: `  ];
+  let totalEntries = 0;`,
+    after: `  ];
+  const genericLineCount = lines.length;
+  let totalEntries = 0;`,
+  },
+  {
+    name: "bundled separate harness entries from refinement history",
+    before: `  if (totalEntries === 0) {`,
+    after: `  const conciseEntryLines = lines.slice(genericLineCount);
+  if (totalEntries === 0) {`,
+  },
+  {
+    name: "bundled omit disabled automatic refinement prompt overhead",
+    before: `  return lines.join("\\n").trim();`,
+    after: `  if (!automaticRefinementEnabled)
+    return ["# Continual Harness State", "", "Saved entries:", "", ...conciseEntryLines].join("\\n").trim();
+  return lines.join("\\n").trim();`,
+  },
+]);
+
+if (!stockOnly && !checkOnly) {
+  for (const [path, text] of pendingWrites) {
+    writeFileSync(path, text);
+  }
+}
+
 console.log(
-  `${checkOnly ? "verified" : "ready"} prime-agent@${SUPPORTED_VERSION} awaited turn_end and purpose-aware context projection surfaces`,
+  `${stockOnly ? "verified stock" : checkOnly ? "verified" : "ready"} prime-agent@${SUPPORTED_VERSION} awaited turn_end and purpose-aware context projection surfaces`,
 );

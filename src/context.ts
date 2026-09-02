@@ -1,17 +1,10 @@
 import { escapeXml, truncateUtf8, utf8Bytes } from "./capsule.js";
-import type { TaskRuntimeV2, ValidationGate, ValidationState } from "./runtime.js";
-import { deriveReadiness } from "./workflow.js";
 import {
   PRIME_CONTEXT_ANCHOR_SCHEMA,
   PRIME_CONTEXT_ANCHOR_TYPE,
-  PRIME_CONTEXT_FOLD_SCHEMA,
-  PRIME_CONTEXT_FOLD_TYPE,
-  PRIME_CONTEXT_STATE_SCHEMA,
-  PRIME_CONTEXT_STATE_TYPE,
   type PrimeContextAnchorDetails,
-  type PrimeContextFoldDetails,
-  type PrimeContextStateDetails,
-  type TaskSnapshotV1,
+  TASK_STATE_BOUNDS,
+  type TaskSnapshotV2,
 } from "./state.js";
 
 const GOAL_CONTEXT_TYPE = "goal_context";
@@ -28,10 +21,7 @@ export interface ContextMessageLike {
 }
 
 export interface TaskAnchorInput {
-  taskKey?: string;
-  objective: string;
-  runtime: TaskRuntimeV2;
-  snapshot: TaskSnapshotV1;
+  task: TaskSnapshotV2;
   child?: {
     parentSessionId: string;
     parentRefs: readonly string[];
@@ -43,16 +33,6 @@ export interface TaskAnchorInput {
 export interface RenderedTaskAnchor {
   content: string;
   details: PrimeContextAnchorDetails;
-}
-
-export interface RenderedTaskState {
-  content: string;
-  details: PrimeContextStateDetails;
-}
-
-export interface RenderedTaskFold {
-  content: string;
-  details: PrimeContextFoldDetails;
 }
 
 function record(value: unknown): Record<string, unknown> | undefined {
@@ -101,10 +81,6 @@ function unique(values: readonly string[]): string[] {
   return result;
 }
 
-function durableSnapshot(snapshot: TaskSnapshotV1): boolean {
-  return Boolean(snapshot.focus) || snapshot.openItems.length > 0 || snapshot.pinnedObservationIds.length > 0;
-}
-
 function explicitProtectedPaths(values: readonly string[]): string[] {
   const paths: string[] = [];
   for (const value of values) {
@@ -121,86 +97,42 @@ function explicitProtectedPaths(values: readonly string[]): string[] {
   return unique(paths);
 }
 
-function normalizedGate(gate: ValidationGate): string {
-  if (gate.suiteFamily && gate.target) return `${gate.suiteFamily}:${gate.target}`;
-  return gate.key;
-}
-
-/** Render the persistent task contract. Field order and model-visible bytes are stable. */
+/** Render one bounded descriptive task anchor. */
 export function renderPrimeContextAnchor(input: TaskAnchorInput): RenderedTaskAnchor {
-  const objective = input.objective.trim();
-  const constraints = unique(input.runtime.steeringDeltas)
+  const objective = input.task.objective?.trim() ?? "";
+  const constraints = activeConstraintTexts(input.task)
     .filter((value) => normalizedText(value) !== normalizedText(objective));
   const protectedPaths = explicitProtectedPaths([objective, ...constraints]);
-  const lines = [
-    "<prime_context_anchor>",
-    `objective: ${quoted(objective)}`,
-    `requirements_revision: r${input.runtime.requirementsRevision}`,
-  ];
+  const lines = ["<prime_context_anchor>", `objective: ${quoted(objective)}`];
   if (constraints.length > 0) {
     lines.push("constraints:", ...constraints.map((value) => `- ${quoted(value)}`));
-  }
-  if (input.runtime.validationGates.length > 0) {
-    lines.push("required_gates:", ...input.runtime.validationGates.map((gate) => `- ${escapeXml(boundedDisplay(normalizedGate(gate)))}`));
   }
   if (protectedPaths.length > 0) {
     lines.push("protected_paths:", ...protectedPaths.map((path) => `- ${escapeXml(boundedDisplay(path))}`));
   }
-  if (input.snapshot.focus) lines.push(`durable_focus: ${quoted(boundedDisplay(input.snapshot.focus, 256))}`);
-  if (input.snapshot.openItems.length > 0) {
-    lines.push("open_items:", ...input.snapshot.openItems.map((item) => `- [${escapeXml(boundedDisplay(item.id, 96))}] ${escapeXml(boundedDisplay(item.text, 256))}`));
+  if (input.task.focus) lines.push(`durable_focus: ${quoted(boundedDisplay(input.task.focus, 256))}`);
+  if (input.task.openItems.length > 0) {
+    lines.push("open_items:", ...input.task.openItems.map((item) => `- [${escapeXml(boundedDisplay(item.id, 96))}] ${escapeXml(boundedDisplay(item.text, 256))}`));
   }
-  if (input.snapshot.pinnedObservationIds.length > 0) {
-    lines.push("pinned_outputs:", ...input.snapshot.pinnedObservationIds.map((id) => `- ${escapeXml(boundedDisplay(id, 128))}`));
+  if (input.task.pinnedObservationIds.length > 0) {
+    lines.push("pinned_outputs:", ...input.task.pinnedObservationIds.map((id) => `- ${escapeXml(boundedDisplay(id, 128))}`));
   }
   if (input.child) {
     const parentRefs = unique(input.child.parentRefs).slice(0, 8);
     const relevantPaths = unique(input.child.relevantPaths).slice(0, 8);
     const childConstraints = unique(input.child.constraints).slice(0, 6);
     lines.push("child_context:", `- parent_session: ${escapeXml(boundedDisplay(input.child.parentSessionId, 128))}`);
-    if (parentRefs.length > 0) {
-      lines.push("- parent_refs:", ...parentRefs.map((ref) => `  - ${escapeXml(boundedDisplay(ref, 128))}`));
-    }
-    if (relevantPaths.length > 0) {
-      lines.push("- relevant_paths:", ...relevantPaths.map((path) => `  - ${escapeXml(boundedDisplay(path, 192))}`));
-    }
-    if (childConstraints.length > 0) {
-      lines.push("- inherited_constraints:", ...childConstraints.map((value) => `  - ${quoted(boundedDisplay(value, 256))}`));
-    }
+    if (parentRefs.length > 0) lines.push("- parent_refs:", ...parentRefs.map((ref) => `  - ${escapeXml(boundedDisplay(ref, 128))}`));
+    if (relevantPaths.length > 0) lines.push("- relevant_paths:", ...relevantPaths.map((path) => `  - ${escapeXml(boundedDisplay(path, 192))}`));
+    if (childConstraints.length > 0) lines.push("- inherited_constraints:", ...childConstraints.map((value) => `  - ${quoted(boundedDisplay(value, 256))}`));
     lines.push('- parent_lookup: "prime_context action=recall scope=parent id=<parent_ref>"');
     lines.push('- reply_contract: "Return touched paths, current validation facts, and child refs; do not copy large diagnostics."');
   }
   lines.push("</prime_context_anchor>");
   return {
     content: lines.join("\n"),
-    details: {
-      schema: PRIME_CONTEXT_ANCHOR_SCHEMA,
-      ...(input.taskKey === undefined ? {} : { taskKey: input.taskKey }),
-      objectiveVersion: input.runtime.objectiveVersion,
-      requirementsRevision: input.runtime.requirementsRevision,
-    },
+    details: { schema: PRIME_CONTEXT_ANCHOR_SCHEMA, taskKey: input.task.taskKey },
   };
-}
-
-/** The submitted prompt needs no duplicate anchor when it is the complete, only durable contract. */
-export function taskAnchorHasDurableState(input: TaskAnchorInput, visiblePrompt: string): boolean {
-  if (input.child || input.runtime.goalId || durableSnapshot(input.snapshot)) return true;
-  if (input.runtime.validations.length > 0 || input.runtime.activeDiagnostics.length > 0 ||
-      input.runtime.modifiedResources.length > 0) return true;
-  const prompt = normalizedText(visiblePrompt);
-  const otherSteering = input.runtime.steeringDeltas.some((value) => normalizedText(value) !== prompt);
-  if (otherSteering) return true;
-  const objectiveVisible = normalizedText(input.objective) === prompt;
-  return !objectiveVisible;
-}
-
-function latestGateValidation(runtime: TaskRuntimeV2, gate: ValidationGate): ValidationState | undefined {
-  return runtime.validations.find((validation) => {
-    if (gate.suiteFamily && validation.suite.family !== gate.suiteFamily) return false;
-    if (gate.target && validation.suite.target !== gate.target) return false;
-    return gate.suiteFamily !== undefined || gate.target !== undefined ||
-      `suite:${validation.suite.family}:${validation.suite.target}` === gate.key;
-  });
 }
 
 function boundedDisplay(value: string, maxBytes = 160): string {
@@ -219,185 +151,217 @@ function boundedList(values: readonly string[], limit = 4, itemBytes = 160): str
   return `${shown.join(", ")}${omitted > 0 ? `, +${omitted}` : ""}`;
 }
 
-export function modifiedResourcesSinceGate(runtime: TaskRuntimeV2, gate: ValidationGate): string[] {
-  const validation = latestGateValidation(runtime, gate);
-  const revision = validation?.workspaceRevision ?? -1;
-  return runtime.modifiedResources
-    .filter((resource) => resource.revision > revision)
-    .map((resource) => resource.path);
+export interface PrimeContextTaskRenderOptions {
+  /** Set when the current user request already shows the snapshot objective. */
+  objectiveVisible?: boolean;
 }
 
-function subjectPath(subject: string): string | undefined {
-  return subject.startsWith("path:") ? subject.slice(5) : undefined;
+type TaskPacketField =
+  | { label: string; value: string | undefined }
+  | { label: string; values: readonly string[] };
+
+const TASK_PACKET_MAX_BYTES = TASK_STATE_BOUNDS.renderedTokens * 4;
+const TASK_PACKET_VALUE_MAX_BYTES = 384;
+
+function visibleValue(value: string | undefined): string | undefined {
+  if (value === undefined) return undefined;
+  const normalized = normalizedText(value);
+  return normalized || undefined;
 }
 
-/** Deterministic current-state ranking. Manual focus and pins are retained as overrides. */
-export function rankWorkingSet(
-  runtime: TaskRuntimeV2,
-  snapshot?: Pick<TaskSnapshotV1, "focus" | "pinnedObservationIds">,
-  limit = 12,
-): string[] {
-  const ranked: string[] = [];
-  const add = (value: string | undefined): void => {
-    const normalized = value?.trim();
-    if (normalized && !ranked.includes(normalized)) ranked.push(normalized);
-  };
-  for (const diagnostic of runtime.activeDiagnostics) {
-    for (const resource of diagnostic.resources ?? []) add(resource);
-    add(subjectPath(diagnostic.subjectKey ?? ""));
-  }
-  for (const resource of runtime.modifiedResources) add(resource.path);
-  const latestSteeringRevision = runtime.steeringResources.reduce(
-    (latest, resource) => Math.max(latest, resource.requirementsRevision),
-    -1,
-  );
-  for (const resource of runtime.steeringResources) {
-    if (resource.requirementsRevision === latestSteeringRevision) add(resource.path);
-  }
-  for (const gate of runtime.validationGates) {
-    const subjects = runtime.recentSubjects.filter((subject) =>
-      subject.intentKind === "test" || subject.intentKind === "build" || subject.intentKind === "lint");
-    for (const subject of subjects) {
-      if ((gate.target && subject.subjectKey.includes(gate.target)) ||
-        (gate.suiteFamily && subject.subjectKey.includes(gate.suiteFamily))) {
-        for (const resource of subject.resources) add(resource);
-      }
+function escapedValueWithin(value: string, maxBytes: number): string {
+  const normalized = normalizedText(value);
+  if (!normalized || maxBytes <= 0) return "";
+  const escaped = escapeXml(normalized);
+  if (utf8Bytes(escaped) <= maxBytes) return escaped;
+
+  let low = 0;
+  let high = utf8Bytes(normalized);
+  let best = "";
+  while (low <= high) {
+    const middle = Math.floor((low + high) / 2);
+    const prefix = truncateUtf8(normalized, middle).trimEnd();
+    const candidate = prefix ? escapeXml(`${prefix}…`) : "";
+    if (candidate && utf8Bytes(candidate) <= maxBytes) {
+      best = candidate;
+      low = middle + 1;
+    } else {
+      high = middle - 1;
     }
-    if (gate.target?.includes("/") || gate.target?.includes(".")) add(gate.target);
   }
-  for (const subject of runtime.recentSubjects) {
-    if (subject.intentKind !== "read" && subject.intentKind !== "search") continue;
-    for (const resource of subject.resources) add(resource);
-    add(subjectPath(subject.subjectKey));
-  }
-  const bounded = ranked.slice(0, Math.max(0, limit));
-  const override = (value: string | undefined): void => {
-    if (value && !bounded.includes(value)) bounded.push(value);
-  };
-  override(snapshot?.focus ? `focus:${short(snapshot.focus, 120)}` : undefined);
-  for (const pin of snapshot?.pinnedObservationIds ?? []) override(`pin:${pin}`);
-  return bounded;
+  return best;
 }
 
-/** Render a bounded checkpoint of current typed facts only. */
-export function renderPrimeContextState(runtime: TaskRuntimeV2, snapshot?: TaskSnapshotV1): RenderedTaskState {
-  const gateFacts = runtime.validationGates.map((gate) => {
-    const validation = latestGateValidation(runtime, gate);
-    const modified = modifiedResourcesSinceGate(runtime, gate);
-    const modifiedFact = boundedList(modified.length > 0 ? modified : ["none"]);
-    if (!validation) return `${boundedDisplay(normalizedGate(gate))}=not-run modified=${modifiedFact}`;
-    const current = validation.requirementsRevision === runtime.requirementsRevision &&
-      validation.workspaceRevision === runtime.workspaceRevision;
-    const status = validation.status === "success" ? "pass" : "fail";
-    return `${boundedDisplay(normalizedGate(gate))}=${status}${current ? "" : "-stale"}@r${validation.requirementsRevision}/w${validation.workspaceRevision} modified=${modifiedFact}`;
-  });
-  const diagnostics = runtime.activeDiagnostics.map((diagnostic) => {
-    const resources = diagnostic.resources?.length ? ` resources=${boundedList(diagnostic.resources)}` : "";
-    const ref = diagnostic.exchangeId ? ` ref=${boundedDisplay(diagnostic.exchangeId, 96)}:result` : "";
-    return `${boundedDisplay(diagnostic.summary, 160)} [${diagnostic.state}]${resources}${ref}`;
-  });
-  const actions = runtime.recentSubjects.slice(0, 6).map((subject) => {
-    const resources = subject.resources.length > 0 ? ` ${boundedList(subject.resources)}` : "";
-    const ref = subject.exchangeId ? ` ref=${boundedDisplay(subject.exchangeId, 96)}` : "";
-    return `${subject.intentKind} ${boundedDisplay(subject.subjectKey, 160)}${resources}${ref}`;
-  });
-  const firstUnmetGate = runtime.validationGates.find((gate) => {
-    const validation = latestGateValidation(runtime, gate);
-    return !validation || validation.status !== "success" ||
-      validation.requirementsRevision !== runtime.requirementsRevision ||
-      validation.workspaceRevision !== runtime.workspaceRevision;
-  });
-  const firstDiagnostic = runtime.activeDiagnostics[0];
-  const nextObligation = firstDiagnostic?.state === "active"
-    ? `resolve ${short(firstDiagnostic.summary)}`
-    : firstDiagnostic
-      ? `rerun current ${boundedDisplay(firstDiagnostic.suiteFamily ?? "validation")} gate`
-      : firstUnmetGate
-        ? `run current gate ${boundedDisplay(normalizedGate(firstUnmetGate))}`
-        : snapshot?.openItems[0]
-          ? `complete open item ${boundedDisplay(snapshot.openItems[0].id, 96)}`
-          : "none";
-  const lines = [
-    "<prime_context_state>",
-    `objective: ${quoted(runtime.objective ?? runtime.taskKey)} v${runtime.objectiveVersion}`,
-    `requirements: r${runtime.requirementsRevision} ${runtime.requirementsLocked ? "locked" : "open"}`,
-    `workspace: w${runtime.workspaceRevision}`,
-    `readiness: ${deriveReadiness(runtime)}`,
+function packetBytes(lines: readonly string[], closingTag: string): number {
+  return utf8Bytes([...lines, closingTag].join("\n"));
+}
+
+function appendBoundedPacketLine(
+  lines: string[],
+  closingTag: string,
+  prefix: string,
+  value: string,
+): boolean {
+  const remaining = TASK_PACKET_MAX_BYTES - packetBytes([...lines, prefix], closingTag);
+  const escaped = escapedValueWithin(value, Math.min(TASK_PACKET_VALUE_MAX_BYTES, remaining));
+  if (!escaped) return false;
+  const next = `${prefix}${escaped}`;
+  if (packetBytes([...lines, next], closingTag) > TASK_PACKET_MAX_BYTES) return false;
+  lines.push(next);
+  return true;
+}
+
+function renderTaskPacket(tag: "prime_context_task" | "prime_context_update", fields: readonly TaskPacketField[]): string {
+  const closingTag = `</${tag}>`;
+  const lines = [`<${tag}>`];
+  for (const field of fields) {
+    if ("value" in field) {
+      const value = visibleValue(field.value);
+      if (value) appendBoundedPacketLine(lines, closingTag, `${field.label}: `, value);
+      continue;
+    }
+
+    const values = unique(field.values).map(visibleValue).filter((value): value is string => value !== undefined);
+    if (values.length === 0) continue;
+    const headingIndex = lines.length;
+    lines.push(`${field.label}:`);
+    let added = false;
+    for (const value of values) {
+      added = appendBoundedPacketLine(lines, closingTag, "- ", value) || added;
+    }
+    if (!added) lines.splice(headingIndex, 1);
+  }
+  if (lines.length === 1) return "";
+  lines.push(closingTag);
+  return lines.join("\n");
+}
+
+function activeConstraintTexts(snapshot: TaskSnapshotV2): string[] {
+  return snapshot.explicitConstraints
+    .filter((constraint) => constraint.supersededBy === undefined)
+    .slice(0, TASK_STATE_BOUNDS.constraints)
+    .map((constraint) => constraint.text);
+}
+
+function openItems(snapshot: TaskSnapshotV2): TaskSnapshotV2["openItems"] {
+  return snapshot.openItems.slice(0, TASK_STATE_BOUNDS.openItems);
+}
+
+function formatOpenItem(item: TaskSnapshotV2["openItems"][number]): string {
+  const id = visibleValue(item.id);
+  const text = visibleValue(item.text);
+  return id && text ? `[${id}] ${text}` : text ?? id ?? "";
+}
+
+function observations(snapshot: TaskSnapshotV2): TaskSnapshotV2["actionableObservations"] {
+  return snapshot.actionableObservations.slice(0, TASK_STATE_BOUNDS.actionableObservations);
+}
+
+function observationKey(observation: TaskSnapshotV2["actionableObservations"][number]): string {
+  return [observation.text, observation.resource ?? ""].map(normalizedText).join("\u0000");
+}
+
+function formatObservation(observation: TaskSnapshotV2["actionableObservations"][number]): string {
+  const text = visibleValue(observation.text) ?? "";
+  const resource = visibleValue(observation.resource);
+  return resource ? `${text} (${resource})` : text;
+}
+
+function artifacts(snapshot: TaskSnapshotV2): TaskSnapshotV2["artifacts"] {
+  return snapshot.artifacts.slice(0, TASK_STATE_BOUNDS.artifacts);
+}
+
+function artifactKey(artifact: TaskSnapshotV2["artifacts"][number]): string {
+  return [artifact.pathOrId, artifact.description ?? ""].map(normalizedText).join("\u0000");
+}
+
+function formatArtifact(artifact: TaskSnapshotV2["artifacts"][number]): string {
+  const pathOrId = visibleValue(artifact.pathOrId) ?? "";
+  const description = visibleValue(artifact.description);
+  return description ? `${pathOrId} — ${description}` : pathOrId;
+}
+
+function visibleSet(values: readonly string[]): Set<string> {
+  return new Set(values.map(normalizedText).filter(Boolean));
+}
+
+/** Render the bounded descriptive packet that starts a task. */
+export function renderPrimeContextTask(
+  snapshot: TaskSnapshotV2,
+  options: PrimeContextTaskRenderOptions = {},
+): string {
+  return renderTaskPacket("prime_context_task", [
+    { label: "objective", value: options.objectiveVisible ? undefined : snapshot.objective },
+    { label: "constraints", values: activeConstraintTexts(snapshot) },
+    { label: "focus", value: snapshot.focus },
+    { label: "open_items", values: openItems(snapshot).map(formatOpenItem) },
+    { label: "new_facts", values: observations(snapshot).map(formatObservation) },
+    { label: "artifacts", values: artifacts(snapshot).map(formatArtifact) },
+    { label: "pinned_observations", values: snapshot.pinnedObservationIds.slice(0, TASK_STATE_BOUNDS.pins) },
+  ]);
+}
+
+/** Render only meaningful model-visible changes between two canonical snapshots. */
+export function renderPrimeContextUpdate(previous: TaskSnapshotV2, current: TaskSnapshotV2): string | undefined {
+  const previousConstraints = visibleSet(activeConstraintTexts(previous));
+  const currentConstraints = visibleSet(activeConstraintTexts(current));
+  const constraintAdded = activeConstraintTexts(current).filter((text) => !previousConstraints.has(normalizedText(text)));
+  const constraintRemoved = activeConstraintTexts(previous).filter((text) => !currentConstraints.has(normalizedText(text)));
+
+  const previousItems = new Map(openItems(previous).map((item) => [normalizedText(item.id), item]));
+  const currentItems = new Map(openItems(current).map((item) => [normalizedText(item.id), item]));
+  const openItemAdded = openItems(current)
+    .filter((item) => !previousItems.has(normalizedText(item.id)))
+    .map(formatOpenItem);
+  const openItemRemoved = openItems(previous)
+    .filter((item) => !currentItems.has(normalizedText(item.id)))
+    .map(formatOpenItem);
+  const openItemUpdated = openItems(current)
+    .filter((item) => {
+      const before = previousItems.get(normalizedText(item.id));
+      return before !== undefined && normalizedText(before.text) !== normalizedText(item.text);
+    })
+    .map(formatOpenItem);
+
+  const previousPins = visibleSet(previous.pinnedObservationIds.slice(0, TASK_STATE_BOUNDS.pins));
+  const currentPins = visibleSet(current.pinnedObservationIds.slice(0, TASK_STATE_BOUNDS.pins));
+  const pinsAdded = current.pinnedObservationIds.slice(0, TASK_STATE_BOUNDS.pins)
+    .filter((id) => !previousPins.has(normalizedText(id)));
+  const pinsRemoved = previous.pinnedObservationIds.slice(0, TASK_STATE_BOUNDS.pins)
+    .filter((id) => !currentPins.has(normalizedText(id)));
+
+  const previousObservations = new Set(observations(previous).map(observationKey));
+  const newFacts = observations(current)
+    .filter((observation) => !previousObservations.has(observationKey(observation)))
+    .map(formatObservation);
+  const previousArtifacts = new Set(artifacts(previous).map(artifactKey));
+  const newArtifacts = artifacts(current)
+    .filter((artifact) => !previousArtifacts.has(artifactKey(artifact)))
+    .map(formatArtifact);
+
+  const objectiveChanged = normalizedText(previous.objective ?? "") !== normalizedText(current.objective ?? "");
+  const focusChanged = normalizedText(previous.focus ?? "") !== normalizedText(current.focus ?? "");
+  const fields: TaskPacketField[] = [
+    { label: "objective", value: objectiveChanged ? current.objective : undefined },
+    { label: "objective_removed", value: objectiveChanged && !visibleValue(current.objective) ? previous.objective : undefined },
+    { label: "constraint_added", values: constraintAdded },
+    { label: "constraint_removed", values: constraintRemoved },
+    { label: "focus", value: focusChanged ? current.focus : undefined },
+    { label: "focus_removed", value: focusChanged && !visibleValue(current.focus) ? previous.focus : undefined },
+    { label: "open_item_added", values: openItemAdded },
+    { label: "open_item_updated", values: openItemUpdated },
+    { label: "open_item_removed", values: openItemRemoved },
+    { label: "pin_added", values: pinsAdded },
+    { label: "pin_removed", values: pinsRemoved },
+    { label: "new_fact", values: newFacts },
+    { label: "artifact", values: newArtifacts },
   ];
-  if (gateFacts.length > 0) lines.push("validation_gates:", ...gateFacts.map((fact) => `- ${escapeXml(fact)}`));
-  if (diagnostics.length > 0) lines.push("active_diagnostics:", ...diagnostics.map((fact) => `- ${escapeXml(fact)}`));
-  if (actions.length > 0) lines.push("recent_actions:", ...actions.map((fact) => `- ${escapeXml(fact)}`));
-  const hot = rankWorkingSet(runtime, snapshot);
-  if (hot.length > 0) lines.push("hot:", ...hot.map((value) => `- ${escapeXml(boundedDisplay(value))}`));
-  if (snapshot?.openItems.length) lines.push(`open_items: ${snapshot.openItems.length}`);
-  lines.push(`next_obligation: ${escapeXml(nextObligation)}`, "</prime_context_state>");
-  return {
-    content: lines.join("\n"),
-    details: {
-      schema: PRIME_CONTEXT_STATE_SCHEMA,
-      taskKey: runtime.taskKey,
-      requirementsRevision: runtime.requirementsRevision,
-      workspaceRevision: runtime.workspaceRevision,
-    },
-  };
+  const hasVisibleChange = fields.some((field) => "value" in field
+    ? visibleValue(field.value) !== undefined
+    : field.values.some((value) => visibleValue(value) !== undefined));
+  return hasVisibleChange ? renderTaskPacket("prime_context_update", fields) : undefined;
 }
 
-/** Render one immutable structured fold message from current typed facts. */
-export function renderPrimeContextFold(
-  runtime: TaskRuntimeV2,
-  snapshot: TaskSnapshotV1,
-  generation: number,
-  throughEntryId: string,
-): RenderedTaskFold {
-  const lines = [`<prime_context_fold generation="${generation}">`];
-  const subjects = rankWorkingSet(runtime, undefined, 8).slice(0, 8);
-  if (subjects.length > 0) {
-    lines.push("current_subjects:");
-    for (const value of subjects) {
-      const subject = runtime.recentSubjects.find((candidate) =>
-        candidate.resources.includes(value) || subjectPath(candidate.subjectKey) === value);
-      lines.push(`- ${escapeXml(boundedDisplay(value, 160))}${subject?.exchangeId ? ` last_action=${escapeXml(boundedDisplay(subject.exchangeId, 96))}` : ""}`);
-    }
-  }
-  if (runtime.activeDiagnostics.length > 0) {
-    lines.push("unresolved:");
-    for (const diagnostic of runtime.activeDiagnostics.slice(0, 8)) {
-      lines.push(`- ${escapeXml(boundedDisplay(diagnostic.summary, 160))}${diagnostic.exchangeId ? ` ref=${escapeXml(boundedDisplay(diagnostic.exchangeId, 96))}:result` : ""}`);
-    }
-  }
-  if (runtime.validationGates.length > 0) {
-    lines.push("validation:");
-    for (const gate of runtime.validationGates) {
-      const validation = latestGateValidation(runtime, gate);
-      const current = validation && validation.requirementsRevision === runtime.requirementsRevision &&
-        validation.workspaceRevision === runtime.workspaceRevision;
-      const status = validation ? `${validation.status === "success" ? "pass" : "fail"}${current ? "" : "-stale"}@w${validation.workspaceRevision}` : "not-run";
-      const modified = modifiedResourcesSinceGate(runtime, gate);
-      lines.push(`- ${escapeXml(boundedDisplay(normalizedGate(gate)))} ${status} modified=${escapeXml(boundedList(modified.length ? modified : ["none"]))}`);
-    }
-  }
-  if (snapshot.pinnedObservationIds.length > 0) {
-    lines.push("pinned:", ...snapshot.pinnedObservationIds.map((id) => `- ${escapeXml(boundedDisplay(id, 128))}`));
-  }
-  lines.push("</prime_context_fold>");
-  return {
-    content: lines.join("\n"),
-    details: {
-      schema: PRIME_CONTEXT_FOLD_SCHEMA,
-      taskKey: runtime.taskKey,
-      generation,
-      throughEntryId,
-    },
-  };
-}
-
-interface GoalProjectionState {
-  objective: string;
-  version: number;
-  status?: string;
-  remaining?: string;
-  occurrences: number;
-}
 
 function goalObjective(message: ContextMessageLike): string | undefined {
   const details = record(message.details);
@@ -421,6 +385,14 @@ function goalRemaining(message: ContextMessageLike): string | undefined {
 
 function attribute(name: string, value: string | number | undefined): string {
   return value === undefined ? "" : ` ${name}="${escapeXml(String(value))}"`;
+}
+
+interface GoalProjectionState {
+  objective: string;
+  version: number;
+  status?: string;
+  remaining?: string;
+  occurrences: number;
 }
 
 function mapGoalMessage(
@@ -498,71 +470,10 @@ export function mapStableControlMessages(messages: readonly ContextMessageLike[]
   return changed ? mapped : messages;
 }
 
-export interface AnchorMatchOptions {
-  allowUnscopedAfterLatestUser?: boolean;
-}
-
-export function matchingAnchorInMessages(
-  messages: readonly ContextMessageLike[],
-  anchor: RenderedTaskAnchor,
-  options: AnchorMatchOptions = {},
-): boolean {
-  let latestUserIndex = -1;
-  if (options.allowUnscopedAfterLatestUser) {
-    for (let index = messages.length - 1; index >= 0; index -= 1) {
-      if (messages[index].role === "user") {
-        latestUserIndex = index;
-        break;
-      }
-    }
-  }
-  return messages.some((message, index) => {
-    if (message.role !== "custom" || message.customType !== PRIME_CONTEXT_ANCHOR_TYPE || message.content !== anchor.content) return false;
-    const details = record(message.details);
-    if (details?.temporary === true) return false;
-    if (details?.taskKey === anchor.details.taskKey) return true;
-    return options.allowUnscopedAfterLatestUser === true && details?.taskKey === undefined &&
-      latestUserIndex >= 0 && index > latestUserIndex;
-  });
-}
-
-export function appendTemporaryAnchor(
-  messages: readonly ContextMessageLike[],
-  anchor: RenderedTaskAnchor,
-  options: AnchorMatchOptions = {},
-): readonly ContextMessageLike[] {
-  if (matchingAnchorInMessages(messages, anchor, options) || messages.some((message) => {
-    const details = record(message.details);
-    return message.role === "custom" && message.customType === PRIME_CONTEXT_ANCHOR_TYPE &&
-      message.content === anchor.content && details?.temporary === true && details.taskKey === anchor.details.taskKey;
-  })) return messages;
-  return [...messages, {
-    role: "custom",
-    customType: PRIME_CONTEXT_ANCHOR_TYPE,
-    content: anchor.content,
-    display: false,
-    details: { ...anchor.details, temporary: true },
-  }];
-}
 
 export function persistentControlMessage(
   customType: typeof PRIME_CONTEXT_ANCHOR_TYPE,
   rendered: RenderedTaskAnchor,
-  timestamp?: number,
-): ContextMessageLike;
-export function persistentControlMessage(
-  customType: typeof PRIME_CONTEXT_STATE_TYPE,
-  rendered: RenderedTaskState,
-  timestamp?: number,
-): ContextMessageLike;
-export function persistentControlMessage(
-  customType: typeof PRIME_CONTEXT_FOLD_TYPE,
-  rendered: RenderedTaskFold,
-  timestamp?: number,
-): ContextMessageLike;
-export function persistentControlMessage(
-  customType: typeof PRIME_CONTEXT_ANCHOR_TYPE | typeof PRIME_CONTEXT_STATE_TYPE | typeof PRIME_CONTEXT_FOLD_TYPE,
-  rendered: RenderedTaskAnchor | RenderedTaskState | RenderedTaskFold,
   timestamp = Date.now(),
 ): ContextMessageLike {
   return {

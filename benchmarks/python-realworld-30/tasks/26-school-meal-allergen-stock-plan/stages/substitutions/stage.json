@@ -1,0 +1,7 @@
+{
+  "id": "substitutions",
+  "fixture": "generated",
+  "files": [
+    "inputs/substitutions.json"
+  ]
+}

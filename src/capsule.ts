@@ -7,6 +7,14 @@ const TERMINAL_FAILURE_SIGNAL = /^\s*(?:test_result\s+fail(?:\s+\d+\/\d+)?|faile
 const COMMAND_STATUS_SIGNAL = /^\s*(?:exit|rc|status)\s*[:=]?\s*-?\d+\s*$/i;
 const LOW_SIGNAL_TRACE_LINE = /^\s*(?:trace|debug|progress)\b/i;
 const MARKDOWN_BULLET_LINE = /^\s*[-*]\s+/;
+const LABELED_VALUE_SIGNAL = /(?:^|[,{|]\s*)["']?[A-Za-z][A-Za-z0-9_. /-]{0,48}["']?\s*[:=]\s*(?:["'][^"'\n]{1,160}["']|(?:[-+]?\d+(?:[.,]\d+)?(?:\s*(?:%|ms|s|sec(?:onds?)?|min(?:utes?)?|h(?:ours?)?|B|KiB|MiB|GiB|KB|MB|GB|Hz|kHz|MHz|GHz|px|items?|rows?|cols?))?|true|false|null|none)\b)/i;
+const VALUE_WITH_UNIT_SIGNAL = /(?:^|\s)[-+]?\d+(?:[.,]\d+)?\s*(?:%|ms|sec(?:onds?)?|min(?:utes?)?|h(?:ours?)?|KiB|MiB|GiB|KB|MB|GB|Hz|kHz|MHz|GHz|px)\b/i;
+const TABLE_VALUE_SIGNAL = /^\s*\|.*\|\s*$|\S+\t+\S+/;
+const PATH_OR_LOCATION_SIGNAL = /(?:^|[\s"'`(])(?:\.{0,2}\/|~\/|\/)[^\s"'`),]+|\b[A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.-]+)+(?::\d+(?::\d+)?)?|\b[A-Za-z0-9_.-]+\.(?:csv|json|ya?ml|toml|txt|md|log|xml|html?|pdf|png|jpe?g|gif|webp|py|ts|tsx|js|mjs|cjs|java|rs|go)(?::\d+(?::\d+)?)?\b/i;
+const IDENTIFIER_SIGNAL = /\b(?:id|identifier|request|job|task|session|run|artifact|image|page|cell|row|column)\s*(?:id)?\s*[:=]\s*[A-Za-z0-9][A-Za-z0-9_.:/-]{1,127}\b/i;
+const STATE_TRANSITION_SIGNAL = /(?:\b[A-Za-z][A-Za-z0-9_.-]*\s*(?:->|→)\s*[A-Za-z][A-Za-z0-9_.-]*\b)|\b(?:created?|wrote|written|saved?|generated|removed?|deleted|enabled|disabled|started|stopped|connected|disconnected|changed|updated|moved|renamed)\b/i;
+const RELATIONSHIP_SIGNAL = /\b(?:because|therefore|depends? on|caused? by|results? in|maps? to|correlat(?:es?|ed) with|compared? (?:with|to)|greater than|less than|before|after|while|whereas|but|however)\b|(?:->|→)/i;
+const CAPSULE_SIGNAL_COUNT_LIMIT = 64;
 
 export interface CapsuleContextUsage {
   tokens: number | null;
@@ -221,6 +229,21 @@ interface SelectedCapsuleLine {
   displayedText: string;
 }
 
+function isGenericFactLine(line: string): boolean {
+  const trimmed = line.trim();
+  return trimmed.length > 0 && (
+    LABELED_VALUE_SIGNAL.test(line) ||
+    VALUE_WITH_UNIT_SIGNAL.test(line) ||
+    TABLE_VALUE_SIGNAL.test(line) ||
+    PATH_OR_LOCATION_SIGNAL.test(line) ||
+    IDENTIFIER_SIGNAL.test(line) ||
+    STATE_TRANSITION_SIGNAL.test(line) ||
+    DECISIVE_FAILURE_SIGNAL.test(line) ||
+    TERMINAL_OUTCOME_SIGNAL.test(line) ||
+    COMMAND_STATUS_SIGNAL.test(line)
+  );
+}
+
 function selectCapsuleLineRecords(text: string, compact = isRepetitiveOutput(text)): SelectedCapsuleLine[] {
   const lines = splitVisibleLines(text).map((rawText, index) => ({
     lineNumber: index + 1,
@@ -255,10 +278,16 @@ function selectCapsuleLineRecords(text: string, compact = isRepetitiveOutput(tex
     !LOW_SIGNAL_TRACE_LINE.test(line.rawText) &&
     !TERMINAL_OUTCOME_SIGNAL.test(line.rawText)
   )).slice(0, 8);
+  const genericFacts = edgeSignals(
+    lines.filter((line) => isGenericFactLine(line.rawText) &&
+      (!compact || !LOW_SIGNAL_TRACE_LINE.test(line.rawText))),
+    compact ? 16 : 32,
+  );
 
   if (compact && hasTerminalSuccess(text) && !hasTerminalFailure(text)) {
     return unique([
       ...edgeSignals(byShape(lines.filter((line) => TERMINAL_SUCCESS_SIGNAL.test(line.rawText))), 4),
+      ...genericFacts,
       ...informativeCompactHead(),
     ]);
   }
@@ -277,6 +306,7 @@ function selectCapsuleLineRecords(text: string, compact = isRepetitiveOutput(tex
       ...failingTests,
       ...byShape(exceptions),
       ...byShape(sourceLocations),
+      ...genericFacts,
       ...edgeSignals(byShape(lines.filter((line) => COMMAND_STATUS_SIGNAL.test(line.rawText))), 4),
       ...edgeSignals(byShape(lines.filter(
         (line) => DECISIVE_FAILURE_SIGNAL.test(line.rawText)
@@ -315,6 +345,7 @@ function selectCapsuleLineRecords(text: string, compact = isRepetitiveOutput(tex
   return unique([
     ...terminalOutcomes,
     ...decisiveFailures,
+    ...genericFacts,
     ...decisiveNeighbors,
     ...successes,
     ...(compact ? byShape(head) : head),
@@ -325,6 +356,45 @@ function selectCapsuleLineRecords(text: string, compact = isRepetitiveOutput(tex
 
 export function selectCapsuleLines(text: string, compact = isRepetitiveOutput(text)): string[] {
   return selectCapsuleLineRecords(text, compact).map((line) => line.displayedText);
+}
+
+export interface CapsuleQualitySignals {
+  extractedFactCount: number;
+  retainedFactCount: number;
+  representativeExcerptCount: number;
+  relationshipSignalCount: number;
+  retainedRelationshipCount: number;
+  excerptDominated: boolean;
+  mayMissRelationships: boolean;
+}
+
+/** Bounded signals for deciding whether deterministic extraction is already sufficient. */
+export function analyzeCapsuleQuality(text: string): CapsuleQualitySignals {
+  const lines = splitVisibleLines(text);
+  const selected = selectCapsuleLineRecords(text);
+  const factLineNumbers = new Set(lines.flatMap((line, index) =>
+    isGenericFactLine(line) ? [index + 1] : []
+  ));
+  const relationshipLineNumbers = new Set(lines.flatMap((line, index) =>
+    RELATIONSHIP_SIGNAL.test(line) ? [index + 1] : []
+  ));
+  const retainedFactCount = selected.filter((line) => factLineNumbers.has(line.lineNumber)).length;
+  const retainedRelationshipCount = selected.filter((line) =>
+    relationshipLineNumbers.has(line.lineNumber)
+  ).length;
+  const representativeExcerptCount = selected.filter((line) =>
+    line.rawText.trim().length > 0 && !factLineNumbers.has(line.lineNumber)
+  ).length;
+  const bounded = (value: number): number => Math.min(CAPSULE_SIGNAL_COUNT_LIMIT, value);
+  return {
+    extractedFactCount: bounded(factLineNumbers.size),
+    retainedFactCount: bounded(retainedFactCount),
+    representativeExcerptCount: bounded(representativeExcerptCount),
+    relationshipSignalCount: bounded(relationshipLineNumbers.size),
+    retainedRelationshipCount: bounded(retainedRelationshipCount),
+    excerptDominated: representativeExcerptCount > retainedFactCount,
+    mayMissRelationships: relationshipLineNumbers.size > retainedRelationshipCount,
+  };
 }
 
 export interface CapsuleMetadata {
@@ -467,9 +537,11 @@ function selectBoundedCapsuleLines(
     !TERMINAL_OUTCOME_SIGNAL.test(line.rawText)
   ).slice(0, 8);
   const tail = lines.slice(-8);
+  const genericFacts = edge(lines.filter((line) => isGenericFactLine(line.rawText)), 16);
   if (cleanTerminalSuccess) {
     return unique([
       ...edge(lines.filter((line) => TERMINAL_SUCCESS_SIGNAL.test(line.rawText)), 4),
+      ...genericFacts,
       ...informativeHead,
       ...tail,
     ]);
@@ -481,6 +553,7 @@ function selectBoundedCapsuleLines(
       ...lines.filter((line) => /\b[A-Z][A-Za-z0-9_]*(?:Error|Exception)(?::|\s*$)/.test(line.rawText)),
       ...lines.filter((line) => /File "[^"]+", line \d+/.test(line.rawText) ||
         /[A-Za-z0-9_./-]+\.(?:py|ts|tsx|js|mjs|cjs|java|rs|go):\d+/.test(line.rawText)),
+      ...genericFacts,
       ...edge(lines.filter((line) => COMMAND_STATUS_SIGNAL.test(line.rawText)), 4),
       ...edge(lines.filter((line) => DECISIVE_FAILURE_SIGNAL.test(line.rawText) &&
         !LOW_SIGNAL_TRACE_LINE.test(line.rawText) && !MARKDOWN_BULLET_LINE.test(line.rawText)), 8),
@@ -491,6 +564,7 @@ function selectBoundedCapsuleLines(
   return unique([
     ...edge(lines.filter((line) => TERMINAL_OUTCOME_SIGNAL.test(line.rawText)), 6),
     ...edge(lines.filter((line) => DECISIVE_FAILURE_SIGNAL.test(line.rawText)), 12),
+    ...genericFacts,
     ...edge(lines.filter((line) => SUCCESS_SIGNAL.test(line.rawText) &&
       !DECISIVE_FAILURE_SIGNAL.test(line.rawText)), 6),
     ...informativeHead,
@@ -568,4 +642,86 @@ export function renderBoundedCapsule(
   for (const line of signals.summaryLines ?? []) pack(line);
   for (const record of remainingRecords) pack(`L${record.lineNumber}: ${record.displayedText}`);
   return prefix + packed.join("\n") + suffix;
+}
+
+
+export interface SemanticCapsuleOutput {
+  decisiveFacts: readonly string[];
+  relationships: readonly string[];
+  unresolvedOrAmbiguous: readonly string[];
+  sourceAnchors: readonly string[];
+}
+
+const SEMANTIC_CAPSULE_LIMITS = {
+  decisiveFacts: 6,
+  relationships: 4,
+  unresolvedOrAmbiguous: 3,
+  sourceAnchors: 6,
+} as const;
+const SEMANTIC_ITEM_MAX_BYTES = 320;
+
+function semanticCapsuleBody(output: SemanticCapsuleOutput): string {
+  const sections: Array<[string, readonly string[]]> = [
+    ["Decisive facts", output.decisiveFacts],
+    ["Relationships", output.relationships],
+    ["Unresolved or ambiguous", output.unresolvedOrAmbiguous],
+    ["Source anchors", output.sourceAnchors],
+  ];
+  return sections
+    .filter(([, items]) => items.length > 0)
+    .map(([label, items]) => `${label}:\n${items.map((item) => `- ${escapeXml(item)}`).join("\n")}`)
+    .join("\n");
+}
+
+/** Return a normalized semantic capsule, or null for empty, malformed, or oversized output. */
+export function validateSemanticCapsule(
+  value: unknown,
+  maxBytes: number,
+): SemanticCapsuleOutput | null {
+  if (!Number.isFinite(maxBytes) || maxBytes <= 0 || value === null || typeof value !== "object" ||
+    Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  const keys = Object.keys(record).sort();
+  const expectedKeys = Object.keys(SEMANTIC_CAPSULE_LIMITS).sort();
+  if (keys.length !== expectedKeys.length || keys.some((key, index) => key !== expectedKeys[index])) return null;
+
+  const normalized: Record<keyof SemanticCapsuleOutput, string[]> = {
+    decisiveFacts: [],
+    relationships: [],
+    unresolvedOrAmbiguous: [],
+    sourceAnchors: [],
+  };
+  for (const key of Object.keys(SEMANTIC_CAPSULE_LIMITS) as Array<keyof SemanticCapsuleOutput>) {
+    const items = record[key];
+    if (!Array.isArray(items) || items.length > SEMANTIC_CAPSULE_LIMITS[key]) return null;
+    for (const item of items) {
+      if (typeof item !== "string") return null;
+      const trimmed = item.trim();
+      if (trimmed.length === 0 || /[\r\n]/.test(trimmed) || utf8Bytes(trimmed) > SEMANTIC_ITEM_MAX_BYTES) {
+        return null;
+      }
+      normalized[key].push(trimmed);
+    }
+  }
+  const output: SemanticCapsuleOutput = normalized;
+  const itemCount = Object.values(normalized).reduce((count, items) => count + items.length, 0);
+  if (itemCount === 0 || utf8Bytes(semanticCapsuleBody(output)) > maxBytes) return null;
+  return output;
+}
+
+/** Render one fixed semantic view. Null means the deterministic capsule must be used. */
+export function renderSemanticCapsule(
+  value: unknown,
+  metadata: CapsuleMetadata,
+  maxBytes: number,
+): string | null {
+  const output = validateSemanticCapsule(value, maxBytes);
+  if (output === null) return null;
+  const id = escapeXml(metadata.id);
+  const toolName = escapeXml(metadata.toolName);
+  const source = escapeXml(metadata.source ?? "visible-tool-result");
+  const rendered = `<prime_context_output id="${id}" tool="${toolName}" bytes="${metadata.textBytes}" ` +
+    `lines="${metadata.lineCount}" source="${source}" semantic="true">\n` +
+    `${semanticCapsuleBody(output)}\n</prime_context_output>`;
+  return utf8Bytes(rendered) <= maxBytes ? rendered : null;
 }

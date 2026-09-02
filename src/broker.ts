@@ -1,6 +1,5 @@
 import { structuredPatch } from "diff";
 import { analyzeOutcome, escapeXml, truncateUtf8, utf8Bytes, type OutcomeSummary } from "./capsule.js";
-import type { WorkflowState } from "./workflow.js";
 
 const FULL_ANALYZER_BYTES = 1024 * 1024;
 
@@ -22,7 +21,7 @@ function boundedOutcome(outcome: OutcomeSummary): OutcomeSummary {
 }
 
 export type BrokerDecisionKind = "pass" | "structured" | "delta";
-export type DeltaReason = "exact" | "outcome" | "content";
+export type DeltaReason = "exact" | "content";
 
 export interface BrokerDecision {
   kind: BrokerDecisionKind;
@@ -70,15 +69,12 @@ export interface AggregateMetrics {
   resultBytesProjectedOut: number;
   typedMediaBytesProjectedOut: number;
   recoveryBytesExposed: number;
-  currentProjectedModelViewBytes: number;
   streamingBytesProcessed: number;
   inspectRecallHits: number;
-  foldGenerationCount: number;
   branchRuntimeReloadCount: number;
   cacheReadTokens: number;
   cacheWriteTokens: number;
   uncachedInputTokens: number;
-  stableProjectionExtensionTurns: number;
 }
 
 export interface BrokerPersistentState {
@@ -100,7 +96,6 @@ export interface BrokerContextState {
   latestOutcome: OutcomeSummary | null;
   knownFailingTests: string[];
   cleanSuccessSeen: boolean;
-  workflow: WorkflowState;
 }
 
 export interface DeltaMetadata {
@@ -111,17 +106,6 @@ export interface DeltaMetadata {
   source: string;
 }
 
-function emptyWorkflowState(): WorkflowState {
-  return {
-    requirementsRevision: 0,
-    locked: false,
-    latestTestRevision: null,
-    latestTestResult: null,
-    cumulativeSuite: null,
-    goalReady: false,
-    readiness: "NOT_READY",
-  };
-}
 
 function emptyUtilityCounters(): UtilityCounters {
   return {
@@ -141,15 +125,12 @@ function emptyAggregateMetrics(): AggregateMetrics {
     resultBytesProjectedOut: 0,
     typedMediaBytesProjectedOut: 0,
     recoveryBytesExposed: 0,
-    currentProjectedModelViewBytes: 0,
     streamingBytesProcessed: 0,
     inspectRecallHits: 0,
-    foldGenerationCount: 0,
     branchRuntimeReloadCount: 0,
     cacheReadTokens: 0,
     cacheWriteTokens: 0,
     uncachedInputTokens: 0,
-    stableProjectionExtensionTurns: 0,
   };
 }
 
@@ -245,10 +226,8 @@ export class ObservationBroker {
     const previousOutcome = this.outcomesBySubject.get(stateKey);
     const exactRepeat = observation?.exactRepeat ?? (
       textBytes >= 256 && textBytes <= FULL_ANALYZER_BYTES &&
-      this.recentAnalyzerTexts.some((value) => value.text === text)
+      this.recentAnalyzerTexts.some((value) => value.subjectKey === stateKey && value.text === text)
     );
-    const semanticRepeat = textBytes >= 256 && retainedOutcome.signature !== null &&
-      previousOutcome?.signature === retainedOutcome.signature;
     const sameSubjectTexts = this.recentAnalyzerTexts
       .filter((value): value is RecentAnalyzerText & { text: string } =>
         value.subjectKey === stateKey && value.text !== undefined)
@@ -297,7 +276,6 @@ export class ObservationBroker {
     if (outcome.status === "success") this.cleanSuccessSeen = true;
 
     if (exactRepeat || documentRepeat) return { kind: "delta", reason: "exact", outcome, previousOutcome };
-    if (semanticRepeat) return { kind: "delta", reason: "outcome", outcome, previousOutcome };
     if (changedLines) return { kind: "delta", reason: "content", outcome, changedLines };
     return { kind: "structured", outcome };
   }
@@ -308,9 +286,7 @@ export class ObservationBroker {
     const suffix = "\n</prime_context_delta>";
     const headline = decision.reason === "exact"
       ? "Unchanged since previous observation."
-      : decision.reason === "outcome"
-        ? "Semantic outcome unchanged since previous observation."
-        : "Content changed since previous observation.";
+      : "Content changed since previous observation.";
     const candidates = [
       headline,
       ...(decision.reason === "content"
@@ -451,19 +427,6 @@ export class ObservationBroker {
     );
   }
 
-  recordProviderProjection(bytes: number, extendedStableGeneration: boolean): void {
-    if (Number.isFinite(bytes) && bytes >= 0) {
-      this.metrics.currentProjectedModelViewBytes = Math.min(Number.MAX_SAFE_INTEGER, Math.floor(bytes));
-    }
-    if (extendedStableGeneration) {
-      this.metrics.stableProjectionExtensionTurns = boundedAdd(this.metrics.stableProjectionExtensionTurns, 1);
-    }
-  }
-
-  recordFoldGeneration(): void {
-    this.metrics.foldGenerationCount = boundedAdd(this.metrics.foldGenerationCount, 1);
-  }
-
   recordBranchRuntimeReload(): void {
     this.metrics.branchRuntimeReloadCount = boundedAdd(this.metrics.branchRuntimeReloadCount, 1);
   }
@@ -518,7 +481,6 @@ export class ObservationBroker {
       latestOutcome: this.latestOutcome,
       knownFailingTests: this.latestOutcome?.status === "failure" ? [...this.latestOutcome.failingTests] : [],
       cleanSuccessSeen: this.cleanSuccessSeen,
-      workflow: emptyWorkflowState(),
     };
   }
 

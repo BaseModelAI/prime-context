@@ -1,0 +1,8 @@
+{
+  "id": "urgent-requests",
+  "fixture": "generated",
+  "files": [
+    "inputs/urgent_requests.csv",
+    "URGENT.md"
+  ]
+}

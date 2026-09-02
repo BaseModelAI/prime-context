@@ -239,6 +239,12 @@ export interface CompletedExchangeArchive {
 export interface FixedViewFinalizeOptions {
   budgetBytes: number;
   capsuleMaxBytes: number;
+  archiveAdmissionBytes?: number;
+  contextEpoch?: number;
+}
+
+function isDeltaView(view: FixedExchangeView): boolean {
+  return view.result.kind === "capsule" && view.result.text.includes("<prime_context_delta ");
 }
 
 export interface ArchivedContent {
@@ -466,6 +472,7 @@ function callField(pointer: string, text: string, mediaType = "text/plain; chars
 function collectOversizedCallFields(
   toolName: string,
   input: Record<string, unknown>,
+  archiveAdmissionBytes = 24 * 1024,
 ): ObservationPartInput[] {
   if (toolName === "edit") {
     const edits = Array.isArray(input.edits) ? input.edits : [];
@@ -481,27 +488,27 @@ function collectOversizedCallFields(
         fields.push({ pointer: `/edits/${index}/${key}`, text });
       }
     }
-    return total > 4096 ? fields.map(({ pointer, text }) => callField(pointer, text)) : [];
+    return total > archiveAdmissionBytes ? fields.map(({ pointer, text }) => callField(pointer, text)) : [];
   }
 
   if (toolName === "ipython") {
-    return typeof input.code === "string" && utf8Bytes(input.code) > 8192
+    return typeof input.code === "string" && utf8Bytes(input.code) > archiveAdmissionBytes
       ? [callField("/code", input.code)]
       : [];
   }
 
   if (toolName === "bash") {
-    return typeof input.command === "string" && utf8Bytes(input.command) > 8192
+    return typeof input.command === "string" && utf8Bytes(input.command) > archiveAdmissionBytes
       ? [callField("/command", input.command)]
       : [];
   }
 
   const rootJson = deterministicJson(input);
-  if (utf8Bytes(rootJson) <= 8192) return [];
+  if (utf8Bytes(rootJson) <= archiveAdmissionBytes) return [];
   const parts: ObservationPartInput[] = [];
   const visit = (value: unknown, pointer: string): void => {
     if (typeof value === "string") {
-      if (utf8Bytes(value) > 8192) parts.push(callField(pointer, value));
+      if (utf8Bytes(value) > archiveAdmissionBytes) parts.push(callField(pointer, value));
       return;
     }
     if (!value || typeof value !== "object") return;
@@ -514,7 +521,7 @@ function collectOversizedCallFields(
       }
     }
     const json = deterministicJson(value);
-    if (pointer && parts.length === before && utf8Bytes(json) > 8192) {
+    if (pointer && parts.length === before && utf8Bytes(json) > archiveAdmissionBytes) {
       parts.push(callField(pointer, json, "application/json"));
     }
   };
@@ -737,16 +744,8 @@ export class ObservationArchive {
     this.broker.recordRecovery({ recovered: true, useful, subjectKeys, exposedBytes, inspectRecallHit });
   }
 
-  recordProviderProjection(bytes: number, extendedStableGeneration: boolean): void {
-    this.broker.recordProviderProjection(bytes, extendedStableGeneration);
-  }
-
   recordTypedMediaProjection(bytes: number): void {
     this.broker.recordProjection({ typedMediaBytesProjectedOut: bytes });
-  }
-
-  recordFoldGeneration(): void {
-    this.broker.recordFoldGeneration();
   }
 
   recordBranchRuntimeReload(): void {
@@ -1211,8 +1210,18 @@ export class ObservationArchive {
     });
     const forceDelta = decision.kind === "delta";
     const belowConfiguredThreshold = !large && textBytes < minTextBytes;
+    const genuineContextPressure = contextUsage !== undefined
+      && contextUsage.contextWindow > 0
+      && contextUsage.tokens !== null
+      && contextUsage.tokens / contextUsage.contextWindow >= 0.4;
     let repeatedMedium = false;
     if (!forceMedia && !forceDelta && belowConfiguredThreshold) {
+      // Novel 8–24 KiB results stay literal unless the actual provider context
+      // is under pressure. Content shape alone is not context pressure.
+      if (textBytes > 8192 && !genuineContextPressure) {
+        this.broker.recordPassThrough();
+        return null;
+      }
       const sampledTerminal = textBytes >= 1024
         && hasTerminalOutcome(archiveText.text)
         && isRepetitiveOutput(archiveText.text);
@@ -2636,12 +2645,22 @@ export class ObservationArchive {
     exchanges: readonly CompletedExchangeArchive[],
     signal?: AbortSignal,
     fixedViewOptions?: FixedViewFinalizeOptions,
-  ): Promise<number> {
-    if (exchanges.length === 0) return 0;
+  ): Promise<FixedExchangeView[]> {
+    if (exchanges.length === 0) return [];
     return this.withIndexLock(async () => {
       const records = await this.readCatalog(signal);
       const brokerStateBefore = this.broker.persistentState();
       const viewOptions = fixedViewOptions ?? { budgetBytes: 24 * 1024, capsuleMaxBytes: 6144 };
+      const archiveAdmissionBytes = Math.min(
+        viewOptions.archiveAdmissionBytes ?? 24 * 1024,
+        viewOptions.budgetBytes,
+      );
+      const baselineBySubject = new Map<string, FixedExchangeView>();
+      for (const record of records) {
+        const envelope = record.envelope;
+        const view = envelope?.fixedView;
+        if (envelope && view && !isDeltaView(view)) baselineBySubject.set(envelope.subjectKey, view);
+      }
       const ordered = exchanges
         .map((completed, inputOrder) => ({ completed, inputOrder }))
         .sort((left, right) =>
@@ -2741,10 +2760,13 @@ export class ObservationArchive {
             const oversizedCallParts = collectOversizedCallFields(
               completed.toolName,
               completed.persistedModelInput,
+              archiveAdmissionBytes,
             );
             const callParts = [
               ...oversizedCallParts,
-              ...aggregateGenericCallParts(completed.toolName, completed.persistedModelInput, undefined, oversizedCallParts),
+              ...aggregateGenericCallParts(
+                completed.toolName, completed.persistedModelInput, archiveAdmissionBytes, oversizedCallParts,
+              ),
             ];
             for (const part of callParts) {
               if (!existingPointers.has(part.pointer)) {
@@ -2818,7 +2840,8 @@ export class ObservationArchive {
             let compact = compactArchivedCallArguments(
               envelope.id, completed.toolName, completed.persistedModelInput, fields, callContext,
             );
-            if (compact && utf8Bytes(JSON.stringify(compact)) > 8192 && !fields.some((field) => field.pointer === "")) {
+            if (compact && utf8Bytes(JSON.stringify(compact)) > archiveAdmissionBytes &&
+              !fields.some((field) => field.pointer === "")) {
               const rootPart = aggregateGenericCallParts(completed.toolName, completed.persistedModelInput, 1)[0];
               if (rootPart?.pointer === "") {
                 await appendPreparedPart(item, rootPart);
@@ -2908,11 +2931,33 @@ export class ObservationArchive {
           const selectedById = new Map(selections.map((selection) => [selection.view.exchangeId, selection]));
           for (const item of prepared) {
             const { completed, envelope } = item;
-            const selection = selectedById.get(envelope.id);
+            let selection = selectedById.get(envelope.id);
             if (!selection) {
               if (envelope.fixedView) completed.fixedView = envelope.fixedView;
               continue;
             }
+            if (isDeltaView(selection.view)) {
+              const baseline = baselineBySubject.get(envelope.subjectKey);
+              if (baseline === undefined) {
+                selection = {
+                  view: { ...selection.view, result: { kind: "literal" } },
+                  foldedResult: false,
+                };
+                envelope.resultCapsule = "";
+              } else {
+                selection = {
+                  ...selection,
+                  view: {
+                    ...selection.view,
+                    deltaDependency: {
+                      baselineToolCallId: baseline.toolCallId,
+                      contextEpoch: viewOptions.contextEpoch ?? 0,
+                    },
+                  },
+                };
+              }
+            }
+            if (!isDeltaView(selection.view)) baselineBySubject.set(envelope.subjectKey, selection.view);
             const persistedResultText = persistedResultTexts.get(envelope.id);
             if (selection.foldedResult && persistedResultText !== undefined) {
               const hasCanonicalResult = envelope.parts.some((part) =>
@@ -2987,7 +3032,12 @@ export class ObservationArchive {
         await Promise.all(prepared.flatMap((item) => [...item.obsoleteChunks]).map((relativeFile) =>
           rm(join(this.sessionPath, relativeFile), { force: true }).catch(() => undefined)
         ));
-        return prepared.length;
+        return prepared.flatMap(({ envelope }) => {
+          const view = envelope.fixedView;
+          if (!view || envelope.toolName === "prime_context") return [];
+          const images = imageRefsForEnvelope(envelope);
+          return [images.length === 0 ? view : { ...view, images }];
+        });
       } catch (error) {
         this.broker.restorePersistentState(brokerStateBefore);
         for (const item of [...committed].reverse()) {

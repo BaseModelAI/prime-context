@@ -1,0 +1,33 @@
+{
+  "schema": "prime-context.python-realworld-task/v1",
+  "id": 26,
+  "slug": "school-meal-allergen-stock-plan",
+  "title": "School Meal Allergen and Stock Plan",
+  "pressure": "L",
+  "timeout_seconds": 900,
+  "editable_paths": [
+    "solution/",
+    "output/"
+  ],
+  "initial_prompt": "Read TASK.md and complete the requested workflow using only the Python standard library.",
+  "stages": [
+    {
+      "id": "initial",
+      "inject": "visible/",
+      "message": "Read TASK.md and complete the requested workflow using only the Python standard library.",
+      "compact_after": false
+    },
+    {
+      "id": "substitutions",
+      "inject": "stages/substitutions/",
+      "message": "`inputs/substitutions.json` changes selected ingredients by effective date and may introduce new component recipes. Recompute allergens and purchases, and add `output/substitution_impacts.csv` for eligibility changes.",
+      "compact_after": false
+    }
+  ],
+  "judge_command": [
+    "python",
+    "judge.py",
+    "--workspace",
+    "{workspace}"
+  ]
+}

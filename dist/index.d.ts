@@ -19,78 +19,23 @@ interface SuiteIdentity {
     target: string;
     scope: SuiteScope;
 }
-
-declare const TASK_RUNTIME_SCHEMA: "prime-context.runtime/v2";
-interface ValidationState {
-    suite: SuiteIdentity;
-    status: "success" | "failure";
-    summary: string;
-    total?: number;
-    requirementsRevision: number;
-    workspaceRevision: number;
-    turnSequence: number;
+interface ToolIntentFacts {
+    [key: string]: number | string | string[] | undefined;
 }
-interface ValidationGate {
-    key: string;
-    suiteFamily?: string;
-    target?: string;
-    source: "explicit-user-command" | "default-cumulative";
-}
-interface ActiveDiagnostic {
-    id: string;
-    summary: string;
-    suiteFamily?: string;
-    subjectKey?: string;
-    source?: string;
+interface ToolIntent {
+    exchangeId: string;
+    toolCallId: string;
+    toolName: string;
+    kind: IntentKind;
     resources: string[];
-    exchangeId?: string;
-    workspaceRevision: number;
-    state: "active" | "awaiting-rerun";
-}
-interface SubjectState {
+    command?: string;
+    effectiveCwd?: string;
     subjectKey: string;
-    intentKind: IntentKind;
-    intentKey: string;
-    resources: string[];
-    exchangeId?: string;
-    outcomeStatus: OutcomeSummary["status"];
-    workspaceRevision: number;
-    turnSequence: number;
-}
-interface SteeringResource {
-    path: string;
-    userEntryId: string;
-    requirementsRevision: number;
-}
-interface FoldState {
-    generation: number;
-    throughEntryId: string;
-    retainedEntryIds: string[];
-    renderedMessage: string;
-}
-interface TaskRuntimeV2 {
-    schema: typeof TASK_RUNTIME_SCHEMA;
-    taskKey: string;
-    goalId?: string;
-    objective?: string;
-    objectiveVersion: number;
-    requirementsRevision: number;
-    requirementsLocked: boolean;
-    workspaceRevision: number;
-    turnSequence: number;
-    validationGates: ValidationGate[];
-    validations: ValidationState[];
-    activeDiagnostics: ActiveDiagnostic[];
-    modifiedResources: Array<{
-        path: string;
-        revision: number;
-    }>;
-    recentSubjects: SubjectState[];
-    recentIntentKeys: string[];
-    steeringDeltas: string[];
-    steeringResources: SteeringResource[];
-    lastProcessedUserEntryId?: string;
-    fold?: FoldState;
+    suite?: SuiteIdentity;
+    mutatesWorkspace: boolean;
+    modelInputBytes: number;
+    executedInputBytes: number;
+    facts?: ToolIntentFacts;
 }
 
 type PartSource = {
@@ -107,6 +52,10 @@ type StreamPartSource = PartSource | {
     kind: "texts";
     texts: () => Iterable<string>;
 };
+interface SourceLineRecord {
+    lineNumber: number;
+    text: string;
+}
 
 interface BranchEntryLike {
     type: string;
@@ -150,6 +99,11 @@ interface ProjectedImageRef {
     width?: number;
     height?: number;
 }
+interface DeltaDependency {
+    baselineToolCallId: string;
+    baselineEntryId?: string;
+    contextEpoch: number;
+}
 interface FixedExchangeView {
     schema: typeof FIXED_EXCHANGE_VIEW_SCHEMA;
     generation: typeof FIXED_EXCHANGE_VIEW_GENERATION;
@@ -161,12 +115,15 @@ interface FixedExchangeView {
     images?: readonly ProjectedImageRef[];
     /** Provider/model identity that produced replay-protected call metadata. */
     replayOriginKey?: string;
+    /** A repeat/delta is valid only while this exact baseline remains visible. */
+    deltaDependency?: DeltaDependency;
 }
-interface FoldCandidateEntry<T extends ContextMessageLike = ContextMessageLike> {
+interface ProjectionCandidateEntry<T extends ContextMessageLike = ContextMessageLike> {
     entryId: string;
     message: T;
 }
 
+type ObservationSource = "visible-tool-result" | "public-complete-output";
 type ObservationPartKind = "call" | "call-field" | "result" | "diff" | "stdout" | "stderr" | "traceback" | "attachment" | "image";
 interface ObservationPartInput {
     name: string;
@@ -179,28 +136,112 @@ interface ObservationPartInput {
     width?: number;
     height?: number;
 }
+interface ResolvedArchiveText {
+    text: string;
+    source: ObservationSource;
+    partSource?: StreamPartSource;
+    textBytes?: number;
+    lineCount?: number;
+    large?: boolean;
+    exactText?: string;
+    capsuleText?: string;
+    outcomeText?: string;
+    representativeLines?: string[];
+    head?: string[];
+    tail?: string[];
+    sourceRecords?: SourceLineRecord[];
+    traceShapeCount?: number;
+    traceShapeOverflow?: number;
+    traceLineCount?: number;
+    nonEmptyLineCount?: number;
+    summaryLines?: string[];
+}
+
+type TaskOutcome = "success" | "failure" | "unknown";
+
+interface ModelToolCall {
+    type: "toolCall";
+    id: string;
+    name: string;
+    arguments: Record<string, unknown>;
+    thoughtSignature?: string;
+    [key: string]: unknown;
+}
+interface ToolResultMessageLike {
+    role: "toolResult";
+    toolCallId: string;
+    toolName?: string;
+    content?: unknown;
+    details?: unknown;
+    isError?: boolean;
+}
+interface PendingOutcome {
+    isError: boolean;
+    outcome: OutcomeSummary;
+}
+interface PendingExchange {
+    id: string;
+    toolCallId: string;
+    toolName: string;
+    sourceOrder: number;
+    rawCall?: ModelToolCall;
+    persistedCall: boolean;
+    modelInput: Record<string, unknown>;
+    executedInput?: Record<string, unknown>;
+    toolSchema?: unknown;
+    cwd?: string;
+    intent?: ToolIntent;
+    outcome?: PendingOutcome;
+    archiveSource?: ObservationSource;
+    archiveParts?: ObservationPartInput[];
+    resultText?: string;
+    largeResult?: boolean;
+    resultSummary?: ResolvedArchiveText;
+    frozenResultPath?: string;
+    frozenVisibleResultSource?: StreamPartSource;
+    observedResultText?: string;
+    observedResultPreview?: string;
+    observedResultTail?: string;
+    observedResultSamples?: string[];
+    observedResultTruncated?: boolean;
+    observedResultBytes?: number;
+    observedResultDetails?: unknown;
+    observedSemanticDetails?: unknown;
+    observedFullOutputPath?: string;
+    observedDetailsComparable?: boolean;
+    observedResultIsError?: boolean;
+    admittedCapsule?: string;
+    rawResult?: ToolResultMessageLike;
+    persistedResultChanged?: boolean;
+    persistedCanonicalResultChanged?: boolean;
+    persistedTextChanged?: boolean;
+    persistedPathChanged?: boolean;
+    replayProtected?: boolean;
+    replayOriginKey?: string;
+    completed: boolean;
+}
 
 declare const REQUIRED_HOOKS: Set<string>;
 declare function requiredHooksLoaded(hooks: ReadonlySet<string>): boolean;
 declare function shouldArchiveToolResult(toolName: string): boolean;
+declare function shouldCommitExchangeArchive(exchange: Readonly<PendingExchange>, callArgumentByteLimit?: number): boolean;
 declare function typedObservationParts(event: ToolResultEvent): ObservationPartInput[];
 declare function typedObservationPartsEqual(left: readonly ObservationPartInput[], right: readonly ObservationPartInput[]): boolean;
-declare function branchProjectionEntries(branch: readonly BranchEntryLike[]): FoldCandidateEntry[];
+declare function explicitUserTaskOutcome(text: string): TaskOutcome;
+declare function branchProjectionEntries(branch: readonly BranchEntryLike[]): ProjectionCandidateEntry[];
 /** Match host model ordering: current compaction summary, then retained/post-compaction entries. */
 declare function providerModelBranchEntries(branch: readonly BranchEntryLike[]): readonly BranchEntryLike[];
-/** Apply an immutable fold using raw chronological branch membership. Ambiguity fails open. */
-declare function foldVisibleBranchEntries(branch: readonly BranchEntryLike[], fold: TaskRuntimeV2["fold"], taskKey?: string): readonly BranchEntryLike[];
 declare function completeVisibleToolCallIds(branch: readonly BranchEntryLike[]): Set<string>;
-declare function visibleFixedToolCallIds(branch: readonly BranchEntryLike[], fold: TaskRuntimeV2["fold"], taskKey?: string): Set<string>;
+declare function visibleFixedToolCallIds(branch: readonly BranchEntryLike[]): Set<string>;
 interface ForkVisibleImportSelection {
     visibleBranch: readonly BranchEntryLike[];
     completeToolCallIds: Set<string>;
     fixedRefs: string[];
     refs: string[];
 }
-declare function selectForkVisibleImports(branch: readonly BranchEntryLike[], fold: TaskRuntimeV2["fold"], taskKey: string | undefined, pinnedRefs: readonly string[], parentViews: readonly FixedExchangeView[]): ForkVisibleImportSelection;
+declare function selectForkVisibleImports(branch: readonly BranchEntryLike[], pinnedRefs: readonly string[], parentViews: readonly FixedExchangeView[]): ForkVisibleImportSelection;
 declare function scopeFixedExchangeViews(views: readonly FixedExchangeView[], allowedToolCallIds: ReadonlySet<string>): FixedExchangeView[];
 declare function selectForkImportRefs(pinnedRefs: readonly string[], fixedRefs: readonly string[], visibleRefs: readonly string[], _target?: number): string[];
 declare function primeContext(pi: ExtensionAPI): void;
 
-export { type ForkVisibleImportSelection, REQUIRED_HOOKS, branchProjectionEntries, completeVisibleToolCallIds, primeContext as default, foldVisibleBranchEntries, providerModelBranchEntries, requiredHooksLoaded, scopeFixedExchangeViews, selectForkImportRefs, selectForkVisibleImports, shouldArchiveToolResult, typedObservationParts, typedObservationPartsEqual, visibleFixedToolCallIds };
+export { type ForkVisibleImportSelection, REQUIRED_HOOKS, branchProjectionEntries, completeVisibleToolCallIds, primeContext as default, explicitUserTaskOutcome, providerModelBranchEntries, requiredHooksLoaded, scopeFixedExchangeViews, selectForkImportRefs, selectForkVisibleImports, shouldArchiveToolResult, shouldCommitExchangeArchive, typedObservationParts, typedObservationPartsEqual, visibleFixedToolCallIds };

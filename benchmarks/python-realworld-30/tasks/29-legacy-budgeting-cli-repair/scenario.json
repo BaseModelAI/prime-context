@@ -1,0 +1,40 @@
+{
+  "schema": "prime-context.python-realworld-task/v1",
+  "id": 29,
+  "slug": "legacy-budgeting-cli-repair",
+  "title": "Legacy Budgeting CLI Repair",
+  "pressure": "M",
+  "timeout_seconds": 1200,
+  "editable_paths": [
+    "budgetdesk/",
+    "workspace/",
+    "output/"
+  ],
+  "initial_prompt": "Read TASK.md and complete the requested workflow using only the Python standard library.",
+  "stages": [
+    {
+      "id": "initial",
+      "inject": "visible/",
+      "message": "Read TASK.md and complete the requested workflow using only the Python standard library.",
+      "compact_after": true
+    },
+    {
+      "id": "splits",
+      "inject": "stages/splits/",
+      "message": "Migrate the database to support split transactions. `inputs/splits.csv` assigns category/amount parts to existing source rows. Split parts must sum exactly to the transaction amount, and the monthly report must use parts instead of the parent category.",
+      "compact_after": false
+    },
+    {
+      "id": "export",
+      "inject": "stages/export/",
+      "message": "Add `python -m budgetdesk export workspace/budget.db --format csv|json --output PATH` with stable ordering and all original source IDs. Keep repeated imports idempotent.",
+      "compact_after": false
+    }
+  ],
+  "judge_command": [
+    "python",
+    "judge.py",
+    "--workspace",
+    "{workspace}"
+  ]
+}

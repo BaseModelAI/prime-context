@@ -1,0 +1,46 @@
+{
+  "schema": "prime-context.python-realworld-task/v1",
+  "id": 28,
+  "slug": "permit-intake-status-pipeline",
+  "title": "Permit Intake and Status Pipeline",
+  "pressure": "H",
+  "timeout_seconds": 1800,
+  "editable_paths": [
+    "permitflow/",
+    "workspace/",
+    "output/"
+  ],
+  "initial_prompt": "Read TASK.md and complete the requested workflow using only the Python standard library.",
+  "stages": [
+    {
+      "id": "initial",
+      "inject": "visible/",
+      "message": "Read TASK.md and complete the requested workflow using only the Python standard library.",
+      "compact_after": true
+    },
+    {
+      "id": "ordinance-update",
+      "inject": "stages/ordinance-update/",
+      "message": "`inputs/ordinance_update.json` changes required documents and fees from an effective date. Revalidate only applications still open on that date and add `output/ordinance_impacts.csv`.",
+      "compact_after": false
+    },
+    {
+      "id": "correction-batch",
+      "inject": "stages/correction-batch/",
+      "message": "`inputs/correction_batch/` contains owner corrections and duplicate-application links. Apply higher revisions, merge linked duplicates into the lowest application ID, and retain all document references on the survivor.",
+      "compact_after": true
+    },
+    {
+      "id": "final-status",
+      "inject": "stages/final-status/",
+      "message": "Generate `output/status.csv` and one notice letter per application. Status is `approved` when parcel, owner, zoning, and required documents are valid; `needs_information` when the only blockers are missing or expired documents; and `manual_review` for absent parcels, owner mismatches, zoning incompatibility, unresolved duplicates, or parse errors. Letters must name only the actual outstanding issues and exact fee due.",
+      "compact_after": false
+    }
+  ],
+  "judge_command": [
+    "python",
+    "judge.py",
+    "--workspace",
+    "{workspace}"
+  ]
+}

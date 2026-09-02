@@ -1,0 +1,9 @@
+{
+  "id": "correction-batch",
+  "fixture": "generated",
+  "files": [
+    "inputs/correction_batch/owner_corrections.json",
+    "inputs/correction_batch/duplicate_links.csv",
+    "CORRECTIONS.md"
+  ]
+}

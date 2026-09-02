@@ -1,0 +1,23 @@
+[app]
+edition = "enterprise"
+features = ["core", "analytics"]
+
+[server]
+bind = "0.0.0.0"
+
+[network]
+host = "site.internal"
+tls = true
+
+[database]
+host = "db.site.internal"
+
+[database.options]
+connect_timeout = 10
+sslmode = "require"
+
+[logging]
+handlers = ["console", "file"]
+
+[custom]
+theme = "dark"

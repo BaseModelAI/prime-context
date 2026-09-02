@@ -1,0 +1,7 @@
+{
+  "id": "export",
+  "files": [
+    "inputs/export_schema.json",
+    "EXPORT.md"
+  ]
+}

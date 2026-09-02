@@ -1,0 +1,35 @@
+{
+  "schema": "prime-context.python-realworld-task/v1",
+  "id": 12,
+  "slug": "webhook-receiver-replay",
+  "title": "Webhook Receiver and Replay",
+  "pressure": "M",
+  "timeout_seconds": 1200,
+  "editable_paths": ["webhook_app/", "workspace/"],
+  "initial_prompt": "Read TASK.md and complete the requested workflow using only the Python standard library.",
+  "stages": [
+    {
+      "id": "initial",
+      "inject": "visible/",
+      "message": "Read TASK.md and complete the requested workflow using only the Python standard library.",
+      "compact_after": true
+    },
+    {
+      "id": "replay",
+      "inject": "stages/replay/",
+      "message": "Persist all retry state across service restarts and add `python -m webhook_app replay --db ... --failed`. Replay starts a new delivery cycle at cycle attempt zero while preserving the prior total-attempt count for reporting.",
+      "compact_after": false
+    },
+    {
+      "id": "idempotency",
+      "inject": "stages/idempotency/",
+      "message": "Add idempotency using the `X-Event-ID` request header. Reposting an existing external ID must return `200` with the original local ID and must not enqueue a second delivery.",
+      "compact_after": false
+    }
+  ],
+  "judge_command": ["python", "judge.py", "--workspace", "{workspace}"],
+  "fixture_service": {
+    "command": ["python", "sink_service.py", "--port", "0"],
+    "url_file": "inputs/sink_url.txt"
+  }
+}

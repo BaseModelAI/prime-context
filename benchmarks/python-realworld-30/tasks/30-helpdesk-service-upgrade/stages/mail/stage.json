@@ -1,0 +1,10 @@
+{
+  "id": "mail",
+  "fixture": "generated",
+  "files": [
+    "inputs/archive.mbox",
+    "MAIL.md"
+  ],
+  "main_count": 5000,
+  "edge": "same Message-ID in two files"
+}

@@ -1,0 +1,35 @@
+{
+  "schema": "prime-context.python-realworld-task/v1",
+  "id": 16,
+  "slug": "markdown-kb-repair",
+  "title": "Markdown Knowledge-Base Repair",
+  "pressure": "L",
+  "timeout_seconds": 900,
+  "editable_paths": [
+    "solution/",
+    "output/"
+  ],
+  "initial_prompt": "Read TASK.md and complete the requested workflow using only the Python standard library.",
+  "stages": [
+    {
+      "id": "initial",
+      "inject": "visible/",
+      "message": "Read TASK.md and complete the requested workflow using only the Python standard library.",
+      "compact_after": false
+    },
+    {
+      "id": "renames",
+      "inject": "stages/renames/",
+      "message": "A content-team follow-up has arrived in inputs/renames.csv. It has old_path,new_path columns containing knowledge-base-root-relative POSIX Markdown paths. Apply every rename in the output copy, with no file left at an old path. Update links to use final paths, including links from a document that itself moved. Report and index source paths must also be final paths. A redirects.json replacement that names an old path must resolve through the rename to the new path, so redirects to moved content still work. Keep the command and all earlier requirements unchanged.",
+      "compact_after": false
+    }
+  ],
+  "judge_command": [
+    "python3.12",
+    "-E",
+    "-S",
+    "judge.py",
+    "--workspace",
+    "{workspace}"
+  ]
+}

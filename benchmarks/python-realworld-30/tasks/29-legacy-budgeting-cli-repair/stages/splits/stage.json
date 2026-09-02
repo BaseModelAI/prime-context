@@ -1,0 +1,8 @@
+{
+  "id": "splits",
+  "fixture": "generated",
+  "files": [
+    "inputs/splits.csv"
+  ],
+  "edge": "one split group does not sum exactly; another remains valid"
+}

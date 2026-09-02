@@ -1,0 +1,39 @@
+{
+  "schema": "prime-context.python-realworld-task/v1",
+  "id": 6,
+  "slug": "volunteer-shift-rescheduling",
+  "title": "Volunteer Shift Rescheduling",
+  "pressure": "M",
+  "timeout_seconds": 1200,
+  "editable_paths": [
+    "solution/",
+    "output/"
+  ],
+  "initial_prompt": "Read TASK.md and complete the requested workflow using only the Python standard library.",
+  "stages": [
+    {
+      "id": "initial",
+      "inject": "visible/",
+      "message": "Read TASK.md and complete the requested workflow using only the Python standard library.",
+      "compact_after": true
+    },
+    {
+      "id": "callout",
+      "inject": "stages/callout/",
+      "message": "`inputs/callout.json` marks two volunteers unavailable. Reschedule only what is necessary. After coverage, minimize the number of changed assignments before preference and fairness.",
+      "compact_after": false
+    },
+    {
+      "id": "fairness",
+      "inject": "stages/fairness/",
+      "message": "The coordinator added a fairness rule in `inputs/fairness.json`: among volunteers eligible for at least four remaining shifts, final assignment counts may differ by at most one unless that would reduce required-skill coverage. Regenerate the final files and list any fairness exception in `summary.json`.",
+      "compact_after": false
+    }
+  ],
+  "judge_command": [
+    "python",
+    "judge.py",
+    "--workspace",
+    "{workspace}"
+  ]
+}
