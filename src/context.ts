@@ -387,45 +387,49 @@ function attribute(name: string, value: string | number | undefined): string {
   return value === undefined ? "" : ` ${name}="${escapeXml(String(value))}"`;
 }
 
-interface GoalProjectionState {
+export interface GoalControlState {
+  goalId?: string;
   objective: string;
-  version: number;
   status?: string;
   remaining?: string;
-  occurrences: number;
+  continuation?: number;
 }
 
-function mapGoalMessage(
-  message: ContextMessageLike,
-  states: Map<string, GoalProjectionState>,
-): ContextMessageLike {
+function hasNonTextContent(content: unknown): boolean {
+  return Array.isArray(content) && content.some((part) => record(part)?.type !== "text");
+}
+
+/** Parse one host goal continuation without using volatile rendered text as its identity. */
+export function goalControlState(message: ContextMessageLike): GoalControlState | undefined {
+  if (message.role !== "custom" || message.customType !== GOAL_CONTEXT_TYPE || hasNonTextContent(message.content)) {
+    return undefined;
+  }
   const details = record(message.details);
   const objective = goalObjective(message);
-  if (!objective) return message;
-  const goalId = typeof details?.goalId === "string" ? details.goalId : "goal";
-  const status = typeof details?.status === "string" ? details.status : undefined;
-  const remaining = goalRemaining(message);
-  const previous = states.get(goalId);
-  const objectiveChanged = !previous || previous.objective !== objective;
-  const version = objectiveChanged ? (previous?.version ?? 0) + 1 : previous.version;
-  const occurrences = (previous?.occurrences ?? 0) + 1;
-  let text: string;
-  if (objectiveChanged) {
-    text = [
-      `<goal_objective${attribute("id", goalId)}${attribute("version", version)}>`,
-      `objective: ${quoted(objective)}`,
-      ...(status !== previous?.status ? [`status: ${escapeXml(status ?? "unknown")}`] : []),
-      ...(remaining !== previous?.remaining ? [`remaining_tokens: ${escapeXml(remaining ?? "unknown")}`] : []),
-      "</goal_objective>",
-    ].join("\n");
-  } else {
-    const continuation = typeof details?.continuationsUsed === "number" ? details.continuationsUsed : occurrences - 1;
-    text = `<goal_tick${attribute("id", goalId)}${attribute("continuation", continuation)}` +
-      `${status !== previous.status ? attribute("status", status) : ""}` +
-      `${remaining !== previous.remaining ? attribute("remaining_tokens", remaining) : ""} />`;
-  }
-  states.set(goalId, { objective, version, status, remaining, occurrences });
-  return { ...message, content: replaceTextContent(message.content, text) };
+  if (!objective) return undefined;
+  return {
+    ...(typeof details?.goalId === "string" && details.goalId ? { goalId: details.goalId } : {}),
+    objective,
+    ...(typeof details?.status === "string" ? { status: details.status } : {}),
+    ...(goalRemaining(message) === undefined ? {} : { remaining: goalRemaining(message) }),
+    ...(typeof details?.continuationsUsed === "number" ? { continuation: details.continuationsUsed } : {}),
+  };
+}
+
+/** Render a self-contained latest state; no preceding tick is required to interpret it. */
+export function renderGoalControlState(state: GoalControlState): string {
+  return [
+    `<goal_state${attribute("id", state.goalId)}${attribute("status", state.status)}` +
+      `${attribute("continuation", state.continuation)}${attribute("remaining_tokens", state.remaining)}>`,
+    `objective: ${quoted(state.objective)}`,
+    "</goal_state>",
+  ].join("\n");
+}
+
+function mapGoalMessage(message: ContextMessageLike): ContextMessageLike {
+  const state = goalControlState(message);
+  if (!state) return message;
+  return { ...message, content: replaceTextContent(message.content, renderGoalControlState(state)) };
 }
 
 function listedNames(text: string, marker: RegExp): string[] | undefined {
@@ -453,14 +457,13 @@ function mapIpythonMessage(message: ContextMessageLike): ContextMessageLike {
   return { ...message, content: replaceTextContent(message.content, summary) };
 }
 
-/** Pure prefix mapping. Earlier messages never depend on later continuations. */
+/** Canonicalize control content without depending on an earlier projection prefix. */
 export function mapStableControlMessages(messages: readonly ContextMessageLike[]): readonly ContextMessageLike[] {
-  const goals = new Map<string, GoalProjectionState>();
   let changed = false;
   const mapped = messages.map((message) => {
     let next = message;
     if (message.role === "custom" && message.customType === GOAL_CONTEXT_TYPE) {
-      next = mapGoalMessage(message, goals);
+      next = mapGoalMessage(message);
     } else if (message.role === "custom" && IPYTHON_STATE_TYPES.has(message.customType ?? "")) {
       next = mapIpythonMessage(message);
     }
@@ -468,6 +471,32 @@ export function mapStableControlMessages(messages: readonly ContextMessageLike[]
     return next;
   });
   return changed ? mapped : messages;
+}
+
+export interface StableControlProjection {
+  messages: readonly ContextMessageLike[];
+  retainedIndexes: readonly number[];
+}
+
+/** Keep one current, self-contained text-only state for each structured goal ID. */
+export function projectStableControlMessages(
+  messages: readonly ContextMessageLike[],
+): StableControlProjection {
+  const mapped = mapStableControlMessages(messages);
+  const latestGoalIndex = new Map<string, number>();
+  for (let index = 0; index < messages.length; index += 1) {
+    const state = goalControlState(messages[index]);
+    if (state?.goalId) latestGoalIndex.set(state.goalId, index);
+  }
+  const retainedIndexes = messages.flatMap((message, index) => {
+    const state = goalControlState(message);
+    return state?.goalId && latestGoalIndex.get(state.goalId) !== index ? [] : [index];
+  });
+  if (retainedIndexes.length === messages.length) return { messages: mapped, retainedIndexes };
+  return {
+    messages: retainedIndexes.map((index) => mapped[index]),
+    retainedIndexes,
+  };
 }
 
 

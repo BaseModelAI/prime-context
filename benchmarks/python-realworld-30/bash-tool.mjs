@@ -31,6 +31,7 @@ export default function benchmarkBashExtension(pi) {
       type: "object",
       properties: {
         command: { type: "string", description: "Bash command to execute" },
+        timeout: { type: "integer", minimum: 1, description: "Optional timeout in milliseconds" },
       },
       required: ["command"],
       additionalProperties: false,
@@ -48,6 +49,7 @@ export default function benchmarkBashExtension(pi) {
         let stdout = "";
         let stderr = "";
         let truncated = false;
+        let timedOut = false;
         const append = (which, chunk) => {
           const result = appendBounded(which === "stdout" ? stdout : stderr, chunk.toString("utf8"));
           if (which === "stdout") stdout = result.text;
@@ -59,17 +61,30 @@ export default function benchmarkBashExtension(pi) {
         const stop = () => {
           try { process.kill(-child.pid, "SIGTERM"); } catch {}
         };
+        const timeoutTimer = params.timeout === undefined ? null : setTimeout(() => {
+          timedOut = true;
+          stop();
+        }, params.timeout);
+        timeoutTimer?.unref();
+        const cleanup = () => {
+          signal.removeEventListener("abort", stop);
+          if (timeoutTimer !== null) clearTimeout(timeoutTimer);
+        };
         signal.addEventListener("abort", stop, { once: true });
         child.on("error", (error) => {
-          signal.removeEventListener("abort", stop);
+          cleanup();
           reject(error);
         });
         child.on("close", (code, childSignal) => {
-          signal.removeEventListener("abort", stop);
+          cleanup();
           const combined = stdout + (stderr ? `${stdout ? "\n" : ""}[stderr]\n${stderr}` : "");
           const bounded = boundLines(combined);
           truncated ||= bounded.truncated;
           const withStatus = (status) => `${bounded.text}${bounded.text ? "\n\n" : ""}${status}`;
+          if (timedOut) {
+            reject(new Error(withStatus(`Command timed out after ${params.timeout} ms`)));
+            return;
+          }
           if (childSignal) {
             reject(new Error(withStatus(`Process terminated by ${childSignal}`)));
             return;

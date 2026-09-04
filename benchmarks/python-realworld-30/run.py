@@ -41,8 +41,10 @@ from benchlib import (
 
 ROOT = Path(__file__).resolve().parent
 PRIME_AGENT_VERSION = "0.9.1"
-VARIANTS = ("vanilla", "published", "current")
+PRIME_CONTEXT_VERSION = "9.2.0"
+VARIANTS = ("vanilla", "current")
 AUXILIARY_KINDS = ("semantic-distill", "task-scout", "stall-recovery", "knowledge-compile")
+HOSTS_SCHEMA = "prime-context.python-realworld-hosts/v1"
 
 
 def utc_now() -> str:
@@ -52,6 +54,16 @@ def utc_now() -> str:
 def json_dump(path: Path, value: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n")
+
+
+def message_end_error(event: dict[str, Any]) -> str | None:
+    message = event.get("message")
+    if not isinstance(message, dict) or message.get("stopReason") != "error":
+        return None
+    detail = message.get("errorMessage")
+    if not isinstance(detail, str) or not detail.strip():
+        detail = "unknown provider error"
+    return f"AgentError: {detail}"
 
 
 def create_sandbox_scripts(run_dir: Path, args: argparse.Namespace) -> Path:
@@ -316,12 +328,39 @@ def prime_agent_package_root(executable: Path) -> Path:
     raise ValueError(f"cannot locate the Prime Agent package root for {executable}")
 
 
-def require_host_contract(executable: Path, label: str, *, patched: bool) -> Path:
+def prime_context_package_root(value: Path) -> Path:
+    path = value.expanduser().resolve(strict=True)
+    candidates = [path, *path.parents] if path.is_file() else [path, *path.parents]
+    for root in candidates:
+        manifest_path = root / "package.json"
+        if not manifest_path.is_file():
+            continue
+        try:
+            manifest = json.loads(manifest_path.read_text())
+        except (OSError, json.JSONDecodeError):
+            continue
+        if manifest.get("name") != "prime-agent-context":
+            continue
+        if manifest.get("version") != PRIME_CONTEXT_VERSION:
+            raise ValueError(
+                f"Prime Context must be version {PRIME_CONTEXT_VERSION}; "
+                f"got {manifest.get('version')!r} at {root}"
+            )
+        return root
+    raise ValueError(f"cannot locate prime-agent-context@{PRIME_CONTEXT_VERSION} for {value}")
+
+
+def require_host_contract(
+    executable: Path,
+    label: str,
+    *,
+    patched: bool,
+    patcher: Path,
+) -> Path:
     root = prime_agent_package_root(executable)
     node = shutil.which("node")
     if not node:
         raise ValueError("node is required for Prime Agent host-contract preflight")
-    patcher = ROOT.parent.parent / "scripts" / "patch-prime-agent.mjs"
     mode = "--check" if patched else "--check-stock"
     completed = subprocess.run(
         [node, str(patcher), mode, str(root)], text=True, capture_output=True, timeout=60
@@ -337,13 +376,9 @@ def require_host_contract(executable: Path, label: str, *, patched: bool) -> Pat
 def variant_extension(variant: str, args: argparse.Namespace) -> Path | None:
     if variant == "vanilla":
         return None
-    value = args.published_extension if variant == "published" else args.current_extension
-    if value is None:
-        raise ValueError(f"--{variant}-extension is required")
-    path = value.resolve()
-    if not path.exists():
-        raise FileNotFoundError(path)
-    return path
+    if args.current_extension is None:
+        raise ValueError("--current-extension is required")
+    return prime_context_package_root(args.current_extension)
 
 
 def agent_command(
@@ -864,6 +899,10 @@ def run_rpc(
                 if kind == "message_end":
                     transcript.write(json.dumps({"at": utc_now(), "message": event.get("message")}, sort_keys=True) + "\n")
                     transcript.flush()
+                    terminal_error = message_end_error(event)
+                    if terminal_error is not None:
+                        error = terminal_error
+                        done = True
                 if kind == "response":
                     response = {
                         "id": event.get("id"),
@@ -966,6 +1005,7 @@ def run_rpc(
         **archive_metrics(roots["pc-home"]),
     })
     merge_current_accounting(metrics, read_current_accounting(run_dir / "prime-context-accounting.json"))
+    (roots["config"] / "auth.json").unlink(missing_ok=True)
     shutil.rmtree(daemon_root, ignore_errors=True)
     return {
         "agent_wall_seconds": agent_wall,
@@ -1066,8 +1106,10 @@ def run_case(
 ) -> dict[str, Any]:
     case_dir = output / f"task-{scenario['id']:02d}-{scenario['slug']}" / variant
     attempts = [safe_run_attempt(variant, task_dir, scenario, case_dir / "attempt-1", args)]
+    retry_triggers: list[dict[str, Any]] = []
     if not strict_pass(attempts[0]) and args.retry_failed:
         attempts.append(safe_run_attempt(variant, task_dir, scenario, case_dir / "attempt-2-diagnostic", args))
+        retry_triggers.append({"attempt": 2, "reasons": ["strict_failure"]})
     selected = choose_better_attempt(attempts)
     result = {
         "variant": variant,
@@ -1076,6 +1118,7 @@ def run_case(
         "pressure": scenario["pressure"],
         "primary_attempt": 0,
         "selected_attempt": selected,
+        "retry_triggers": retry_triggers,
         "attempts": attempts,
     }
     json_dump(case_dir / "case.json", result)
@@ -1084,6 +1127,57 @@ def run_case(
 
 def selected_attempt(result: dict[str, Any]) -> dict[str, Any]:
     return result["attempts"][result["selected_attempt"]]
+
+
+def attempt_accuracy(attempt: dict[str, Any]) -> tuple[int, int, int]:
+    judge = attempt.get("judge") or {}
+    return (
+        int(judge.get("progress_level") or 0),
+        int(judge.get("main_checks_passed") or 0),
+        int(bool(judge.get("edge_check_passed"))),
+    )
+
+
+def attempt_cost(attempt: dict[str, Any]) -> float:
+    return float((((attempt.get("metrics") or {}).get("api_cost") or {}).get("total")) or 0)
+
+
+def comparison_retry_reasons(
+    vanilla: dict[str, Any], current: dict[str, Any]
+) -> list[str]:
+    if len(current.get("attempts") or []) != 1:
+        return []
+    baseline_attempt = selected_attempt(vanilla)
+    current_attempt = selected_attempt(current)
+    reasons: list[str] = []
+    if attempt_accuracy(baseline_attempt) > attempt_accuracy(current_attempt):
+        reasons.append("correctness_regression")
+    if strict_pass(baseline_attempt) and strict_pass(current_attempt):
+        if float(current_attempt.get("agent_wall_seconds") or 0) >= float(baseline_attempt.get("agent_wall_seconds") or 0):
+            reasons.append("speed_regression")
+        if attempt_cost(current_attempt) >= attempt_cost(baseline_attempt):
+            reasons.append("cost_regression")
+    return reasons
+
+
+def retry_case_for_regression(
+    result: dict[str, Any],
+    task_dir: Path,
+    scenario: dict[str, Any],
+    output: Path,
+    args: argparse.Namespace,
+    reasons: list[str],
+) -> dict[str, Any]:
+    if len(result.get("attempts") or []) != 1:
+        return result
+    case_dir = output / f"task-{scenario['id']:02d}-{scenario['slug']}" / result["variant"]
+    result["attempts"].append(
+        safe_run_attempt(result["variant"], task_dir, scenario, case_dir / "attempt-2-diagnostic", args)
+    )
+    result.setdefault("retry_triggers", []).append({"attempt": 2, "reasons": reasons})
+    result["selected_attempt"] = choose_better_attempt(result["attempts"])
+    json_dump(case_dir / "case.json", result)
+    return result
 
 
 def aggregate_bucket(items: list[tuple[dict[str, Any], dict[str, Any]]]) -> dict[str, Any]:
@@ -1215,74 +1309,108 @@ def comprehensive_summary(results: list[dict[str, Any]]) -> dict[str, Any]:
                 by_pressure[pressure][variant] = bucket
     by_key = {(r["task_id"], r["variant"]): a for r, a in selected}
     matched: list[dict[str, Any]] = []
+    current_correctness_wins: list[dict[str, Any]] = []
+    baseline_failures: list[dict[str, Any]] = []
     regressions: list[dict[str, Any]] = []
     task_ids = sorted({r["task_id"] for r, _ in selected})
+    complete_pairs = 0
     for task_id in task_ids:
         current = by_key.get((task_id, "current"))
-        if current is None:
+        vanilla = by_key.get((task_id, "vanilla"))
+        if current is None or vanilla is None:
             continue
-        for baseline in ("vanilla", "published"):
-            other = by_key.get((task_id, baseline))
-            if other is None:
-                continue
-            current_judge = current.get("judge") or {}
-            baseline_judge = other.get("judge") or {}
-            current_accuracy = (
-                int(current_judge.get("progress_level") or 0),
-                int(current_judge.get("main_checks_passed") or 0),
-                int(bool(current_judge.get("edge_check_passed"))),
-            )
-            baseline_accuracy = (
-                int(baseline_judge.get("progress_level") or 0),
-                int(baseline_judge.get("main_checks_passed") or 0),
-                int(bool(baseline_judge.get("edge_check_passed"))),
-            )
-            if baseline_accuracy > current_accuracy:
-                regressions.append({
-                    "task_id": task_id,
-                    "baseline": baseline,
-                    "kind": "correctness",
-                    "baseline_progress": baseline_accuracy[0],
+        complete_pairs += 1
+        current_accuracy = attempt_accuracy(current)
+        baseline_accuracy = attempt_accuracy(vanilla)
+        if not strict_pass(current):
+            regressions.append({
+                "task_id": task_id,
+                "baseline": "vanilla",
+                "kind": "current_failure",
+                "current_progress": current_accuracy[0],
+            })
+        if not strict_pass(vanilla):
+            failure = {
+                "task_id": task_id,
+                "baseline": "vanilla",
+                "baseline_progress": baseline_accuracy[0],
+                "baseline_main_checks_passed": baseline_accuracy[1],
+                "baseline_edge_check_passed": bool(baseline_accuracy[2]),
+            }
+            baseline_failures.append(failure)
+            if strict_pass(current):
+                current_correctness_wins.append({
+                    **failure,
                     "current_progress": current_accuracy[0],
-                    "baseline_main_checks_passed": baseline_accuracy[1],
                     "current_main_checks_passed": current_accuracy[1],
-                    "baseline_edge_check_passed": bool(baseline_accuracy[2]),
                     "current_edge_check_passed": bool(current_accuracy[2]),
                 })
-            if strict_pass(current) and strict_pass(other):
-                current_cost = float((((current.get("metrics") or {}).get("api_cost") or {}).get("total")) or 0)
-                baseline_cost = float((((other.get("metrics") or {}).get("api_cost") or {}).get("total")) or 0)
-                comparison = {
-                    "task_id": task_id,
-                    "baseline": baseline,
-                    "agent_wall_delta_current_minus_baseline": float(current.get("agent_wall_seconds") or 0) - float(other.get("agent_wall_seconds") or 0),
-                    "api_cost_delta_current_minus_baseline": current_cost - baseline_cost,
-                    "provider_tokens_delta_current_minus_baseline": int((((current.get("metrics") or {}).get("provider_usage") or {}).get("totalTokens")) or 0) - int((((other.get("metrics") or {}).get("provider_usage") or {}).get("totalTokens")) or 0),
-                }
-                matched.append(comparison)
-                for kind, key in (("speed", "agent_wall_delta_current_minus_baseline"), ("cost", "api_cost_delta_current_minus_baseline"), ("tokens", "provider_tokens_delta_current_minus_baseline")):
-                    if comparison[key] > 0:
-                        regressions.append({"task_id": task_id, "baseline": baseline, "kind": kind, "delta": comparison[key]})
+        if baseline_accuracy > current_accuracy:
+            regressions.append({
+                "task_id": task_id,
+                "baseline": "vanilla",
+                "kind": "correctness",
+                "baseline_progress": baseline_accuracy[0],
+                "current_progress": current_accuracy[0],
+                "baseline_main_checks_passed": baseline_accuracy[1],
+                "current_main_checks_passed": current_accuracy[1],
+                "baseline_edge_check_passed": bool(baseline_accuracy[2]),
+                "current_edge_check_passed": bool(current_accuracy[2]),
+            })
+        if strict_pass(current) and strict_pass(vanilla):
+            comparison = {
+                "task_id": task_id,
+                "baseline": "vanilla",
+                "agent_wall_delta_current_minus_baseline": float(current.get("agent_wall_seconds") or 0) - float(vanilla.get("agent_wall_seconds") or 0),
+                "api_cost_delta_current_minus_baseline": attempt_cost(current) - attempt_cost(vanilla),
+                "provider_tokens_delta_current_minus_baseline": int((((current.get("metrics") or {}).get("provider_usage") or {}).get("totalTokens")) or 0) - int((((vanilla.get("metrics") or {}).get("provider_usage") or {}).get("totalTokens")) or 0),
+            }
+            matched.append(comparison)
+            for kind, key in (
+                ("speed", "agent_wall_delta_current_minus_baseline"),
+                ("cost", "api_cost_delta_current_minus_baseline"),
+            ):
+                if comparison[key] >= 0:
+                    regressions.append({
+                        "task_id": task_id,
+                        "baseline": "vanilla",
+                        "kind": kind,
+                        "delta": comparison[key],
+                    })
+    publication_ready = (
+        len(task_ids) == 30
+        and complete_pairs == 30
+        and len(matched) + len(current_correctness_wins) == 30
+        and not regressions
+    )
     return {
         "schema": "prime-context.python-realworld-summary/v1",
         "generated_at": utc_now(),
-        "selection_policy": "correctness first; diagnostic retry retained and may be selected without replacing primary_attempt",
+        "selection_policy": "correctness first; one diagnostic retry is retained after a failure or current regression; a strict current pass over a failed vanilla baseline is a current correctness win",
+        "metric_priority": ["completion_progress_and_success", "agent_wall_seconds", "api_cost"],
         "metric_limitations": [
-            "Frozen vanilla and published hosts do not expose detached automatic-refinement reviewer usage; applied refinement entries are counted and their elapsed time remains in agent wall time.",
-            "Auxiliary call-by-kind accounting is reported when the harness exposes it; unavailable fields remain null rather than estimated.",
-            "Actual provider prompt tokens use input + cache-read + cache-write per solver call; host provider-bound estimates remain null when no estimate event is exposed.",
+            "Vanilla does not expose Prime Context auxiliary accounting; unavailable fields remain null rather than estimated.",
+            "Actual provider prompt tokens use input + cache-read + cache-write per solver call; tokens are supporting data, while billed API cost is the cost-efficiency gate.",
+            "Task efficiency uses the selected strict attempt; aggregate totals also retain retry time and cost.",
         ],
         "by_variant": by_variant,
         "by_pressure": by_pressure,
         "matched_strict_pass_comparisons": matched,
+        "current_correctness_wins": current_correctness_wins,
+        "baseline_failures": baseline_failures,
         "regressions": regressions,
+        "publication_ready": publication_ready,
+        "complete_task_pairs": complete_pairs,
     }
 
 
 def write_summary_markdown(path: Path, summary: dict[str, Any], results: list[dict[str, Any]]) -> None:
     lines = [
         "# Python Real-World 30 Results", "", f"Generated: {summary['generated_at']}", "",
-        "Selection: correctness first; both primary and diagnostic attempts remain in totals.", "",
+        f"Publication ready: {'yes' if summary.get('publication_ready') else 'no'}.", "",
+        f"Publication protocol blockers: {', '.join(summary.get('publication_blockers') or []) or 'none'}.", "",
+        "Metric priority: completion/progress, then agent elapsed time, then billed API cost.", "",
+        "Selection: correctness first; one diagnostic retry follows a failure or current regression, and all attempts remain in totals.", "",
         "## Metric limitations", "",
         *[f"- {item}" for item in summary.get("metric_limitations", [])], "",
         "## Variant summary", "",
@@ -1348,6 +1476,20 @@ def write_summary_markdown(path: Path, summary: dict[str, Any], results: list[di
             f"{all_bucket['provider_usage']['totalTokens']} | {all_bucket['api_cost']['total']:.6f} |"
         )
     lines.extend([
+        "", "## Current correctness wins", "",
+        "A strict current pass over a failed vanilla baseline is a decisive correctness win; efficiency is not compared for that task.", "",
+        "| Task | Baseline | Current | Vanilla |",
+        "|---:|---|---|---|",
+    ])
+    for item in summary["current_correctness_wins"]:
+        lines.append(
+            f"| {item['task_id']:02d} | {item['baseline']} | "
+            f"progress {item['current_progress']}, {item['current_main_checks_passed']}/5, edge={item['current_edge_check_passed']} | "
+            f"progress {item['baseline_progress']}, {item['baseline_main_checks_passed']}/5, edge={item['baseline_edge_check_passed']} |"
+        )
+    if not summary["current_correctness_wins"]:
+        lines.append("| — | — | — | — |")
+    lines.extend([
         "", "## Matched strict-pass comparisons", "",
         "Efficiency is compared only where both current and the baseline strictly passed.", "",
         "| Task | Baseline | Current−baseline agent s | Current−baseline cost | Current−baseline provider tokens |",
@@ -1378,6 +1520,33 @@ def parse_variants(value: str) -> list[str]:
     return variants
 
 
+def apply_hosts_manifest(args: argparse.Namespace) -> dict[str, Any] | None:
+    if args.hosts_manifest is None:
+        return None
+    path = args.hosts_manifest.expanduser().resolve(strict=True)
+    manifest = json.loads(path.read_text())
+    if manifest.get("schema") != HOSTS_SCHEMA:
+        raise ValueError(f"unsupported hosts manifest: {manifest.get('schema')!r}")
+    if manifest.get("prime_agent_version") != PRIME_AGENT_VERSION:
+        raise ValueError(f"hosts manifest must use prime-agent@{PRIME_AGENT_VERSION}")
+    if manifest.get("prime_context_version") != PRIME_CONTEXT_VERSION:
+        raise ValueError(f"hosts manifest must use prime-agent-context@{PRIME_CONTEXT_VERSION}")
+    bindings = {
+        "baseline_prime_agent": "vanilla_prime_agent",
+        "current_prime_agent": "current_prime_agent",
+        "current_extension": "current_extension",
+    }
+    for argument, key in bindings.items():
+        supplied = getattr(args, argument)
+        value = manifest.get(key)
+        if not isinstance(value, str) or not value:
+            raise ValueError(f"hosts manifest is missing {key!r}")
+        resolved = str(Path(value).expanduser().resolve(strict=True))
+        if supplied is not None and str(Path(supplied).expanduser().resolve(strict=True)) != resolved:
+            raise ValueError(f"--{argument.replace('_', '-')} conflicts with --hosts-manifest")
+        setattr(args, argument, Path(resolved) if argument == "current_extension" else resolved)
+    args.hosts_manifest = path
+    return manifest
 
 
 def validate_corpus(scenarios: dict[int, tuple[Path, dict[str, Any]]], bwrap: str | None) -> dict[str, Any]:
@@ -1439,16 +1608,16 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--provider", default="openai-codex")
     parser.add_argument("--model", default="gpt-5.6-sol")
     parser.add_argument("--thinking", default="medium")
-    parser.add_argument("--timeout-seconds", type=int, default=1200)
-    parser.add_argument("--group-size", type=int, default=3)
+    parser.add_argument("--timeout-seconds", type=int, default=1800)
+    parser.add_argument("--group-size", type=int, default=2)
     parser.add_argument("--max-workers", type=int, default=6)
     parser.add_argument("--retry-failed", type=int, choices=(0, 1), default=1)
-    parser.add_argument("--baseline-prime-agent", help="explicit frozen unpatched prime-agent@0.9.1 executable for vanilla and published")
-    parser.add_argument("--current-prime-agent", help="explicit patched prime-agent@0.9.1 executable for current")
+    parser.add_argument("--hosts-manifest", type=Path, help="manifest written by prepare-hosts.py")
+    parser.add_argument("--baseline-prime-agent", help="explicit isolated stock prime-agent@0.9.1 executable")
+    parser.add_argument("--current-prime-agent", help="explicit isolated patched prime-agent@0.9.1 executable")
     parser.add_argument("--auth-file", type=Path)
     parser.add_argument("--bwrap", default=shutil.which("bwrap") or "", help="bubblewrap executable used to deny non-loopback tool network access")
-    parser.add_argument("--published-extension", type=Path, default=Path(os.environ["PRIME_CONTEXT_PUBLISHED_910"]) if os.environ.get("PRIME_CONTEXT_PUBLISHED_910") else None)
-    parser.add_argument("--current-extension", type=Path, default=ROOT.parent.parent)
+    parser.add_argument("--current-extension", type=Path, help="installed prime-agent-context@9.2.0 package root")
     parser.add_argument("--validate-only", action="store_true")
     return parser
 
@@ -1456,23 +1625,31 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> int:
     args = build_parser().parse_args()
     require_python312()
-    if not (1 <= args.group_size <= 3):
-        raise SystemExit("--group-size must be 1..3")
+    if not (1 <= args.group_size <= 2):
+        raise SystemExit("--group-size must be 1..2")
     if not (1 <= args.max_workers <= 6):
         raise SystemExit("--max-workers must be 1..6")
     scenarios = load_scenarios(ROOT, require_complete=True)
     if args.validate_only:
         print(json.dumps(validate_corpus(scenarios, args.bwrap or None), sort_keys=True))
         return 0
+    hosts_manifest = apply_hosts_manifest(args)
     task_ids = parse_task_ids(args.tasks, scenarios)
     variants = parse_variants(args.variants)
     if args.group_size != len(variants):
         raise SystemExit("--group-size must equal the number of selected variants so each task runs as one comparison group")
     if not args.bwrap:
         raise SystemExit("bubblewrap (bwrap) is required for hermetic tool execution")
+    if args.current_extension is None:
+        raise ValueError("--current-extension or --hosts-manifest is required")
+    extension_root = prime_context_package_root(args.current_extension)
+    args.current_extension = extension_root
+    patcher = extension_root / "scripts" / "patch-prime-agent.mjs"
+    if not patcher.is_file():
+        raise FileNotFoundError(f"installed Prime Context patcher not found: {patcher}")
     for variant in variants:
         variant_extension(variant, args)
-    uses_baseline = any(variant != "current" for variant in variants)
+    uses_baseline = "vanilla" in variants
     uses_current = "current" in variants
     baseline_version = None
     current_version = None
@@ -1484,17 +1661,44 @@ def main() -> int:
         baseline_version, baseline_path = require_prime_agent(args.baseline_prime_agent, "--baseline-prime-agent")
         args.baseline_prime_agent = str(baseline_path)
         baseline_root = require_host_contract(
-            baseline_path, "--baseline-prime-agent", patched=False,
+            baseline_path, "--baseline-prime-agent", patched=False, patcher=patcher,
         )
     if uses_current:
         current_version, current_path = require_prime_agent(args.current_prime_agent, "--current-prime-agent")
         args.current_prime_agent = str(current_path)
         current_root = require_host_contract(
-            current_path, "--current-prime-agent", patched=True,
+            current_path, "--current-prime-agent", patched=True, patcher=patcher,
         )
     if baseline_root is not None and current_root is not None and baseline_root == current_root:
         raise ValueError("baseline and current must use distinct isolated Prime Agent hosts")
+    if current_root is not None and extension_root.parent != current_root.parent:
+        raise ValueError(
+            "current Prime Agent and prime-agent-context must be sibling packages "
+            "inside the same isolated npm prefix"
+        )
+    publication_blockers: list[str] = []
+    if task_ids != sorted(scenarios):
+        publication_blockers.append("tasks must contain all 30 scenarios")
+    if variants != list(VARIANTS):
+        publication_blockers.append("variants must be vanilla,current")
+    if args.provider != "openai-codex":
+        publication_blockers.append("provider must be openai-codex")
+    if args.model != "gpt-5.6-sol":
+        publication_blockers.append("model must be gpt-5.6-sol")
+    if args.thinking != "medium":
+        publication_blockers.append("thinking must be medium")
+    if args.timeout_seconds != 1800:
+        publication_blockers.append("timeout-seconds must be 1800")
+    if args.group_size != 2 or args.max_workers != 6:
+        publication_blockers.append("group-size/max-workers must be 2/6")
+    if args.retry_failed != 1:
+        publication_blockers.append("retry-failed must be 1")
+    if hosts_manifest is None:
+        publication_blockers.append("hosts must come from prepare-hosts.py")
+
     args.output = args.output.resolve()
+    if args.output.exists() and any(args.output.iterdir()):
+        raise ValueError(f"output directory must be fresh and empty: {args.output}")
     args.output.mkdir(parents=True, exist_ok=True)
     manifest = {
         "schema": "prime-context.python-realworld-invocation/v1",
@@ -1509,10 +1713,16 @@ def main() -> int:
         "max_workers": args.max_workers,
         "retry_failed": args.retry_failed,
         "tool_network": "loopback-only",
+        "hosts_manifest": str(args.hosts_manifest) if args.hosts_manifest else None,
+        "hosts_prepared_at": (hosts_manifest or {}).get("prepared_at"),
         "baseline_prime_agent": args.baseline_prime_agent,
         "current_prime_agent": args.current_prime_agent,
+        "current_extension": str(extension_root),
         "baseline_prime_agent_version": baseline_version,
         "current_prime_agent_version": current_version,
+        "prime_context_version": PRIME_CONTEXT_VERSION,
+        "publication_protocol": not publication_blockers,
+        "publication_blockers": publication_blockers,
     }
     json_dump(args.output / "invocation.json", manifest)
     results: list[dict[str, Any]] = []
@@ -1538,13 +1748,58 @@ def main() -> int:
                         "pressure": scenarios[task_id][1]["pressure"],
                         "primary_attempt": 0,
                         "selected_attempt": 0,
+                        "retry_triggers": [],
                         "attempts": [{"error": f"{type(exc).__name__}: {exc}", "judge": {"status": "error", "progress_level": 0}, "metrics": {}}],
                     }
                 results.append(result)
                 json_dump(args.output / "results.partial.json", results)
                 print(f"finished task {task_id:02d} {variant}: progress {(selected_attempt(result).get('judge') or {}).get('progress_level', 0)}", flush=True)
+        if args.retry_failed and {"vanilla", "current"}.issubset(variants):
+            wave_by_key = {
+                (result["task_id"], result["variant"]): result
+                for result in results
+                if result["task_id"] in group
+            }
+            retry_jobs: list[tuple[int, dict[str, Any], list[str]]] = []
+            for task_id in group:
+                vanilla = wave_by_key.get((task_id, "vanilla"))
+                current = wave_by_key.get((task_id, "current"))
+                if vanilla is None or current is None:
+                    continue
+                reasons = comparison_retry_reasons(vanilla, current)
+                if reasons:
+                    retry_jobs.append((task_id, current, reasons))
+            if retry_jobs:
+                with concurrent.futures.ThreadPoolExecutor(
+                    max_workers=min(args.max_workers, len(retry_jobs))
+                ) as executor:
+                    retry_futures = {
+                        executor.submit(
+                            retry_case_for_regression,
+                            result,
+                            scenarios[task_id][0],
+                            scenarios[task_id][1],
+                            args.output,
+                            args,
+                            reasons,
+                        ): (task_id, reasons)
+                        for task_id, result, reasons in retry_jobs
+                    }
+                    for future in concurrent.futures.as_completed(retry_futures):
+                        task_id, reasons = retry_futures[future]
+                        future.result()
+                        json_dump(args.output / "results.partial.json", results)
+                        print(
+                            f"retried task {task_id:02d} current after {','.join(reasons)}",
+                            flush=True,
+                        )
     results.sort(key=lambda item: (item["task_id"], item["variant"]))
     summary = comprehensive_summary(results)
+    summary["publication_protocol"] = manifest["publication_protocol"]
+    summary["publication_blockers"] = manifest["publication_blockers"]
+    summary["publication_ready"] = bool(
+        summary["publication_ready"] and manifest["publication_protocol"]
+    )
     json_dump(args.output / "results.json", results)
     json_dump(args.output / "summary.json", summary)
     write_summary_markdown(args.output / "SUMMARY.md", summary, results)

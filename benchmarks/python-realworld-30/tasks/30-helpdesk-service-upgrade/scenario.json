@@ -21,25 +21,25 @@
     {
       "id": "mail",
       "inject": "stages/mail/",
-      "message": "Import `inputs/archive.mbox` with `python -m helpdesk import-mail`. Messages addressed to `support+<ticket-id>@example.test` become comments; unmatched threads create tickets. Preserve external `Message-ID` for deduplication.",
+      "message": "Read `MAIL.md` and implement its exact positional command and JSON-summary contract. From `service/`, run `python -m helpdesk import-mail ../workspace/helpdesk.db ../inputs/archive.mbox`. Messages addressed to `support+<ticket-id>@example.test` become comments; unmatched threads create tickets. Preserve external `Message-ID` for deduplication.",
       "compact_after": false
     },
     {
       "id": "sla",
       "inject": "stages/sla/",
-      "message": "Add SLA due times from `inputs/sla.json` using the stated business hours and holidays. A customer comment reopens a resolved ticket. Add `python -m helpdesk escalations --as-of ... --output output/escalations.csv`.",
+      "message": "Read `SLA.md` and implement its exact positional command and CSV contract. From `service/`, run `python -m helpdesk escalations ../workspace/helpdesk.db --as-of 2025-05-28T17:00:00Z --output ../output/escalations.csv`. Use the stated business hours and holidays. A customer comment reopens a resolved ticket.",
       "compact_after": true
     },
     {
       "id": "search",
       "inject": "stages/search/",
-      "message": "Add deterministic token search over subject, body, and comments plus `python -m helpdesk export --status ... --output output/tickets.csv`. Tokenize with NFKC/casefold alphanumeric runs. Query terms use AND semantics. Rank by `3 * subject_hits + 2 * body_hits + comment_hits`, then newest `updated_at`, then ticket ID. Do not rely on optional SQLite extensions.",
+      "message": "Read `SEARCH.md` and implement its exact positional command, API, CSV, and ordering contracts. From `service/`, run `python -m helpdesk export ../workspace/helpdesk.db --status open --output ../output/tickets.csv`. Add deterministic token search over subject, body, and comments. Tokenize with NFKC/casefold alphanumeric runs. Query terms use AND semantics. Rank by `3 * subject_hits + 2 * body_hits + comment_hits`, then newest `updated_at`, then ticket ID. Do not rely on optional SQLite extensions.",
       "compact_after": false
     },
     {
       "id": "maintenance",
       "inject": "stages/maintenance/",
-      "message": "Add `python -m helpdesk maintenance --as-of ... --output output/maintenance.json`. Close stale `pending_customer` tickets after the configured number of business days and report every changed ticket. Retain all earlier API, import, SLA, search, and export behavior.",
+      "message": "Read `MAINTENANCE.md` and implement its exact positional command and JSON contract. From `service/`, run `python -m helpdesk maintenance ../workspace/helpdesk.db --as-of 2025-06-02T17:00:00Z --output ../output/maintenance.json`. Close stale `pending_customer` tickets after the configured number of business days and report every changed ticket. Retain all earlier API, import, SLA, search, and export behavior.",
       "compact_after": false
     }
   ],

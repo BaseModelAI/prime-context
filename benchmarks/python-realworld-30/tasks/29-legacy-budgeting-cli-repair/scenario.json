@@ -21,13 +21,13 @@
     {
       "id": "splits",
       "inject": "stages/splits/",
-      "message": "Migrate the database to support split transactions. `inputs/splits.csv` assigns category/amount parts to existing source rows. Split parts must sum exactly to the transaction amount, and the monthly report must use parts instead of the parent category.",
+      "message": "Read `SPLITS.md` and implement its exact validation and `output/split_errors.json` contract. Migrate the database to support split transactions. `inputs/splits.csv` assigns category/amount parts to existing source rows. Split parts must sum exactly to the transaction amount, and the monthly report must use parts instead of the parent category.",
       "compact_after": false
     },
     {
       "id": "export",
       "inject": "stages/export/",
-      "message": "Add `python -m budgetdesk export workspace/budget.db --format csv|json --output PATH` with stable ordering and all original source IDs. Keep repeated imports idempotent.",
+      "message": "Read `EXPORT.md` and implement its exact schemas and ordering. Add `python -m budgetdesk export workspace/budget.db --format csv|json --output PATH` with stable ordering and all original source IDs. Keep repeated imports idempotent.",
       "compact_after": false
     }
   ],

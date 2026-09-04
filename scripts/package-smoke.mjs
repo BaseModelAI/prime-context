@@ -719,6 +719,63 @@ try {
   run(process.execPath, [packedBin, "--check-stock", hostRoot]);
   run(process.execPath, [packedBin, hostRoot]);
   run(process.execPath, [packedBin, "--check", hostRoot]);
+  const patchedGoals = await import(`${pathToFileURL(join(hostRoot, "dist", "core", "goals.js")).href}?smoke=${Date.now()}`);
+  assert.deepEqual(
+    [0, 1, 2, 3, 4, 5].map((step) => patchedGoals.goalContinuationBackoffMs(step)),
+    [15_000, 30_000, 60_000, 120_000, 180_000, 180_000],
+    "Goal watcher continuation delay must double to the hard 180-second cap.",
+  );
+  const watcherContext = {
+    newMessages: [
+      {
+        role: "custom",
+        customType: "goal_context",
+        content: "continue",
+        details: { kind: "continuation", goalId: "smoke-goal" },
+      },
+      {
+        role: "assistant",
+        content: [{
+          type: "toolCall",
+          id: "watch-call",
+          name: "ipython",
+          arguments: { code: "print(handle.running, path.stat().st_mtime)" },
+        }],
+      },
+      {
+        role: "toolResult",
+        toolCallId: "watch-call",
+        isError: false,
+        content: [{ type: "text", text: "running True" }],
+      },
+      { role: "assistant", content: [{ type: "text", text: "Still running." }] },
+    ],
+  };
+  assert.equal(typeof patchedGoals.goalWatcherContinuationSignature(watcherContext), "string");
+  const failedWatcherContext = structuredClone(watcherContext);
+  failedWatcherContext.newMessages[2].isError = true;
+  assert.equal(
+    patchedGoals.goalWatcherContinuationSignature(failedWatcherContext),
+    undefined,
+    "Failed watcher turns must remain immediately actionable.",
+  );
+  const terminalWatcherContext = structuredClone(watcherContext);
+  terminalWatcherContext.newMessages[2].content[0].text = "running False";
+  assert.equal(
+    patchedGoals.goalWatcherContinuationSignature(terminalWatcherContext),
+    undefined,
+    "A terminal process state must reset the watcher backoff.",
+  );
+  const patchedAgentSession = await import(
+    `${pathToFileURL(join(hostRoot, "dist", "core", "agent-session.js")).href}?smoke=${Date.now()}`
+  );
+  const sessionBackoff = Object.create(patchedAgentSession.AgentSession.prototype);
+  sessionBackoff._goalContinuationBackoffStep = 0;
+  sessionBackoff._goalContinuationWatcherSignature = undefined;
+  sessionBackoff._goalContinuationBackoffCancel = undefined;
+  const interruptedBackoff = sessionBackoff._waitForGoalContinuationBackoff("watch-signature", undefined);
+  sessionBackoff._resetGoalContinuationBackoff();
+  assert.equal(await interruptedBackoff, false, "User/session activity must interrupt a pending backoff.");
   assert.doesNotMatch(
     readFileSync(join(sourceHostRoot, "dist", "core", "extensions", "types.d.ts"), "utf8"),
     /projectionIdentity/,

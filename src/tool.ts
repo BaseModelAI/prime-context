@@ -482,7 +482,11 @@ export function registerPrimeContextTool(pi: ExtensionAPI, actions: PrimeContext
               details: { matches: recalled.matches },
             };
           }
-          case "list":
+          case "list": {
+            const scope = params.scope ?? "task";
+            if (scope === "parent" || scope === "project") {
+              throw new Error(`prime_context list does not support scope=${scope}; use recall instead.`);
+            }
             return textResult(
               await formatObservationList(
                 actions,
@@ -490,13 +494,15 @@ export function registerPrimeContextTool(pi: ExtensionAPI, actions: PrimeContext
                 signal,
               ),
             );
+          }
           case "status":
             return textResult(await formatStatus(actions, signal));
           case "update":
             return textResult(formatSnapshotUpdate(actions.updateSnapshot(params)));
         }
       } catch (error) {
-        return textResult(`Prime Context error: ${(error as Error).message}`);
+        const message = error instanceof Error ? error.message : String(error);
+        throw new Error(`Prime Context error: ${message}`);
       }
     },
   });

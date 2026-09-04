@@ -26,7 +26,7 @@
     {
       "id": "fairness",
       "inject": "stages/fairness/",
-      "message": "The coordinator added a fairness rule in `inputs/fairness.json`: among volunteers eligible for at least four remaining shifts, final assignment counts may differ by at most one unless that would reduce required-skill coverage. Regenerate the final files and list any fairness exception in `summary.json`.",
+      "message": "The coordinator added a fairness rule in `inputs/fairness.json`: among active volunteers eligible for at least three remaining shifts, final assignment counts may differ by at most one unless that would reduce required-skill coverage. A volunteer is eligible for a shift when they have its required skill and an availability row that contains the shift. The `summary.json` field `assignment_count_spread` remains calculated over all volunteers, including volunteers listed in `callout.json`. Regenerate the final files and list any fairness exception in `summary.json`.",
       "compact_after": false
     }
   ],

@@ -27,4 +27,6 @@ Write `output/schedule.csv` with header `shift_id,seat,volunteer_id`, sorted by 
 
 Write `output/summary.json` with integer fields `required_seats`, `filled_seats`, `required_skill_coverage`, `preference_score`, `assignment_count_spread`, and `changed_assignments`, plus an array `fairness_exceptions`. Use sorted JSON keys and a final LF newline. CSV files use UTF-8 and LF endings.
 
+Before later-stage inputs exist, set `changed_assignments` to `0` and `fairness_exceptions` to `[]`. All task material is inside the current workspace, so do not inspect parent paths such as `..`.
+
 The held-out edge has a shift requiring a skill that no available volunteer has. Leave the seat unfilled and never assign an unqualified volunteer.

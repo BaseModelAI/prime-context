@@ -31,6 +31,9 @@ python -m permitflow validate workspace/permits.db --output output
 - `inputs/settings.json` supplies the fixed `validation_date`. Do not use the
   wall clock.
 
+Treat every non-empty `parcel_id` as syntactically valid. Parcel IDs are opaque
+strings; do not enforce a prefix or digit pattern.
+
 Dates are ISO `YYYY-MM-DD`. Currency values have exactly two decimal places.
 Use `decimal.Decimal` for all fee calculations.
 

@@ -34,23 +34,28 @@ def main() -> None:
         write(inputs / "travel_times.csv", ["from_location", "to_location", "minutes"], [])
         return
     volunteers = []
-    availability = []
     for number in range(1, 25):
         volunteer = f"V{number:02d}"
         skill = "medical" if number <= 12 else "logistics"
         volunteers.append([volunteer, skill, f"LOC-{volunteer}", 3])
-        availability.append([volunteer, "2025-06-01T00:00", "2025-07-01T00:00"])
     write(inputs / "volunteers.csv", ["volunteer_id", "skills", "preferred_locations", "max_shifts"], volunteers)
-    write(inputs / "availability.csv", ["volunteer_id", "start", "end"], availability)
     intended = list(range(1, 7)) * 2 + list(range(7, 13))
     intended += list(range(13, 19)) * 2 + list(range(19, 25))
+    backups = {"V01": ("V07", "V08"), "V13": ("V19", "V20")}
     shifts = []
+    availability = []
     origin = datetime(2025, 6, 1, 9)
     for index, volunteer_number in enumerate(intended, 1):
         group_index = index - 1 if index <= 18 else index - 19
         start = origin + timedelta(days=group_index, hours=0 if index <= 18 else 4)
+        end = start + timedelta(hours=2)
+        start_text = start.isoformat(timespec="minutes")
+        end_text = end.isoformat(timespec="minutes")
         volunteer = f"V{volunteer_number:02d}"
-        shifts.append([f"S{index:02d}", start.isoformat(timespec="minutes"), (start + timedelta(hours=2)).isoformat(timespec="minutes"), f"LOC-{volunteer}", "medical" if index <= 18 else "logistics", 1])
+        shifts.append([f"S{index:02d}", start_text, end_text, f"LOC-{volunteer}", "medical" if index <= 18 else "logistics", 1])
+        for available_id in (volunteer, *backups.get(volunteer, ())):
+            availability.append([available_id, start_text, end_text])
+    write(inputs / "availability.csv", ["volunteer_id", "start", "end"], availability)
     write(inputs / "shifts.csv", ["shift_id", "start", "end", "location", "required_skill", "seats"], shifts)
     travel = []
     locations = [f"LOC-V{number:02d}" for number in range(1, 25)]

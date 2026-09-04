@@ -367,7 +367,7 @@ def make_writable_tree(path: Path) -> None:
 def clean_environment(config: Path, pc_home: Path, home: Path) -> dict[str, str]:
     environment = dict(os.environ)
     for key in list(environment):
-        if key.startswith("PRIME_AGENT_INTERNAL_"):
+        if key.startswith("PRIME_AGENT_INTERNAL_") or key.startswith("PRIME_CONTEXT_"):
             environment.pop(key, None)
     for key in ("PI_OFFLINE", "DO_NOT_TRACK", "FORCE_COLOR", "PRIME_AGENT_KERNEL_PYTHON", "PYTHONPATH"):
         environment.pop(key, None)
@@ -550,7 +550,7 @@ def run_judge(
 
 
 def choose_better_attempt(attempts: list[dict[str, Any]]) -> int:
-    """Select by correctness first, then lower cost and agent time; retain every attempt."""
+    """Select by correctness first, then lower agent time and cost; retain every attempt."""
     def key(index: int) -> tuple[int, float, int, int, float, float]:
         item = attempts[index]
         judge = item.get("judge") or {}
@@ -561,7 +561,7 @@ def choose_better_attempt(attempts: list[dict[str, Any]]) -> int:
         edge_check = int(judge.get("edge_check_passed") is True)
         cost = float((metrics.get("api_cost") or {}).get("total") or 0)
         wall = float(item.get("agent_wall_seconds") or 0)
-        return strict, progress, main_checks, edge_check, -cost, -wall
+        return strict, progress, main_checks, edge_check, -wall, -cost
     return max(range(len(attempts)), key=key)
 
 

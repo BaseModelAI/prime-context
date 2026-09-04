@@ -156,7 +156,7 @@ def check_main(work: Path, completed: bool) -> tuple[list[bool], bool, list[str]
         and ("does not automatically renew" in comparison_folded or "no" in comparison_folded)
         and ("100,000" in comparison_folded or "usd:100000" in comparison_folded)
         and ("6 months" in comparison_folded or "fees_months:6" in comparison_folded)
-        and ("250000" in comparison_folded or "usd:250000" in comparison_folded)
+        and ("250,000" in comparison_folded or "250000" in comparison_folded or "usd:250000" in comparison_folded)
     )
     citations_present = all(re.search(rf"{cid}.*(?:3-4|3–4)", comparison, re.IGNORECASE) for cid in review_ids)
     checks[3] = groups_present and citations_present

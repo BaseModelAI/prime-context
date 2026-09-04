@@ -386,11 +386,11 @@ Produce `invoice_status.csv`, `applications.csv`, and `exceptions.csv`. All mone
 python -m solution.reorder inputs --as-of 2025-06-01 --output output
 ```
 
-For each SKU/warehouse, forecast daily demand as the arithmetic mean of the last 28 complete days. Target stock is demand for `lead_days + safety_days`. Subtract on-hand and open-PO quantity arriving on or before the lead-date boundary. Round purchase quantities up to whole units and then to case packs. Supplier minimums are expressed in aggregate cases. When a nonzero supplier order is below its minimum, add cases one at a time to the SKU with the largest remaining uncovered target quantity, breaking ties by SKU, until the minimum is met. Produce `reorder.csv` and `supplier_orders.json`.
+For each SKU/warehouse, forecast daily demand as the arithmetic mean of the last 28 complete days. Target stock is demand for `lead_days + safety_days`. For whole-unit transfer and purchase decisions, compute target stock and donor safety floor directly as the 28-day demand total multiplied by the applicable days and divided by 28, so an exact-integer result stays exact; do not multiply a rounded repeating daily mean. Subtract on-hand and open-PO quantity arriving on or before the lead-date boundary. Round purchase quantities up to whole units and then to case packs. Supplier minimums are expressed in aggregate cases. When a nonzero supplier order is below its minimum, add cases one at a time to the SKU with the largest remaining uncovered target quantity, breaking ties by SKU, until the minimum is met. Produce `reorder.csv` and `supplier_orders.json`.
 
 **Stage 2 message:**
 
-> A supplier blackout and a transfer option were added in `inputs/constraints.json` and `inputs/transfer_costs.csv`. Before buying, move stock from a warehouse whose projected stock remains above its own safety stock. Choose transfers by lowest cost, then donor warehouse name. Blackout arrivals move to the first permitted date. Add `output/transfers.csv` and update purchase orders.
+> A supplier blackout and a transfer option were added in `inputs/constraints.json` and `inputs/transfer_costs.csv`. Before buying, process recipients by SKU then warehouse. Recipient transfer need is `floor(max(0, exact_target - recipient_position))`; equivalently, use `max(0, (target_numerator - 28 * recipient_position) // 28)`. Never round this need up or transfer past the exact target. After each transfer, the donor stock position (`on_hand + eligible_open_po + units_received - units_sent`) must remain at least `forecast_daily * safety_days`; this donor floor is not the lead-plus-safety target. Also cap all units sent by a donor at its original physical on-hand minus units already sent. Choose donors by lowest cost, then donor warehouse name. Blackout arrivals move to the first permitted date. `transfer_policy` may be absent when no transfer is possible; do not require it. Add `output/transfers.csv` with exact header `sku,from_warehouse,to_warehouse,quantity,cost_per_unit`, one row per nonzero transfer, sorted by `(sku, to_warehouse, from_warehouse)`; copy `cost_per_unit` from `transfer_costs.csv`. Update purchase orders.
 
 **Progress landmarks:** forecast works; purchase plan generated; case packs/minimums correct; transfers/blackouts incorporated; edge pass.
 
@@ -412,7 +412,7 @@ For each SKU/warehouse, forecast daily demand as the arithmetic mean of the last
 python -m solution.volunteer_schedule inputs --output output
 ```
 
-A volunteer cannot overlap shifts and needs a 30-minute gap between different locations. Optimize lexicographically: maximize filled required seats; maximize required-skill coverage; maximize preference score; minimize assignment-count spread; then lexical volunteer IDs. Produce `schedule.csv`, `unfilled.csv`, and `summary.json`.
+A volunteer cannot overlap shifts and needs a 30-minute gap between different locations. Optimize lexicographically: maximize filled required seats; maximize required-skill coverage; maximize preference score; minimize assignment-count spread; then lexical volunteer IDs. Produce `schedule.csv`, `unfilled.csv`, and `summary.json`. Before later-stage inputs exist, `changed_assignments` is `0` and `fairness_exceptions` is `[]`; all task material is inside the current workspace, so parent paths must not be inspected.
 
 **Stage 2 message after compaction:**
 
@@ -420,7 +420,7 @@ A volunteer cannot overlap shifts and needs a 30-minute gap between different lo
 
 **Stage 3 message:**
 
-> The coordinator added a fairness rule in `inputs/fairness.json`: among volunteers eligible for at least four remaining shifts, final assignment counts may differ by at most one unless that would reduce required-skill coverage. Regenerate the final files and list any fairness exception in `summary.json`.
+> The coordinator added a fairness rule in `inputs/fairness.json`: among active volunteers eligible for at least three remaining shifts, final assignment counts may differ by at most one unless that would reduce required-skill coverage. A volunteer is eligible for a shift when they have its required skill and an availability row that contains the shift. The `summary.json` field `assignment_count_spread` remains calculated over all volunteers, including volunteers listed in `callout.json`. Regenerate the final files and list any fairness exception in `summary.json`.
 
 **Progress landmarks:** schedule emitted; legal coverage; callout handled with limited churn; fairness and prior constraints retained; edge pass.
 
@@ -470,11 +470,11 @@ Define severity as `abs(value - median) / median` when the median is positive, o
 python -m solution.itinerary_check inputs --output output
 ```
 
-Normalize every segment to UTC while retaining local display times. Detect overlapping segments, insufficient connections, airport changes, duplicate bookings, and nights without lodging. Connection intervals are half-open. Produce `timeline.csv` and `issues.json`.
+Normalize every segment to UTC while retaining local display times. Detect overlapping segments, insufficient connections, airport changes, duplicate bookings, and nights without lodging. Use the exact issue types `overlap`, `insufficient_connection`, `airport_change`, `duplicate_booking`, and `night_without_lodging`. Connection intervals are half-open. Produce `timeline.csv` and `issues.json`.
 
 **Stage 2 message:**
 
-> `inputs/updates.json` contains revised and cancelled segments, and `inputs/alternatives.csv` contains replacement choices. Apply the highest revision per segment. For each broken connection caused by the update, choose the earliest-arriving alternative that satisfies the connection rules; break ties by price then alternative ID. Add `output/rebook.csv` and regenerate the timeline and issues.
+> `inputs/updates.json` contains revised and cancelled segments, and `inputs/alternatives.csv` contains replacement choices. Apply the highest revision per segment. For each broken connection caused by the update, choose the earliest-arriving alternative that satisfies the connection rules; break ties by price then alternative ID. Write `output/rebook.csv` with the exact header `original_segment_id,alternative_id` and one row per broken original segment, containing its segment ID and the chosen alternative ID. Regenerate the timeline and issues.
 
 **Progress landmarks:** timezone normalization; initial issues accurate; revisions/cancellations merged; deterministic rebooking; edge pass.
 
@@ -605,7 +605,7 @@ Produce `timeline.csv` with normalized raw timestamps, service, severity, reques
 
 **Stage 3 message:**
 
-> `inputs/clock_offsets.json` now gives service clock offsets in milliseconds. Normalize the timeline to UTC, preserve each raw timestamp, and update every source anchor. The known incident is tied to a deployment release; name the release and the schema operation that caused the failures.
+> `inputs/clock_offsets.json` now gives service clock offsets in milliseconds. Normalize the timeline to UTC, preserve each raw timestamp, and update every source anchor. For the report's causal primary anchor, use the earliest corrected-UTC schema event: the deployment `SCHEMA_CHANGE`; treat the recovered database `SCHEMA_APPLIED` as confirmation, not as a replacement primary anchor. The known incident is tied to a deployment release; name the release and the schema operation that caused the failures.
 
 **Stage 4 message after the second compaction:**
 
@@ -709,7 +709,7 @@ Extract `auto_renewal`, `termination_notice_days`, `governing_law`, `liability_c
 
 **Stage 2 message after compaction:**
 
-> `inputs/review_set.csv` names 18 contracts under renewal review. Generate `output/comparison.md` grouping conflicting renewal windows, liability caps, and governing-law states, with source line ranges for each statement.
+> `inputs/review_set.csv` names 18 contracts under renewal review. Update `python3.12 -E -S -m solution.clause_index inputs/contracts --output output` so every invocation also deterministically writes `output/comparison.md`, grouping conflicting renewal windows, liability caps, and governing-law states with source line ranges for each statement.
 
 **Stage 3 message:**
 
@@ -870,7 +870,7 @@ Pair `IN`/`OUT` punches by employee and shift. Deduct 30 unpaid minutes when a s
 python -m solution.three_way_match inputs --output output
 ```
 
-Aggregate receipts and invoices by PO line. Convert cases/eaches using `items.csv`. A line passes quantity when `abs(received_qty - invoiced_qty) <= 0.02 * ordered_qty` and passes price when `abs(invoice_unit_price - po_unit_price) <= 0.01 * po_unit_price`. Header freight and tax are reported separately, not allocated into line unit price. Produce `line_matches.csv`, `exceptions.csv`, and `supplier_summary.json`.
+Aggregate receipts and invoices by PO line. Convert cases/eaches using `items.csv`. A line passes quantity when `abs(received_qty - invoiced_qty) <= 0.02 * ordered_qty` and passes price when `abs(invoice_unit_price - po_unit_price) <= 0.01 * po_unit_price`. Report both variance columns as these non-negative absolute magnitudes. In the supplier summary, sum each PO line's already two-decimal displayed gross and payable amounts instead of summing unrounded line extensions and rounding only at supplier level. Header freight and tax are reported separately, not allocated into line unit price. Produce `line_matches.csv`, `exceptions.csv`, and `supplier_summary.json`.
 
 **Stage 2 message after compaction:**
 
@@ -986,15 +986,15 @@ Validate the existing schedule and produce `baseline_issues.csv` plus a normaliz
 
 **Stage 2 message after the first compaction:**
 
-> `inputs/provider_absence.json` makes one provider unavailable. Reschedule affected unlocked appointments. Optimize: schedule the most appointments; minimize the number moved; minimize total absolute minutes moved; preserve provider when possible; then earliest slot and appointment ID. Produce `changes.csv` and `unscheduled.csv`.
+> Read `ABSENCE.md` and implement its exact report contract. `inputs/provider_absence.json` makes one provider unavailable. Reschedule affected unlocked appointments. Optimize: schedule the most appointments; minimize the number moved; minimize total absolute minutes moved; preserve provider when possible; then earliest slot and appointment ID. Produce `changes.csv` and `unscheduled.csv`.
 
 **Stage 3 message:**
 
-> `inputs/urgent_requests.csv` adds urgent patients. An urgent request may displace one lower-priority unlocked appointment if the displaced appointment can be rescheduled. Locked appointments cannot move.
+> Read `URGENT.md` and implement its exact report contract. `inputs/urgent_requests.csv` adds urgent patients. An urgent request may displace one lower-priority unlocked appointment if the displaced appointment can be rescheduled. Locked appointments cannot move.
 
 **Stage 4 message after the second compaction:**
 
-> `inputs/equipment_outage.json` removes one room's imaging equipment. Regenerate the final schedule and write one plain-text notification per changed or unscheduled patient under `output/notices/`. Retain every prior optimization rule.
+> Read `OUTAGE.md` and implement its exact notice and report contracts. `inputs/equipment_outage.json` removes one room's imaging equipment. Regenerate the final schedule and write one plain-text notification per changed or unscheduled patient under `output/notices/`. Retain every prior optimization rule.
 
 **Progress landmarks:** baseline validation; absence reschedule; urgent insertion without breaking locks; equipment replan and notices after two compactions; edge pass.
 
@@ -1017,19 +1017,19 @@ python -m permitflow import inputs workspace/permits.db
 python -m permitflow validate workspace/permits.db --output output
 ```
 
-Normalize applications into SQLite while preserving source IDs. Validate parcel existence, owner match, zone/type compatibility, required document types, and fee. Produce `applications.csv`, `validation_issues.csv`, and `fees.csv`. Duplicate source IDs update the higher revision rather than creating another application.
+Normalize applications into SQLite while preserving source IDs. Treat every non-empty `parcel_id` as a syntactically valid opaque string; do not enforce a prefix or digit pattern. Validate parcel existence, owner match, zone/type compatibility, required document types, and fee. Produce `applications.csv`, `validation_issues.csv`, and `fees.csv`. Duplicate source IDs update the higher revision rather than creating another application.
 
 **Stage 2 message after the first compaction:**
 
-> `inputs/ordinance_update.json` changes required documents and fees from an effective date. Revalidate only applications still open on that date and add `output/ordinance_impacts.csv`.
+> Read `ORDINANCE.md` and implement its exact report contract. `inputs/ordinance_update.json` changes required documents and fees from an effective date. Revalidate only applications still open on that date and add `output/ordinance_impacts.csv`. Its `field` column uses exactly `documents` for document-requirement changes and `fee` for fee changes.
 
 **Stage 3 message:**
 
-> `inputs/correction_batch/` contains owner corrections and duplicate-application links. Apply higher revisions, merge linked duplicates into the lowest application ID, and retain all document references on the survivor.
+> Read `CORRECTIONS.md` and implement its exact import and merge contract. `inputs/correction_batch/` contains owner corrections and duplicate-application links. Apply higher revisions, merge linked duplicates into the lowest application ID, and retain all document references on the survivor.
 
 **Stage 4 message after the second compaction:**
 
-> Generate `output/status.csv` and one notice letter per application. Status is `approved` when parcel, owner, zoning, and required documents are valid; `needs_information` when the only blockers are missing or expired documents; and `manual_review` for absent parcels, owner mismatches, zoning incompatibility, unresolved duplicates, or parse errors. Letters must name only the actual outstanding issues and exact fee due.
+> Read `STATUS.md` and implement its exact CSV and letter contracts. Generate `output/status.csv` and one notice letter per application. Status is `approved` when parcel, owner, zoning, and required documents are valid; `needs_information` when the only blockers are missing or expired documents; and `manual_review` for absent parcels, owner mismatches, zoning incompatibility, unresolved duplicates, or parse errors. Letters must name only the actual outstanding issues and exact fee due.
 
 **Progress landmarks:** database import; core validation; ordinance/correction updates; final statuses/letters after two compactions; edge pass.
 
@@ -1056,11 +1056,11 @@ Imports must normalize dates/descriptions, use `Decimal`, avoid duplicate source
 
 **Stage 2 message after compaction:**
 
-> Migrate the database to support split transactions. `inputs/splits.csv` assigns category/amount parts to existing source rows. Split parts must sum exactly to the transaction amount, and the monthly report must use parts instead of the parent category.
+> Read `SPLITS.md` and implement its exact validation and `output/split_errors.json` contract. Migrate the database to support split transactions. `inputs/splits.csv` assigns category/amount parts to existing source rows. Split parts must sum exactly to the transaction amount, and the monthly report must use parts instead of the parent category.
 
 **Stage 3 message:**
 
-> Add `python -m budgetdesk export workspace/budget.db --format csv|json --output PATH` with stable ordering and all original source IDs. Keep repeated imports idempotent.
+> Read `EXPORT.md` and implement its exact schemas and ordering. Add `python -m budgetdesk export workspace/budget.db --format csv|json --output PATH` with stable ordering and all original source IDs. Keep repeated imports idempotent.
 
 **Progress landmarks:** CLI starts; initial import/report correct; migration/splits work; export and repeated import preserve state; edge pass.
 
@@ -1079,27 +1079,28 @@ Imports must normalize dates/descriptions, use `Decimal`, avoid duplicate source
 **Stage 1 task:** repair the service and CLI:
 
 ```bash
-python -m helpdesk serve --db workspace/helpdesk.db --port 0
-python -m helpdesk create-agent workspace/helpdesk.db --email agent@example.test
+# from service/
+python -m helpdesk serve --db ../workspace/helpdesk.db --port 0
+python -m helpdesk create-agent ../workspace/helpdesk.db --email agent@example.test
 ```
 
 Required API: create/get/update tickets; append comments; list tickets by status and assignee. Use JSON over HTTP and stable numeric IDs. Preserve supplied database data.
 
 **Stage 2 message after the first compaction:**
 
-> Import `inputs/archive.mbox` with `python -m helpdesk import-mail`. Messages addressed to `support+<ticket-id>@example.test` become comments; unmatched threads create tickets. Preserve external `Message-ID` for deduplication.
+> Read `MAIL.md` and implement its exact positional command and JSON-summary contract. From `service/`, run `python -m helpdesk import-mail ../workspace/helpdesk.db ../inputs/archive.mbox`. Messages addressed to `support+<ticket-id>@example.test` become comments; unmatched threads create tickets. Preserve external `Message-ID` for deduplication.
 
 **Stage 3 message:**
 
-> Add SLA due times from `inputs/sla.json` using stated business hours and holidays. A customer comment reopens a resolved ticket. Add `python -m helpdesk escalations --as-of ... --output output/escalations.csv`.
+> Read `SLA.md` and implement its exact positional command and CSV contract. From `service/`, run `python -m helpdesk escalations ../workspace/helpdesk.db --as-of 2025-05-28T17:00:00Z --output ../output/escalations.csv`. Use the stated business hours and holidays. A customer comment reopens a resolved ticket.
 
 **Stage 4 message after the second compaction:**
 
-> Add deterministic token search over subject, body, and comments plus `python -m helpdesk export --status ... --output output/tickets.csv`. Tokenize with NFKC/casefold alphanumeric runs. Query terms use AND semantics. Rank by `3 * subject_hits + 2 * body_hits + comment_hits`, then newest `updated_at`, then ticket ID. Do not rely on optional SQLite extensions.
+> Read `SEARCH.md` and implement its exact positional command, API, CSV, and ordering contracts. From `service/`, run `python -m helpdesk export ../workspace/helpdesk.db --status open --output ../output/tickets.csv`. Add deterministic token search over subject, body, and comments. Tokenize with NFKC/casefold alphanumeric runs. Query terms use AND semantics. Rank by `3 * subject_hits + 2 * body_hits + comment_hits`, then newest `updated_at`, then ticket ID. Do not rely on optional SQLite extensions.
 
 **Stage 5 message:**
 
-> Add `python -m helpdesk maintenance --as-of ... --output output/maintenance.json`. Close stale `pending_customer` tickets after the configured number of business days and report every changed ticket. Retain all earlier API, import, SLA, search, and export behavior.
+> Read `MAINTENANCE.md` and implement its exact positional command and JSON contract. From `service/`, run `python -m helpdesk maintenance ../workspace/helpdesk.db --as-of 2025-06-02T17:00:00Z --output ../output/maintenance.json`. Close stale `pending_customer` tickets after the configured number of business days and report every changed ticket. Retain all earlier API, import, SLA, search, and export behavior.
 
 **Progress landmarks:** service/API starts; mailbox import/dedupe; SLA/reopen/escalation; search/export after compaction; maintenance with all previous behavior intact; edge pass.
 

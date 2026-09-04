@@ -27,7 +27,7 @@
     {
       "id": "clock-offsets",
       "inject": "stages/clock-offsets/",
-      "message": "`inputs/clock_offsets.json` now gives service clock offsets in milliseconds. The file defines the sign convention: the service clock equals UTC plus its listed offset, so subtract the offset from each raw instant. Normalize `timestamp_utc`, preserve every `raw_timestamp`, re-sort the timeline, and update every source anchor. The known incident is tied to a deployment release; name the release and the exact schema operation that caused the failures.",
+      "message": "`inputs/clock_offsets.json` now gives service clock offsets in milliseconds. The file defines the sign convention: the service clock equals UTC plus its listed offset, so subtract the offset from each raw instant. Normalize `timestamp_utc`, preserve every `raw_timestamp`, re-sort the timeline, and update every source anchor. For the report's causal primary anchor, use the earliest corrected-UTC schema event: the deployment `SCHEMA_CHANGE`; treat the recovered database `SCHEMA_APPLIED` as confirmation, not as a replacement primary anchor. The known incident is tied to a deployment release; name the release and the exact schema operation that caused the failures.",
       "compact_after": true
     },
     {

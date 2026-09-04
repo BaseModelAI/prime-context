@@ -1,5 +1,41 @@
 # Changelog
 
+## 9.2.0 - 2026-09-04
+
+> **Stable release:** the Prime Agent 0.9.1 migration is complete, the replacement 30-task benchmark is complete, and the 9.x line is ready to become the npm `latest` release.
+
+### Bounded persistent-goal watching
+
+- Replaces repeated text-only goal continuations with one self-contained latest `<goal_state>` while preserving structured controls that contain media.
+- Coalesces older identical successful read-only IPython and Bash watcher turns in every model-facing provider and compaction projection, retains the latest two complete tool exchanges, preserves source order and entry references, and never folds failed, terminal, media-bearing, or substantive work.
+- Backfills structured source messages by entry ID before projection and invalidates cached prefix reuse when a newly appended goal control can replace earlier projected state.
+- Adds host-owned, interruptible exponential backoff for consecutive unchanged read-only goal watcher continuations: 15, 30, 60, 120, then at most 180 seconds.
+- Resets or cancels the delay for user/session input, goal or branch changes, failed or terminal watcher results, cancellation, and ordinary substantive work.
+- Applies the watcher contract to Prime Agent's modular `goals` and `agent-session` runtime, their declarations, and the semantically discovered bundled CLI path.
+- Normalizes nested watcher arguments in stable key order in both modular and bundled host paths so semantically equal polling calls share one signature.
+
+### Observation and tool correctness
+
+- Reports Prime Context tool exceptions as real tool errors instead of returning success-shaped error text.
+- Rejects unsupported `list` operations with `scope=parent` or `scope=project` and directs the model to exact `recall`, avoiding refs that cannot be inspected from the requesting session.
+- Adds focused coverage for stable goal-state projection, watcher folding, entry-ref order, failed-turn preservation, safe Bash polling, scope rejection, and host-backoff interruption.
+
+### Completed 30-task benchmark and harness
+
+- Adds an isolated-host builder that installs stock `prime-agent@0.9.1` and npm `prime-agent-context@9.2.0` into separate prefixes, homes, configs, caches, and session roots; verifies the stock host; patches only the current host; and writes an auditable manifest.
+- Makes the runner require exact installed versions, schedule no more than six attempts in paired waves, retain one correctness/efficiency retry only for the affected variant, respect per-task timeouts, clean process trees, and record terminal transport errors such as WebSocket close 1006.
+- Selects attempts by correctness first, then agent wall time, then billed API cost. A strict current pass after vanilla fails both allowed attempts is reported as a current correctness win rather than a regression.
+- Allows clean targeted replacements for changed contracts while retaining unaffected rows from a completed all-30 run, and emits publication readiness when matched strict comparisons plus current correctness wins cover all 30 tasks.
+- Repairs and freezes benchmark contracts, judges, scenarios, seeds, or generators for Tasks 5, 6, 8, 13, 17, 22, 23, and 27–30. This includes the exact Task 8 `rebook.csv` schema, staged fairness and correction fixtures, causal anchors, preservation rules, and deterministic edge cases.
+- Publishes the completed result: Prime Context 30/30 versus vanilla 29/30; 29/29 time wins and 29/29 billed-cost wins on strict both-pass pairs; 19.65% less comparable agent time and 29.39% less comparable billed cost.
+- Adds `BENCHMARKS.md` with all task descriptions, selected correctness/time/cost/call/token metrics, retained retries, evidence mapping, methodology, and reproduction commands. Adds the benchmark document to the npm tarball.
+
+### Installation and release packaging
+
+- Rewrites installation as an exact sequence: install Prime Agent 0.9.1 from its upstream tarball, install `prime-agent-context@9.2.0`, verify the stock host, apply every included patch, verify the patched contract, then run `/pc doctor`.
+- Documents the exact npm `allowScripts` tarball identity, the source-install path, version-pinned upgrade behavior, patch replacement after Prime Agent reinstalls, and clean uninstall boundaries.
+- Carries forward every Prime Agent 0.9.1 host transformation and every Prime Context runtime change from 9.1.1; no automatic `postinstall` mutation was added.
+
 ## 9.1.1 - 2026-09-02
 
 ### Installation repair

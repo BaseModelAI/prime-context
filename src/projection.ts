@@ -1,6 +1,8 @@
 import { escapeXml, truncateUtf8, utf8Bytes } from "./capsule.js";
 import {
-  mapStableControlMessages,
+  goalControlState,
+  projectStableControlMessages,
+  renderGoalControlState,
   type ContextMessageLike,
 } from "./context.js";
 import { PRIME_CONTEXT_ANCHOR_TYPE } from "./state.js";
@@ -567,27 +569,276 @@ function stripModelDetails<T extends ContextMessageLike>(messages: readonly T[])
   return changed ? projected : messages;
 }
 
-function stableModelControls<T extends ContextMessageLike>(
+interface IndexedProjection<T extends ContextMessageLike> {
+  messages: readonly T[];
+  entryRefs?: readonly ContextEntryRef[];
+  handledGoalEntryIds?: ReadonlySet<string>;
+}
+
+const WATCH_TURNS_TO_KEEP = 2;
+const WATCH_SUMMARY_MAX_BYTES = 768;
+
+function projectedText(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return "";
+  return content.flatMap((block) => {
+    if (!block || typeof block !== "object") return [];
+    const value = block as Record<string, unknown>;
+    return value.type === "text" && typeof value.text === "string" ? [value.text] : [];
+  }).join("\n");
+}
+
+function replaceProjectedText(content: unknown, text: string): unknown {
+  if (!Array.isArray(content)) return text;
+  let replaced = false;
+  const blocks = content.flatMap((block) => {
+    if (!block || typeof block !== "object" || (block as Record<string, unknown>).type !== "text") return [block];
+    if (replaced) return [];
+    replaced = true;
+    return [{ ...(block as Record<string, unknown>), text }];
+  });
+  return replaced ? blocks : [{ type: "text", text }, ...blocks];
+}
+
+function orderedValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(orderedValue);
+  if (!value || typeof value !== "object") return typeof value === "string" ? value.trim() : value;
+  return Object.fromEntries(Object.entries(value as Record<string, unknown>)
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, child]) => [key, orderedValue(child)]));
+}
+
+function watcherCallSignature(block: Record<string, unknown>): string | undefined {
+  const name = typeof block.name === "string" ? block.name : "";
+  const args = block.arguments;
+  if (!args || typeof args !== "object" || Array.isArray(args)) return undefined;
+  if (name === "ipython") {
+    const code = (args as Record<string, unknown>).code;
+    if (typeof code !== "string" ||
+      !/(?:\.running\b|\.poll\s*\(|\.tail\s*\(|st_mtime|rpc-events\.jsonl)/iu.test(code) ||
+      /(?:write_text|write_bytes|await\s+edit|\.kill\s*\(|\.terminate\s*\(|\.unlink\s*\(|\.rename\s*\(|\.mkdir\s*\(|\.rmdir\s*\(|\bbash\s*\()/iu.test(code)) {
+      return undefined;
+    }
+  } else if (name === "bash") {
+    const command = (args as Record<string, unknown>).command;
+    if (typeof command !== "string" ||
+      !/(?:\bps\b|\bpgrep\b|\bjobs\b|\btail\b|\bstat\b|\btest\s+-[efd]\b)/iu.test(command) ||
+      /(?:^|[;&|]\s*)(?:rm|mv|cp|kill|pkill|touch|mkdir|rmdir|npm|pnpm|yarn|git)\b|(?:^|[^>])>(?!>)/iu.test(command)) {
+      return undefined;
+    }
+  } else if (!/(?:poll|watch|status|heartbeat|wait)/iu.test(name)) {
+    return undefined;
+  }
+  try {
+    return JSON.stringify({ name, arguments: orderedValue(args) });
+  } catch {
+    return undefined;
+  }
+}
+
+function watcherTerminalText(text: string): boolean {
+  return /\brunning\s*[:=]?\s*(?:false|no)\b|\bstatus\s*[:=]\s*(?:complete|completed|failed|error|exited|terminated)\b|\b(?:process|job|run)\s+(?:completed|finished|failed|exited|terminated)\b|\bexit[_ ]code\s*[:=]\s*[1-9]\d*/iu.test(text);
+}
+
+function hasMediaContent(message: ContextMessageLike): boolean {
+  return Array.isArray(message.content) && message.content.some((block) =>
+    block && typeof block === "object" && (block as Record<string, unknown>).type === "image");
+}
+
+interface GoalWatchTurn {
+  start: number;
+  end: number;
+  goalId: string;
+  objective: string;
+  status?: string;
+  signature: string;
+  latestObservation: string;
+}
+
+function completedGoalWatchTurn(
+  messages: readonly ContextMessageLike[],
+  start: number,
+  end: number,
+  sourceByIndex: ReadonlyMap<number, ContextMessageLike>,
+): GoalWatchTurn | undefined {
+  const goal = goalControlState(sourceByIndex.get(start) ?? messages[start]);
+  if (!goal?.goalId) return undefined;
+  const callIds = new Set<string>();
+  const resultIds = new Set<string>();
+  let signature: string | undefined;
+  let latestResult = "";
+  let finalAssistant = "";
+  let lastRole = "";
+  let finalAssistantHasCall = false;
+  for (let index = start + 1; index < end; index += 1) {
+    const message = sourceByIndex.get(index) ?? messages[index];
+    if (hasMediaContent(message)) return undefined;
+    lastRole = message.role;
+    if (message.role === "assistant") {
+      let hasCall = false;
+      if (Array.isArray(message.content)) {
+        for (const block of message.content) {
+          if (!toolCall(block)) continue;
+          const current = watcherCallSignature(block);
+          if (!current || signature && current !== signature) return undefined;
+          signature = current;
+          callIds.add(block.id);
+          hasCall = true;
+        }
+      }
+      finalAssistant = projectedText(message.content).trim();
+      finalAssistantHasCall = hasCall;
+    } else if (message.role === "toolResult") {
+      if (message.isError === true || typeof message.toolCallId !== "string") return undefined;
+      const resultText = projectedText(message.content).trim();
+      if (watcherTerminalText(resultText)) return undefined;
+      resultIds.add(message.toolCallId);
+      latestResult = resultText;
+    } else {
+      return undefined;
+    }
+  }
+  if (!signature || callIds.size === 0 || lastRole !== "assistant" || finalAssistantHasCall ||
+    [...callIds].some((id) => !resultIds.has(id)) || [...resultIds].some((id) => !callIds.has(id))) {
+    return undefined;
+  }
+  const latestObservation = [latestResult, finalAssistant].filter(Boolean).join(" | ");
+  return {
+    start,
+    end,
+    goalId: goal.goalId,
+    objective: goal.objective,
+    ...(goal.status === undefined ? {} : { status: goal.status }),
+    signature,
+    latestObservation,
+  };
+}
+
+function renderWatchSummary(turns: readonly GoalWatchTurn[]): string {
+  const latest = turns.at(-1) as GoalWatchTurn;
+  const observation = truncateUtf8(latest.latestObservation.replace(/\s+/g, " "), WATCH_SUMMARY_MAX_BYTES);
+  return [
+    `<goal_watch id="${escapeXml(latest.goalId)}" collapsed_polls="${turns.length}">`,
+    ...(observation ? [`latest_collapsed_observation: ${escapeXml(observation)}`] : []),
+    "Older identical read-only polling turns were folded into this current state.",
+    "</goal_watch>",
+  ].join("\n");
+}
+
+/** Bound consecutive, completed read-only watcher turns while keeping complete recent tool exchanges. */
+function projectGoalWatcherTurns<T extends ContextMessageLike>(
   messages: readonly T[],
   entryRefs: readonly ContextEntryRef[] | undefined,
   sources: ReadonlyMap<string, ContextMessageLike> | undefined,
-): readonly T[] {
-  if (!entryRefs || !sources || sources.size === 0) return messages;
+): IndexedProjection<T> {
+  if (!entryRefs || !sources || sources.size === 0) return { messages, entryRefs };
+  const refByIndex = new Map(entryRefs.map((ref) => [ref.messageIndex, ref]));
   const sourceByIndex = new Map(entryRefs.flatMap((ref) => {
     const source = sources.get(ref.entryId);
     return source ? [[ref.messageIndex, source] as const] : [];
   }));
-  if (sourceByIndex.size === 0) return messages;
-  const controls = messages.map((message, index) => sourceByIndex.get(index) ?? message);
-  const mapped = mapStableControlMessages(controls);
-  let changed = false;
-  const projected = messages.map((message, index) => {
+  const goalStarts = messages.flatMap((_message, index) => {
     const source = sourceByIndex.get(index);
-    if (!source || mapped[index] === source) return message;
-    changed = true;
-    return { ...message, content: mapped[index].content } as T;
+    return source && goalControlState(source)?.goalId ? [index] : [];
   });
-  return changed ? projected : messages;
+  if (goalStarts.length === 0) return { messages, entryRefs };
+  const turns = goalStarts.flatMap((start, turnIndex) => {
+    const end = goalStarts[turnIndex + 1] ?? messages.length;
+    const turn = completedGoalWatchTurn(messages, start, end, sourceByIndex);
+    return turn ? [turn] : [];
+  });
+  if (turns.length === 0) return { messages, entryRefs };
+
+  const dropped = new Set<number>();
+  const replacements = new Map<number, T>();
+  const handledGoalEntryIds = new Set<string>();
+  for (let index = 0; index < turns.length;) {
+    let end = index + 1;
+    while (end < turns.length && turns[end].start === turns[end - 1].end &&
+      turns[end].goalId === turns[index].goalId &&
+      turns[end].objective === turns[index].objective &&
+      turns[end].status === turns[index].status &&
+      turns[end].signature === turns[index].signature) {
+      end += 1;
+    }
+    const run = turns.slice(index, end);
+    const collapsed = run.slice(0, Math.max(0, run.length - WATCH_TURNS_TO_KEEP));
+    if (collapsed.length > 0) {
+      for (const turn of collapsed) {
+        for (let messageIndex = turn.start; messageIndex < turn.end; messageIndex += 1) dropped.add(messageIndex);
+      }
+      const summaryIndex = collapsed.at(-1)?.start as number;
+      dropped.delete(summaryIndex);
+      replacements.set(summaryIndex, {
+        ...messages[summaryIndex],
+        content: replaceProjectedText(messages[summaryIndex].content, renderWatchSummary(collapsed)),
+      } as T);
+      const summaryRef = refByIndex.get(summaryIndex);
+      if (summaryRef) handledGoalEntryIds.add(summaryRef.entryId);
+    }
+    for (const turn of run.slice(-WATCH_TURNS_TO_KEEP)) {
+      const source = sourceByIndex.get(turn.start);
+      const state = source && goalControlState(source);
+      if (state) {
+        replacements.set(turn.start, {
+          ...messages[turn.start],
+          content: replaceProjectedText(messages[turn.start].content, renderGoalControlState(state)),
+        } as T);
+        const ref = refByIndex.get(turn.start);
+        if (ref) handledGoalEntryIds.add(ref.entryId);
+      }
+    }
+    index = end;
+  }
+
+  const projected: T[] = [];
+  const projectedRefs: ContextEntryRef[] = [];
+  for (let inputIndex = 0; inputIndex < messages.length; inputIndex += 1) {
+    if (dropped.has(inputIndex)) continue;
+    const outputIndex = projected.length;
+    projected.push(replacements.get(inputIndex) ?? messages[inputIndex]);
+    const ref = refByIndex.get(inputIndex);
+    if (ref) projectedRefs.push({ ...ref, messageIndex: outputIndex });
+  }
+  return { messages: projected, entryRefs: projectedRefs, handledGoalEntryIds };
+}
+
+function stableModelControls<T extends ContextMessageLike>(
+  messages: readonly T[],
+  entryRefs: readonly ContextEntryRef[] | undefined,
+  sources: ReadonlyMap<string, ContextMessageLike> | undefined,
+  handledGoalEntryIds: ReadonlySet<string> = new Set(),
+): IndexedProjection<T> {
+  if (!entryRefs || !sources || sources.size === 0) return { messages, entryRefs };
+  const refByIndex = new Map(entryRefs.map((ref) => [ref.messageIndex, ref]));
+  const sourceByIndex = new Map(entryRefs.flatMap((ref) => {
+    const source = handledGoalEntryIds.has(ref.entryId) ? undefined : sources.get(ref.entryId);
+    return source ? [[ref.messageIndex, source] as const] : [];
+  }));
+  if (sourceByIndex.size === 0) return { messages, entryRefs };
+  const controls = messages.map((message, index) => sourceByIndex.get(index) ?? message);
+  const projectedControls = projectStableControlMessages(controls);
+  const controlsChanged = projectedControls.retainedIndexes.length !== messages.length ||
+    projectedControls.retainedIndexes.some((inputIndex, outputIndex) =>
+      inputIndex !== outputIndex || projectedControls.messages[outputIndex] !== controls[inputIndex]);
+  if (!controlsChanged) return { messages, entryRefs };
+  const projected: T[] = [];
+  const projectedRefs: ContextEntryRef[] = [];
+  for (let outputIndex = 0; outputIndex < projectedControls.retainedIndexes.length; outputIndex += 1) {
+    const inputIndex = projectedControls.retainedIndexes[outputIndex];
+    const message = messages[inputIndex];
+    const source = sourceByIndex.get(inputIndex);
+    const mapped = projectedControls.messages[outputIndex];
+    projected.push(source && mapped !== source
+      ? { ...message, content: mapped.content } as T
+      : message);
+    const ref = refByIndex.get(inputIndex);
+    if (ref) projectedRefs.push({ ...ref, messageIndex: outputIndex });
+  }
+  return {
+    messages: projected,
+    entryRefs: projectedRefs,
+  };
 }
 
 /** Append one provider-valid text message without cloning or attaching raw custom details. */
@@ -716,24 +967,30 @@ function projectBashExecutionViews<T extends ContextMessageLike>(
 export function projectModelContext<T extends ContextMessageLike>(
   input: SharedProjectionInput<T>,
 ): SharedProjectionResult<T> {
-  const stable = stableModelControls(input.messages, input.entryRefs, input.sourceMessages);
+  const watched = projectGoalWatcherTurns(input.messages, input.entryRefs, input.sourceMessages);
+  const stable = stableModelControls(
+    watched.messages,
+    watched.entryRefs,
+    input.sourceMessages,
+    watched.handledGoalEntryIds,
+  );
   let messages = projectFixedExchangeViews(
-    stable,
+    stable.messages,
     input.fixedViews,
     input.activeModelKey,
     input.contextEpoch,
   ) as readonly T[];
   messages = projectBashExecutionViews(
     messages,
-    input.entryRefs,
+    stable.entryRefs,
     input.sourceMessages,
     input.fixedViews,
   );
-  const leased = projectLeasedContent(messages, input);
+  const leased = projectLeasedContent(messages, { ...input, entryRefs: stable.entryRefs });
   messages = stripModelDetails(leased.messages);
   return {
     messages,
-    ...(input.entryRefs === undefined ? {} : { entryRefs: input.entryRefs }),
+    ...(stable.entryRefs === undefined ? {} : { entryRefs: stable.entryRefs }),
     ...(leased.shownRecoveryToolCallIds.length === 0 ? {} : {
       shownRecoveryToolCallIds: leased.shownRecoveryToolCallIds,
     }),
@@ -877,9 +1134,15 @@ export function buildProviderRepresentation<T extends ContextMessageLike>(
     previous.toolSetRevision === input.toolSetRevision &&
     previous.inputEntryIds.length <= inputEntryIds.length &&
     previous.inputEntryIds.every((entryId, index) => inputEntryIds[index] === entryId);
+  const appendedGoalControl = compatible && input.sourceMessages !== undefined &&
+    inputEntryIds.slice(previous.inputEntryIds.length).some((entryId) => {
+      const source = input.sourceMessages?.get(entryId);
+      return source !== undefined && goalControlState(source)?.goalId !== undefined;
+    });
+  const reusable = compatible && !appendedGoalControl;
 
   let result: SharedProjectionResult<T>;
-  if (compatible && previous.inputEntryIds.length === inputEntryIds.length) {
+  if (reusable && previous.inputEntryIds.length === inputEntryIds.length) {
     result = {
       messages: previous.outputMessages,
       entryRefs: previous.outputRefs,
@@ -888,7 +1151,7 @@ export function buildProviderRepresentation<T extends ContextMessageLike>(
       }),
       ...(previous.shownImageRefs.length === 0 ? {} : { shownImageRefs: [...previous.shownImageRefs] }),
     };
-  } else if (compatible) {
+  } else if (reusable) {
     const prefixLength = previous.inputEntryIds.length;
     const prefixOutputLength = previous.outputMessages.length;
     const suffixIds = inputEntryIds.slice(prefixLength);
@@ -930,7 +1193,7 @@ export function buildProviderRepresentation<T extends ContextMessageLike>(
   if (input.purpose === "provider") {
     input.cache.epoch = inputEntryIds === undefined
       ? undefined
-      : cacheProjection(input, inputEntryIds, result, compatible ? previous : undefined);
+      : cacheProjection(input, inputEntryIds, result, reusable ? previous : undefined);
   }
   return result;
 }

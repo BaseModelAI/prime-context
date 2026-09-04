@@ -20,7 +20,7 @@
     {
       "id": "updates",
       "inject": "stages/updates/",
-      "message": "`inputs/updates.json` contains revised and cancelled segments, and `inputs/alternatives.csv` contains replacement choices. Apply the highest revision per segment. For each broken connection caused by the update, choose the earliest-arriving alternative that satisfies the connection rules; break ties by price then alternative ID. Add `output/rebook.csv` and regenerate the timeline and issues.",
+      "message": "`inputs/updates.json` contains revised and cancelled segments, and `inputs/alternatives.csv` contains replacement choices. Apply the highest revision per segment. For each broken connection caused by the update, choose the earliest-arriving alternative that satisfies the connection rules; break ties by price then alternative ID. Write `output/rebook.csv` with the exact header `original_segment_id,alternative_id` and one row per broken original segment, containing its segment ID and the chosen alternative ID. Regenerate the timeline and issues.",
       "compact_after": false
     }
   ],

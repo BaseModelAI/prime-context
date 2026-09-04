@@ -101,10 +101,8 @@ def read_rebook(path):
     if b"\r" in raw or (raw and not raw.endswith(b"\n")): raise ValueError("line endings")
     with path.open(encoding="utf-8",newline="") as h:
         reader=csv.DictReader(h); fields=reader.fieldnames or []; rows=list(reader)
-    original=next((name for name in ("original_segment_id","segment_id","replaces_segment_id") if name in fields),None)
-    alternative=next((name for name in ("alternative_id","selected_alternative_id","replacement_id") if name in fields),None)
-    if original is None or alternative is None: raise ValueError("rebook header")
-    return raw,[{"original_segment_id":row[original],"alternative_id":row[alternative],"price":row.get("price",""),"arrival_utc":row.get("arrival_utc","")} for row in rows]
+    if fields != ["original_segment_id","alternative_id"]: raise ValueError("rebook header")
+    return raw,[{"original_segment_id":row["original_segment_id"],"alternative_id":row["alternative_id"]} for row in rows]
 
 def outputs(root):
     tr,tl=readcsv(root/"output/timeline.csv",TF); rr,rb=read_rebook(root/"output/rebook.csv"); raw=(root/"output/issues.json").read_bytes(); value=json.loads(raw)
@@ -128,7 +126,7 @@ def main():
                     checks[0]=timeline==etimeline and all(row["start_utc"].endswith("Z") and row["end_utc"].endswith("Z") for row in timeline)
                     ids={row["segment_id"]:row for row in timeline}; checks[1]="A1" not in ids and ids.get("F2",{}).get("revision")=="3"
                     checks[2]=issues==eissues and {item["type"] for item in issues}=={"airport_change","duplicate_booking"}
-                    checks[3]=len(rebook)==1 and rebook[0]["original_segment_id"]=="F2" and rebook[0]["alternative_id"]=="ALT-C" and (not rebook[0]["price"] or rebook[0]["price"]=="220.00") and (not rebook[0]["arrival_utc"] or rebook[0]["arrival_utc"]=="2025-03-02T18:50:00Z") and ids["F2"]["selected_alternative_id"]=="ALT-C"
+                    checks[3]=len(rebook)==1 and rebook[0]=={"original_segment_id":"F2","alternative_id":"ALT-C"} and ids["F2"]["selected_alternative_id"]=="ALT-C"
                     checks[4]=(timeline==sorted(timeline,key=lambda r:(r["start_utc"],r["segment_id"])) and rebook==sorted(rebook,key=lambda r:r["original_segment_id"]) and all(list(item)==sorted(item) for item in issues) and all(b"\r" not in raw and raw.endswith(b"\n") for raw in (tr,rr,ir)))
                 except (OSError,UnicodeError,csv.Error,json.JSONDecodeError,ValueError,KeyError) as exc: notes.append(f"main outputs invalid: {type(exc).__name__}")
         edge=False

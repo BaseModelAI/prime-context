@@ -21,19 +21,19 @@
     {
       "id": "ordinance-update",
       "inject": "stages/ordinance-update/",
-      "message": "`inputs/ordinance_update.json` changes required documents and fees from an effective date. Revalidate only applications still open on that date and add `output/ordinance_impacts.csv`.",
+      "message": "Read `ORDINANCE.md` and implement its exact report contract. `inputs/ordinance_update.json` changes required documents and fees from an effective date. Revalidate only applications still open on that date and add `output/ordinance_impacts.csv`.",
       "compact_after": false
     },
     {
       "id": "correction-batch",
       "inject": "stages/correction-batch/",
-      "message": "`inputs/correction_batch/` contains owner corrections and duplicate-application links. Apply higher revisions, merge linked duplicates into the lowest application ID, and retain all document references on the survivor.",
+      "message": "Read `CORRECTIONS.md` and implement its exact import and merge contract. `inputs/correction_batch/` contains owner corrections and duplicate-application links. Apply higher revisions, merge linked duplicates into the lowest application ID, and retain all document references on the survivor.",
       "compact_after": true
     },
     {
       "id": "final-status",
       "inject": "stages/final-status/",
-      "message": "Generate `output/status.csv` and one notice letter per application. Status is `approved` when parcel, owner, zoning, and required documents are valid; `needs_information` when the only blockers are missing or expired documents; and `manual_review` for absent parcels, owner mismatches, zoning incompatibility, unresolved duplicates, or parse errors. Letters must name only the actual outstanding issues and exact fee due.",
+      "message": "Read `STATUS.md` and implement its exact CSV and letter contracts. Generate `output/status.csv` and one notice letter per application. Status is `approved` when parcel, owner, zoning, and required documents are valid; `needs_information` when the only blockers are missing or expired documents; and `manual_review` for absent parcels, owner mismatches, zoning incompatibility, unresolved duplicates, or parse errors. Letters must name only the actual outstanding issues and exact fee due.",
       "compact_after": false
     }
   ],

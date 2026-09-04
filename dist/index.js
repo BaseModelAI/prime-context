@@ -3612,32 +3612,35 @@ function goalRemaining(message) {
 function attribute(name, value) {
   return value === void 0 ? "" : ` ${name}="${escapeXml(String(value))}"`;
 }
-function mapGoalMessage(message, states) {
+function hasNonTextContent(content) {
+  return Array.isArray(content) && content.some((part) => record(part)?.type !== "text");
+}
+function goalControlState(message) {
+  if (message.role !== "custom" || message.customType !== GOAL_CONTEXT_TYPE || hasNonTextContent(message.content)) {
+    return void 0;
+  }
   const details = record(message.details);
   const objective = goalObjective(message);
-  if (!objective) return message;
-  const goalId = typeof details?.goalId === "string" ? details.goalId : "goal";
-  const status = typeof details?.status === "string" ? details.status : void 0;
-  const remaining = goalRemaining(message);
-  const previous = states.get(goalId);
-  const objectiveChanged = !previous || previous.objective !== objective;
-  const version = objectiveChanged ? (previous?.version ?? 0) + 1 : previous.version;
-  const occurrences = (previous?.occurrences ?? 0) + 1;
-  let text;
-  if (objectiveChanged) {
-    text = [
-      `<goal_objective${attribute("id", goalId)}${attribute("version", version)}>`,
-      `objective: ${quoted(objective)}`,
-      ...status !== previous?.status ? [`status: ${escapeXml(status ?? "unknown")}`] : [],
-      ...remaining !== previous?.remaining ? [`remaining_tokens: ${escapeXml(remaining ?? "unknown")}`] : [],
-      "</goal_objective>"
-    ].join("\n");
-  } else {
-    const continuation = typeof details?.continuationsUsed === "number" ? details.continuationsUsed : occurrences - 1;
-    text = `<goal_tick${attribute("id", goalId)}${attribute("continuation", continuation)}${status !== previous.status ? attribute("status", status) : ""}${remaining !== previous.remaining ? attribute("remaining_tokens", remaining) : ""} />`;
-  }
-  states.set(goalId, { objective, version, status, remaining, occurrences });
-  return { ...message, content: replaceTextContent(message.content, text) };
+  if (!objective) return void 0;
+  return {
+    ...typeof details?.goalId === "string" && details.goalId ? { goalId: details.goalId } : {},
+    objective,
+    ...typeof details?.status === "string" ? { status: details.status } : {},
+    ...goalRemaining(message) === void 0 ? {} : { remaining: goalRemaining(message) },
+    ...typeof details?.continuationsUsed === "number" ? { continuation: details.continuationsUsed } : {}
+  };
+}
+function renderGoalControlState(state) {
+  return [
+    `<goal_state${attribute("id", state.goalId)}${attribute("status", state.status)}${attribute("continuation", state.continuation)}${attribute("remaining_tokens", state.remaining)}>`,
+    `objective: ${quoted(state.objective)}`,
+    "</goal_state>"
+  ].join("\n");
+}
+function mapGoalMessage(message) {
+  const state = goalControlState(message);
+  if (!state) return message;
+  return { ...message, content: replaceTextContent(message.content, renderGoalControlState(state)) };
 }
 function listedNames(text, marker) {
   const match = text.match(marker);
@@ -3663,12 +3666,11 @@ function mapIpythonMessage(message) {
   return { ...message, content: replaceTextContent(message.content, summary) };
 }
 function mapStableControlMessages(messages) {
-  const goals = /* @__PURE__ */ new Map();
   let changed = false;
   const mapped = messages.map((message) => {
     let next = message;
     if (message.role === "custom" && message.customType === GOAL_CONTEXT_TYPE) {
-      next = mapGoalMessage(message, goals);
+      next = mapGoalMessage(message);
     } else if (message.role === "custom" && IPYTHON_STATE_TYPES.has(message.customType ?? "")) {
       next = mapIpythonMessage(message);
     }
@@ -3676,6 +3678,23 @@ function mapStableControlMessages(messages) {
     return next;
   });
   return changed ? mapped : messages;
+}
+function projectStableControlMessages(messages) {
+  const mapped = mapStableControlMessages(messages);
+  const latestGoalIndex = /* @__PURE__ */ new Map();
+  for (let index = 0; index < messages.length; index += 1) {
+    const state = goalControlState(messages[index]);
+    if (state?.goalId) latestGoalIndex.set(state.goalId, index);
+  }
+  const retainedIndexes = messages.flatMap((message, index) => {
+    const state = goalControlState(message);
+    return state?.goalId && latestGoalIndex.get(state.goalId) !== index ? [] : [index];
+  });
+  if (retainedIndexes.length === messages.length) return { messages: mapped, retainedIndexes };
+  return {
+    messages: retainedIndexes.map((index) => mapped[index]),
+    retainedIndexes
+  };
 }
 function persistentControlMessage(customType, rendered, timestamp = Date.now()) {
   return {
@@ -4024,23 +4043,217 @@ function stripModelDetails(messages) {
   });
   return changed ? projected : messages;
 }
-function stableModelControls(messages, entryRefs, sources) {
-  if (!entryRefs || !sources || sources.size === 0) return messages;
+var WATCH_TURNS_TO_KEEP = 2;
+var WATCH_SUMMARY_MAX_BYTES = 768;
+function projectedText(content) {
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return "";
+  return content.flatMap((block) => {
+    if (!block || typeof block !== "object") return [];
+    const value = block;
+    return value.type === "text" && typeof value.text === "string" ? [value.text] : [];
+  }).join("\n");
+}
+function replaceProjectedText(content, text) {
+  if (!Array.isArray(content)) return text;
+  let replaced = false;
+  const blocks = content.flatMap((block) => {
+    if (!block || typeof block !== "object" || block.type !== "text") return [block];
+    if (replaced) return [];
+    replaced = true;
+    return [{ ...block, text }];
+  });
+  return replaced ? blocks : [{ type: "text", text }, ...blocks];
+}
+function orderedValue(value) {
+  if (Array.isArray(value)) return value.map(orderedValue);
+  if (!value || typeof value !== "object") return typeof value === "string" ? value.trim() : value;
+  return Object.fromEntries(Object.entries(value).sort(([left], [right]) => left.localeCompare(right)).map(([key, child]) => [key, orderedValue(child)]));
+}
+function watcherCallSignature(block) {
+  const name = typeof block.name === "string" ? block.name : "";
+  const args = block.arguments;
+  if (!args || typeof args !== "object" || Array.isArray(args)) return void 0;
+  if (name === "ipython") {
+    const code = args.code;
+    if (typeof code !== "string" || !/(?:\.running\b|\.poll\s*\(|\.tail\s*\(|st_mtime|rpc-events\.jsonl)/iu.test(code) || /(?:write_text|write_bytes|await\s+edit|\.kill\s*\(|\.terminate\s*\(|\.unlink\s*\(|\.rename\s*\(|\.mkdir\s*\(|\.rmdir\s*\(|\bbash\s*\()/iu.test(code)) {
+      return void 0;
+    }
+  } else if (name === "bash") {
+    const command = args.command;
+    if (typeof command !== "string" || !/(?:\bps\b|\bpgrep\b|\bjobs\b|\btail\b|\bstat\b|\btest\s+-[efd]\b)/iu.test(command) || /(?:^|[;&|]\s*)(?:rm|mv|cp|kill|pkill|touch|mkdir|rmdir|npm|pnpm|yarn|git)\b|(?:^|[^>])>(?!>)/iu.test(command)) {
+      return void 0;
+    }
+  } else if (!/(?:poll|watch|status|heartbeat|wait)/iu.test(name)) {
+    return void 0;
+  }
+  try {
+    return JSON.stringify({ name, arguments: orderedValue(args) });
+  } catch {
+    return void 0;
+  }
+}
+function watcherTerminalText(text) {
+  return /\brunning\s*[:=]?\s*(?:false|no)\b|\bstatus\s*[:=]\s*(?:complete|completed|failed|error|exited|terminated)\b|\b(?:process|job|run)\s+(?:completed|finished|failed|exited|terminated)\b|\bexit[_ ]code\s*[:=]\s*[1-9]\d*/iu.test(text);
+}
+function hasMediaContent(message) {
+  return Array.isArray(message.content) && message.content.some((block) => block && typeof block === "object" && block.type === "image");
+}
+function completedGoalWatchTurn(messages, start, end, sourceByIndex) {
+  const goal = goalControlState(sourceByIndex.get(start) ?? messages[start]);
+  if (!goal?.goalId) return void 0;
+  const callIds = /* @__PURE__ */ new Set();
+  const resultIds = /* @__PURE__ */ new Set();
+  let signature;
+  let latestResult = "";
+  let finalAssistant = "";
+  let lastRole = "";
+  let finalAssistantHasCall = false;
+  for (let index = start + 1; index < end; index += 1) {
+    const message = sourceByIndex.get(index) ?? messages[index];
+    if (hasMediaContent(message)) return void 0;
+    lastRole = message.role;
+    if (message.role === "assistant") {
+      let hasCall = false;
+      if (Array.isArray(message.content)) {
+        for (const block of message.content) {
+          if (!toolCall(block)) continue;
+          const current = watcherCallSignature(block);
+          if (!current || signature && current !== signature) return void 0;
+          signature = current;
+          callIds.add(block.id);
+          hasCall = true;
+        }
+      }
+      finalAssistant = projectedText(message.content).trim();
+      finalAssistantHasCall = hasCall;
+    } else if (message.role === "toolResult") {
+      if (message.isError === true || typeof message.toolCallId !== "string") return void 0;
+      const resultText = projectedText(message.content).trim();
+      if (watcherTerminalText(resultText)) return void 0;
+      resultIds.add(message.toolCallId);
+      latestResult = resultText;
+    } else {
+      return void 0;
+    }
+  }
+  if (!signature || callIds.size === 0 || lastRole !== "assistant" || finalAssistantHasCall || [...callIds].some((id) => !resultIds.has(id)) || [...resultIds].some((id) => !callIds.has(id))) {
+    return void 0;
+  }
+  const latestObservation = [latestResult, finalAssistant].filter(Boolean).join(" | ");
+  return {
+    start,
+    end,
+    goalId: goal.goalId,
+    objective: goal.objective,
+    ...goal.status === void 0 ? {} : { status: goal.status },
+    signature,
+    latestObservation
+  };
+}
+function renderWatchSummary(turns) {
+  const latest = turns.at(-1);
+  const observation = truncateUtf8(latest.latestObservation.replace(/\s+/g, " "), WATCH_SUMMARY_MAX_BYTES);
+  return [
+    `<goal_watch id="${escapeXml(latest.goalId)}" collapsed_polls="${turns.length}">`,
+    ...observation ? [`latest_collapsed_observation: ${escapeXml(observation)}`] : [],
+    "Older identical read-only polling turns were folded into this current state.",
+    "</goal_watch>"
+  ].join("\n");
+}
+function projectGoalWatcherTurns(messages, entryRefs, sources) {
+  if (!entryRefs || !sources || sources.size === 0) return { messages, entryRefs };
+  const refByIndex = new Map(entryRefs.map((ref) => [ref.messageIndex, ref]));
   const sourceByIndex = new Map(entryRefs.flatMap((ref) => {
     const source = sources.get(ref.entryId);
     return source ? [[ref.messageIndex, source]] : [];
   }));
-  if (sourceByIndex.size === 0) return messages;
-  const controls = messages.map((message, index) => sourceByIndex.get(index) ?? message);
-  const mapped = mapStableControlMessages(controls);
-  let changed = false;
-  const projected = messages.map((message, index) => {
+  const goalStarts = messages.flatMap((_message, index) => {
     const source = sourceByIndex.get(index);
-    if (!source || mapped[index] === source) return message;
-    changed = true;
-    return { ...message, content: mapped[index].content };
+    return source && goalControlState(source)?.goalId ? [index] : [];
   });
-  return changed ? projected : messages;
+  if (goalStarts.length === 0) return { messages, entryRefs };
+  const turns = goalStarts.flatMap((start, turnIndex) => {
+    const end = goalStarts[turnIndex + 1] ?? messages.length;
+    const turn = completedGoalWatchTurn(messages, start, end, sourceByIndex);
+    return turn ? [turn] : [];
+  });
+  if (turns.length === 0) return { messages, entryRefs };
+  const dropped = /* @__PURE__ */ new Set();
+  const replacements = /* @__PURE__ */ new Map();
+  const handledGoalEntryIds = /* @__PURE__ */ new Set();
+  for (let index = 0; index < turns.length; ) {
+    let end = index + 1;
+    while (end < turns.length && turns[end].start === turns[end - 1].end && turns[end].goalId === turns[index].goalId && turns[end].objective === turns[index].objective && turns[end].status === turns[index].status && turns[end].signature === turns[index].signature) {
+      end += 1;
+    }
+    const run = turns.slice(index, end);
+    const collapsed = run.slice(0, Math.max(0, run.length - WATCH_TURNS_TO_KEEP));
+    if (collapsed.length > 0) {
+      for (const turn of collapsed) {
+        for (let messageIndex = turn.start; messageIndex < turn.end; messageIndex += 1) dropped.add(messageIndex);
+      }
+      const summaryIndex = collapsed.at(-1)?.start;
+      dropped.delete(summaryIndex);
+      replacements.set(summaryIndex, {
+        ...messages[summaryIndex],
+        content: replaceProjectedText(messages[summaryIndex].content, renderWatchSummary(collapsed))
+      });
+      const summaryRef = refByIndex.get(summaryIndex);
+      if (summaryRef) handledGoalEntryIds.add(summaryRef.entryId);
+    }
+    for (const turn of run.slice(-WATCH_TURNS_TO_KEEP)) {
+      const source = sourceByIndex.get(turn.start);
+      const state = source && goalControlState(source);
+      if (state) {
+        replacements.set(turn.start, {
+          ...messages[turn.start],
+          content: replaceProjectedText(messages[turn.start].content, renderGoalControlState(state))
+        });
+        const ref = refByIndex.get(turn.start);
+        if (ref) handledGoalEntryIds.add(ref.entryId);
+      }
+    }
+    index = end;
+  }
+  const projected = [];
+  const projectedRefs = [];
+  for (let inputIndex = 0; inputIndex < messages.length; inputIndex += 1) {
+    if (dropped.has(inputIndex)) continue;
+    const outputIndex = projected.length;
+    projected.push(replacements.get(inputIndex) ?? messages[inputIndex]);
+    const ref = refByIndex.get(inputIndex);
+    if (ref) projectedRefs.push({ ...ref, messageIndex: outputIndex });
+  }
+  return { messages: projected, entryRefs: projectedRefs, handledGoalEntryIds };
+}
+function stableModelControls(messages, entryRefs, sources, handledGoalEntryIds = /* @__PURE__ */ new Set()) {
+  if (!entryRefs || !sources || sources.size === 0) return { messages, entryRefs };
+  const refByIndex = new Map(entryRefs.map((ref) => [ref.messageIndex, ref]));
+  const sourceByIndex = new Map(entryRefs.flatMap((ref) => {
+    const source = handledGoalEntryIds.has(ref.entryId) ? void 0 : sources.get(ref.entryId);
+    return source ? [[ref.messageIndex, source]] : [];
+  }));
+  if (sourceByIndex.size === 0) return { messages, entryRefs };
+  const controls = messages.map((message, index) => sourceByIndex.get(index) ?? message);
+  const projectedControls = projectStableControlMessages(controls);
+  const controlsChanged = projectedControls.retainedIndexes.length !== messages.length || projectedControls.retainedIndexes.some((inputIndex, outputIndex) => inputIndex !== outputIndex || projectedControls.messages[outputIndex] !== controls[inputIndex]);
+  if (!controlsChanged) return { messages, entryRefs };
+  const projected = [];
+  const projectedRefs = [];
+  for (let outputIndex = 0; outputIndex < projectedControls.retainedIndexes.length; outputIndex += 1) {
+    const inputIndex = projectedControls.retainedIndexes[outputIndex];
+    const message = messages[inputIndex];
+    const source = sourceByIndex.get(inputIndex);
+    const mapped = projectedControls.messages[outputIndex];
+    projected.push(source && mapped !== source ? { ...message, content: mapped.content } : message);
+    const ref = refByIndex.get(inputIndex);
+    if (ref) projectedRefs.push({ ...ref, messageIndex: outputIndex });
+  }
+  return {
+    messages: projected,
+    entryRefs: projectedRefs
+  };
 }
 function imagePlaceholder(image) {
   const dimensions = image.width && image.height ? `${image.width}x${image.height}` : "unknown";
@@ -4136,24 +4349,30 @@ function projectBashExecutionViews(messages, entryRefs, sourceMessages, views) {
   return changed ? projected : messages;
 }
 function projectModelContext(input) {
-  const stable = stableModelControls(input.messages, input.entryRefs, input.sourceMessages);
+  const watched = projectGoalWatcherTurns(input.messages, input.entryRefs, input.sourceMessages);
+  const stable = stableModelControls(
+    watched.messages,
+    watched.entryRefs,
+    input.sourceMessages,
+    watched.handledGoalEntryIds
+  );
   let messages = projectFixedExchangeViews(
-    stable,
+    stable.messages,
     input.fixedViews,
     input.activeModelKey,
     input.contextEpoch
   );
   messages = projectBashExecutionViews(
     messages,
-    input.entryRefs,
+    stable.entryRefs,
     input.sourceMessages,
     input.fixedViews
   );
-  const leased = projectLeasedContent(messages, input);
+  const leased = projectLeasedContent(messages, { ...input, entryRefs: stable.entryRefs });
   messages = stripModelDetails(leased.messages);
   return {
     messages,
-    ...input.entryRefs === void 0 ? {} : { entryRefs: input.entryRefs },
+    ...stable.entryRefs === void 0 ? {} : { entryRefs: stable.entryRefs },
     ...leased.shownRecoveryToolCallIds.length === 0 ? {} : {
       shownRecoveryToolCallIds: leased.shownRecoveryToolCallIds
     },
@@ -4234,8 +4453,13 @@ function buildProviderRepresentation(input) {
   const inputEntryIds = completeOrderedEntryIds(input.messages, input.entryRefs);
   const previous = input.cache.epoch;
   const compatible = inputEntryIds !== void 0 && previous !== void 0 && previous.id === input.epochId && previous.modelKey === input.modelKey && previous.toolSetRevision === input.toolSetRevision && previous.inputEntryIds.length <= inputEntryIds.length && previous.inputEntryIds.every((entryId2, index) => inputEntryIds[index] === entryId2);
+  const appendedGoalControl = compatible && input.sourceMessages !== void 0 && inputEntryIds.slice(previous.inputEntryIds.length).some((entryId2) => {
+    const source = input.sourceMessages?.get(entryId2);
+    return source !== void 0 && goalControlState(source)?.goalId !== void 0;
+  });
+  const reusable = compatible && !appendedGoalControl;
   let result;
-  if (compatible && previous.inputEntryIds.length === inputEntryIds.length) {
+  if (reusable && previous.inputEntryIds.length === inputEntryIds.length) {
     result = {
       messages: previous.outputMessages,
       entryRefs: previous.outputRefs,
@@ -4244,7 +4468,7 @@ function buildProviderRepresentation(input) {
       },
       ...previous.shownImageRefs.length === 0 ? {} : { shownImageRefs: [...previous.shownImageRefs] }
     };
-  } else if (compatible) {
+  } else if (reusable) {
     const prefixLength = previous.inputEntryIds.length;
     const prefixOutputLength = previous.outputMessages.length;
     const suffixIds = inputEntryIds.slice(prefixLength);
@@ -4280,7 +4504,7 @@ function buildProviderRepresentation(input) {
     projectionIdentity: JSON.stringify([input.epochId, input.modelKey, input.toolSetRevision])
   };
   if (input.purpose === "provider") {
-    input.cache.epoch = inputEntryIds === void 0 ? void 0 : cacheProjection(input, inputEntryIds, result, compatible ? previous : void 0);
+    input.cache.epoch = inputEntryIds === void 0 ? void 0 : cacheProjection(input, inputEntryIds, result, reusable ? previous : void 0);
   }
   return result;
 }
@@ -8208,7 +8432,11 @@ function registerPrimeContextTool(pi, actions) {
               details: { matches: recalled.matches }
             };
           }
-          case "list":
+          case "list": {
+            const scope = params.scope ?? "task";
+            if (scope === "parent" || scope === "project") {
+              throw new Error(`prime_context list does not support scope=${scope}; use recall instead.`);
+            }
             return textResult(
               await formatObservationList(
                 actions,
@@ -8216,13 +8444,15 @@ function registerPrimeContextTool(pi, actions) {
                 signal
               )
             );
+          }
           case "status":
             return textResult(await formatStatus(actions, signal));
           case "update":
             return textResult(formatSnapshotUpdate(actions.updateSnapshot(params)));
         }
       } catch (error) {
-        return textResult(`Prime Context error: ${error.message}`);
+        const message = error instanceof Error ? error.message : String(error);
+        throw new Error(`Prime Context error: ${message}`);
       }
     }
   });
@@ -11535,6 +11765,18 @@ ${skillSupplement}` : content,
     } else if (runtime.projectionToolSetRevision !== toolSetRevision) {
       runtime.projectionToolSetRevision = toolSetRevision;
       advanceProjectionEpoch();
+    }
+    if (refs !== void 0) {
+      const missingSourceIds = new Set(refs.map((ref) => ref.entryId).filter((entryId2) => !runtime.sourceMessages.has(entryId2)));
+      if (missingSourceIds.size > 0) {
+        const branch = ctx.sessionManager.getBranch();
+        for (let index = branch.length - 1; index >= 0 && missingSourceIds.size > 0; index -= 1) {
+          for (const candidate of branchProjectionEntries([branch[index]])) {
+            if (!missingSourceIds.delete(candidate.entryId)) continue;
+            runtime.sourceMessages.set(candidate.entryId, candidate.message);
+          }
+        }
+      }
     }
     const projectionInput = {
       purpose,

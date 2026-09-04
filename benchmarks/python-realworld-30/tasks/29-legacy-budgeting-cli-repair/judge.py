@@ -59,7 +59,7 @@ def evaluate(task,candidate,kind):
         for args in cmds:
             rc,detail=command(root,*args); logs.append(detail)
             if args[0]=="import": runnable=True
-            if rc: return [False]*5,runnable,False,"command failed: "+detail[:500],root
+            if rc: return ([False]*5 if kind=="main" else False),runnable,False,"command failed: "+detail[:500],root
         header,rows,data,report,errors=read_exports(root)
         parsed=True
         if kind=="edge":

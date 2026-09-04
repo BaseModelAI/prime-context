@@ -2,134 +2,214 @@
 
 # Prime Context
 
-**Purpose-aware context management for long-running Prime Agent sessions.**
+## **30/30. Faster every time. Cheaper every time.**
 
-Keep the complete local transcript. Send the model only the context it can use.
+**The purpose-aware context engine that turns Prime Agent into a long-horizon wrecking ball.**
+
+Keep the exact local evidence. Strip the repeated noise. Preserve the objective. Finish the job.
 
 [![npm version](https://img.shields.io/npm/v/prime-agent-context?style=flat-square&color=CB3837)](https://www.npmjs.com/package/prime-agent-context)
 [![Prime Agent](https://img.shields.io/badge/Prime_Agent-0.9.1_%2B_host_patch-6C63FF?style=flat-square)](https://github.com/PrimeIntellect-ai/prime-agent)
 [![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A522.8.0-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-2ea44f?style=flat-square)](LICENSE)
 
-[Install](#quick-start) · [How it works](#how-it-works) · [Benchmark](#interim-910-benchmark-evidence) · [Commands](#commands) · [Configuration](#configuration)
+[Install](#install-exact-steps) · [See the advantage](#what-prime-context-adds) · [Read every benchmark](BENCHMARKS.md) · [Changelog](CHANGELOG.md)
 
 </div>
 
 ---
 
-Prime Context is a local extension for [Prime Agent](https://github.com/PrimeIntellect-ai/prime-agent). It prevents large tool results, repeated reads, traces, generated files, and long-running workflow state from crowding out the task itself.
+Prime Agent already has the tools. Prime Context gives it the **memory discipline, evidence control, and task continuity** to use those tools for hours without drowning in its own transcript.
 
-It does this without rewriting the persisted session:
+This is not a chat-summary wrapper. It is a branch-aware, purpose-aware local context runtime for [Prime Agent](https://github.com/PrimeIntellect-ai/prime-agent). It observes complete tool exchanges, archives exact evidence, projects a stable working set for each model request, and lets the agent recover the original bytes when it needs them.
 
-- **raw messages remain available locally;**
-- **large observations are archived and replaced only in the provider-facing view;**
-- **important failures, test results, source locations, and task state stay visible;**
-- **exact evidence can be recovered on demand;**
-- **stable projections improve prompt locality instead of changing on every turn.**
-
-> [!NOTE]
-> **Prime Context 9.1.1 is an interim, usable release of a major runtime upgrade.** It is ready for real work on the pinned Prime Agent 0.9.1 host, while the new hermetic benchmark and its reference points continue to mature. Scores from the retired benchmark are retained as historical evidence, but they are not comparable with the new protocol.
-
-> [!WARNING]
-> **Full Prime Context 9.1.1 requires the version-pinned Prime Agent 0.9.1 host patch included in this repository.** Stock Prime Agent 0.9.1 does not yet emit the purpose-aware `model_context`, awaited hidden `turn_end` messages, and execution-mode metadata required by the finalized-exchange projection pipeline. The patch is idempotent and fails closed on any unsupported host version. [Install the host contract](#quick-start).
+The raw session remains local and intact. The model sees the part that can move the task forward.
 
 > [!IMPORTANT]
-> Prime Context 9.1.1 also appends its bundled **no-verification-theater / KISS policy** to Prime Agent's assembled system prompt. It applies without an `AGENTS.md` file and remains active across ordinary runs, autonomous continuations, and compaction. [Read the policy](#global-system-prompt-policy).
+> Prime Context 9.2.0 requires **Prime Agent 0.9.1** and the included, version-pinned host patch. Install Prime Agent first, install Prime Context second, then run the three patch commands exactly as shown below.
 
-<div align="center">
+> [!WARNING]
+> The host patch is required. Prime Agent's public extension ABI does not expose every finalized-exchange, projection, compaction, usage, and continuation surface Prime Context needs. The patcher accepts only the exact 0.9.1 contract, validates all transformations before writing, is idempotent, and fails instead of guessing.
 
-| **10/12** strict passes | **-49.6%** tokens | **-31.7%** time | **-31.8%** cost |
-|:---:|:---:|:---:|:---:|
-| vs **9/12** on local 8.1.1 | matched strict pairs | matched strict pairs | matched strict pairs |
+## The scoreboard
 
-_One frozen random sample, `gpt-5.6-sol`, medium effort, isolated old and new hosts. Across all retained attempts, 9.1.0 also used 36.0% fewer tokens, 27.4% less agent time, and 26.4% less cost. The analyzer found no significant correctness or efficiency regression. [Read the interim benchmark report](benchmarks/RELEASE-9.1.0.md)._
+| Result | Prime Context | Vanilla Prime Agent 0.9.1 |
+|---|---:|---:|
+| Strict task completion | **30/30** | 29/30 |
+| Faster on strict both-pass pairs | **29/29** | 0/29 |
+| Cheaper on strict both-pass pairs | **29/29** | 0/29 |
+| Comparable agent time | **5,665.556 s** | 7,051.335 s |
+| Comparable billed API cost | **$11.898793** | $16.852171 |
+| Comparable provider tokens | **3,627,683** | 5,997,405 |
 
-</div>
+That is **19.65% less agent time**, **29.39% less billed cost**, and **39.51% fewer provider tokens** across the 29 tasks both systems strictly passed. Prime Context also won correctness on Task 30 after vanilla failed both allowed attempts.
+
+**Twenty-nine strict head-to-heads. Twenty-nine time wins. Twenty-nine cost wins. That is not a cherry-picked average. It is a sweep.**
+
+The recorded current arm used npm-installed `prime-agent-context@9.1.1` plus the release-candidate host patch. Version 9.2.0 ships that work together with the newly audited goal-state projection and error-surface improvements. No repository checkout was loaded by the benchmark. See [BENCHMARKS.md](BENCHMARKS.md) for methodology, all 30 task descriptions, every selected metric, all retained retries, and the evidence map.
+
+## What Prime Context adds
+
+| Capability | Vanilla Prime Agent 0.9.1 | Prime Context 9.2.0 |
+|---|---|---|
+| Model working context | Normal conversation history and host compaction | Purpose-aware projections for provider calls, compaction, branch summaries, and refinement |
+| Source of truth | Model context and persisted history are closely coupled | Raw local session history stays intact while the model receives a separate bounded working set |
+| Large tool results | Can dominate later prompts | Exact multipart archive plus compact structured capsules and direct recovery refs |
+| Repeated reads and logs | Repeated bytes return to the prompt | Stable pass-through, delta capsules, and explicit unchanged-region markers |
+| Tool understanding | General tool-call transcript | Execution-aware intent, resources, mutations, validation identity, failures, and ordered finalized exchanges |
+| Long-task continuity | Relies on the active transcript | Branch-scoped objective, constraints, focus, revisions, diagnostics, open work, and durable task anchors |
+| Goal state | Repeated continuation messages accumulate | *NEW* — one self-contained latest goal state replaces stale text-only repetitions |
+| Persistent goal polling | Unchanged watchers can re-prompt at machine speed | *NEW* — interruptible 15/30/60/120/180-second host backoff for unchanged read-only watchers |
+| Watcher transcript | Every successful poll remains model-facing | *NEW* — older identical read-only IPython and Bash polls fold into one bounded summary while recent complete exchanges remain |
+| Recovery failures and external listing | Some unsupported scope paths can look success-shaped | *NEW* — real tool errors propagate as errors; parent/project listing is rejected with exact-recall guidance |
+| Exact recovery | No Prime Context observation index | Pageable `read`, `inspect`, `search`, and exact `recall` over current, session, parent, and project evidence |
+| Media | Images can stay expensive across turns | Exact media archive, bounded recovery, stable placeholders, and controlled re-showing |
+| Recursive work | Child sessions have their own context | Direct-parent recall, exact-cwd project recall, fork import, child anchors, and descendant accounting |
+| Native knowledge | Host skills only | Frozen, validated, budgeted pattern and skill routing plus explicit `/pc learn` |
+| Optional auxiliary work | No Prime Context broker | Utility-gated task scouting, semantic distillation, stall recovery, and one-shot knowledge compilation |
+| Operator visibility | Host diagnostics | `/pc status`, `/pc task`, `/pc observations`, `/pc show`, `/pc doctor`, `/pc cleanup`, and more |
+| System policy | Project prompt only | Bundled global no-verification-theater / KISS policy, including after compaction and autonomous continuation |
+| Host integration | Stock ABI | Explicit, inspectable, exact-version patch; no hidden `postinstall` mutation |
 
 ## Why Prime Context?
 
 Long agent sessions fail in predictable ways:
 
-| Problem | Prime Context response |
+| Failure mode | Prime Context response |
 |---|---|
-| A command emits megabytes of logs | Stream the result into a local archive and show a bounded decision-focused capsule. |
+| A command emits thousands of lines | Archive the exact result and show a bounded capsule with decisive failures and summaries. |
 | The model rereads the same file or test output | Show what changed, or mark the repeated section as unchanged. |
-| Compaction hides requirements or current progress | Persist a compact task anchor, workflow state, open items, and relevant evidence. |
-| An image or typed result is too large to keep replaying | Show supported media once, then retain a recoverable descriptor. |
+| Tool-heavy work pushes out the original request | Restore a small durable task anchor and sparse current state. |
+| Compaction changes the model's view | Use the same projection rules for provider calls and compaction. |
 | A later turn needs exact old output | Recover bounded pages with the `prime_context` tool or `/pc` commands. |
-| Repeated context reshaping destroys cache locality | Freeze completed exchanges and reuse a stable provider projection generation. |
-| Direct REPL writes or native `bash()` calls make validation stale | Detect Python file writes and shell mutations, advance the workspace revision, and require current evidence. |
+| Parallel tools finish out of order | Finalize complete exchanges in assistant source order. |
+| A watcher keeps saying “still running” | Back off at the host and fold stale successful polls without hiding failures or terminal state. |
 
-Prime Context is not a second agent, a remote memory service, or a transcript database. It is a local context layer that operates at Prime Agent's extension hooks.
-
-## Quick start
+## Install: exact steps
 
 ### Requirements
 
-- Prime Agent **0.9.1**
+- Linux or macOS with Bash or Zsh
 - Node.js **22.8.0 or newer**
-- write access to the installed Prime Agent package for the compatibility patch
+- npm
+- write access to your active npm global prefix
+- provider credentials already supported by Prime Agent
 
-### 1. Install Prime Context from npm
+Do not mix Node installations or npm prefixes during these steps. Confirm that `node`, `npm`, and the installed `prime-agent` resolve from the same active Node environment.
 
-Prime Context pins the Prime Agent 0.9.1 runtime through its upstream release tarball because matching registry packages are not published. npm's `allowScripts` policy identifies that dependency by the exact tarball URL, not by the package name shown in npm's generated advice. Use this one-command policy so the reviewed dependency scripts run without the misleading repeated warning:
+### 1. Install Prime Agent 0.9.1 first
 
-```bash
-NPM_CONFIG_ALLOW_SCRIPTS='https://github.com/PrimeIntellect-ai/prime-agent/releases/download/v0.9.1/prime-agent-0.9.1.tgz,@google/genai,koffi,protobufjs' \
-  prime-agent package install npm:prime-agent-context@9.1.1
-```
-
-The policy applies only to this command and does not change your user npm configuration. In particular, replacing the tarball URL with `@earendil-works/pi-coding-agent` does not work: npm matches remote tarball dependencies by resolved URL.
-
-### 2. Install the Prime Agent host contract
-
-The patch command is installed with Prime Context. Run it only after step 1:
+Prime Agent 0.9.1 is distributed through its upstream GitHub release tarball. Matching registry packages are not available. npm identifies that dependency by the exact tarball URL, so the one-command `allowScripts` policy must include the URL itself:
 
 ```bash
-prime-context-patch-agent --check-stock "$(npm root -g)/prime-agent"
-prime-context-patch-agent "$(npm root -g)/prime-agent"
-prime-context-patch-agent --check "$(npm root -g)/prime-agent"
+PRIME_AGENT_TARBALL='https://github.com/PrimeIntellect-ai/prime-agent/releases/download/v0.9.1/prime-agent-0.9.1.tgz'
+NPM_CONFIG_ALLOW_SCRIPTS="$PRIME_AGENT_TARBALL,@google/genai,koffi,protobufjs" \
+  npm install --global "$PRIME_AGENT_TARBALL"
+
+prime-agent --version
 ```
 
-The first command verifies the complete stock host contract without writing. The patcher then validates every planned transformation before it writes any file; the final command verifies the patched contract. It accepts only `prime-agent@0.9.1`, is idempotent, and stops instead of guessing when the host differs. The host patch does not run automatically during package installation. Reinstalling or updating Prime Agent can overwrite the patch, in which case rerun all three commands.
+The last command must print:
 
-Start a new Prime Agent session. Prime Context is enabled by default.
+```text
+0.9.1
+```
 
-Check it:
+The environment policy applies only to that npm command. It does not change your user npm configuration.
+
+### 2. Install Prime Context 9.2.0
+
+Use Prime Agent's package manager. Keep the same exact `allowScripts` URL because Prime Context pins the same upstream runtime packages:
+
+```bash
+PRIME_AGENT_TARBALL='https://github.com/PrimeIntellect-ai/prime-agent/releases/download/v0.9.1/prime-agent-0.9.1.tgz'
+NPM_CONFIG_ALLOW_SCRIPTS="$PRIME_AGENT_TARBALL,@google/genai,koffi,protobufjs" \
+  prime-agent package install npm:prime-agent-context@9.2.0
+
+prime-agent package list
+command -v prime-context-patch-agent
+```
+
+`prime-agent package list` must include `npm:prime-agent-context@9.2.0`. The final command must print the installed patcher's path.
+
+### 3. Apply every required Prime Agent patch
+
+Run all three commands. Do not skip the stock check or the final check:
+
+```bash
+PRIME_AGENT_ROOT="$(npm root --global)/prime-agent"
+node -p "require(process.argv[1]).version" "$PRIME_AGENT_ROOT/package.json"
+
+prime-context-patch-agent --check-stock "$PRIME_AGENT_ROOT"
+prime-context-patch-agent "$PRIME_AGENT_ROOT"
+prime-context-patch-agent --check "$PRIME_AGENT_ROOT"
+```
+
+The version command must print `0.9.1`. The final command must report that the Prime Context host contract is installed.
+
+The patcher covers the complete host contract required by this release, including:
+
+- authoritative finalized tool exchanges and exact message-to-entry references;
+- awaited hidden `turn_end` messages and purpose-aware `model_context` projection;
+- provider, compaction, branch-summary, refinement, usage, and recursive-session plumbing;
+- Prime Context package discovery and execution behavior in the bundled host;
+- *NEW* interruptible persistent-goal watcher backoff in modular and bundled runtime paths.
+
+The patch does **not** run in `postinstall`. Nothing silently edits Prime Agent. Reinstalling or updating Prime Agent replaces the patched files; after any reinstall, run the three commands again.
+
+### 4. Start Prime Agent
+
+```bash
+prime-agent
+```
+
+Inside the session:
 
 ```text
 /pc doctor
 /pc status
 ```
 
-Pinned package sources are intentionally not auto-updated by Prime Agent 0.9.1. To upgrade an older installation to this release, replace its configured package and then rerun the idempotent patch and final check:
+Prime Context is enabled by default. `/pc doctor` should identify Prime Agent 0.9.1 and report no host-contract error.
+
+### Upgrade an existing 9.1.x installation
+
+Pinned Prime Agent package sources are not advanced by `prime-agent package update`. Replace the configured package explicitly, then upgrade the host contract:
 
 ```bash
 prime-agent package remove npm:prime-agent-context
-NPM_CONFIG_ALLOW_SCRIPTS='https://github.com/PrimeIntellect-ai/prime-agent/releases/download/v0.9.1/prime-agent-0.9.1.tgz,@google/genai,koffi,protobufjs' \
-  prime-agent package install npm:prime-agent-context@9.1.1
-prime-context-patch-agent "$(npm root -g)/prime-agent"
-prime-context-patch-agent --check "$(npm root -g)/prime-agent"
+
+PRIME_AGENT_TARBALL='https://github.com/PrimeIntellect-ai/prime-agent/releases/download/v0.9.1/prime-agent-0.9.1.tgz'
+NPM_CONFIG_ALLOW_SCRIPTS="$PRIME_AGENT_TARBALL,@google/genai,koffi,protobufjs" \
+  prime-agent package install npm:prime-agent-context@9.2.0
+
+PRIME_AGENT_ROOT="$(npm root --global)/prime-agent"
+prime-context-patch-agent "$PRIME_AGENT_ROOT"
+prime-context-patch-agent --check "$PRIME_AGENT_ROOT"
 ```
 
-### Install the extension from source instead
+Do not run `--check-stock` on an already patched host. Use it after a fresh Prime Agent install; use the idempotent apply-plus-check pair for an upgrade.
 
-Register the built source package first. A local source registration does not globally link the packaged command, so invoke its repository script directly afterward:
+### Install Prime Context from source instead
+
+Install Prime Agent 0.9.1 with step 1 first. Then:
 
 ```bash
-npm ci
+git clone https://github.com/BaseModelAI/prime-context.git
+cd prime-context
+
+PRIME_AGENT_TARBALL='https://github.com/PrimeIntellect-ai/prime-agent/releases/download/v0.9.1/prime-agent-0.9.1.tgz'
+NPM_CONFIG_ALLOW_SCRIPTS="$PRIME_AGENT_TARBALL,@google/genai,koffi,protobufjs" npm ci
 npm run build
 prime-agent package install "$PWD"
-node scripts/patch-prime-agent.mjs --check-stock "$(npm root -g)/prime-agent"
-node scripts/patch-prime-agent.mjs "$(npm root -g)/prime-agent"
-node scripts/patch-prime-agent.mjs --check "$(npm root -g)/prime-agent"
+
+PRIME_AGENT_ROOT="$(npm root --global)/prime-agent"
+node scripts/patch-prime-agent.mjs --check-stock "$PRIME_AGENT_ROOT"
+node scripts/patch-prime-agent.mjs "$PRIME_AGENT_ROOT"
+node scripts/patch-prime-agent.mjs --check "$PRIME_AGENT_ROOT"
 ```
 
-For one local run without installing the extension globally:
-
-```bash
-prime-agent -e "$PWD"
-```
+A local source registration does not globally link the packaged command, so the source flow invokes the repository script directly. For one run without registering the extension, use `prime-agent -e "$PWD"` after the host patch is installed.
 
 ## How it works
 
@@ -347,25 +427,36 @@ Uninstall the package with:
 prime-agent package remove npm:prime-agent-context
 ```
 
-Uninstalling does not delete existing archives.
+Removing the package does **not** reverse the Prime Agent host patch and does not delete existing archives. The patcher intentionally has no speculative unpatch mode. To restore a stock Prime Agent 0.9.1 host, reinstall the exact upstream tarball after removing Prime Context:
 
-## Interim 9.1.0 benchmark evidence
+```bash
+PRIME_AGENT_TARBALL='https://github.com/PrimeIntellect-ai/prime-agent/releases/download/v0.9.1/prime-agent-0.9.1.tgz'
+NPM_CONFIG_ALLOW_SCRIPTS="$PRIME_AGENT_TARBALL,@google/genai,koffi,protobufjs" \
+  npm install --global "$PRIME_AGENT_TARBALL"
+```
 
-Prime Context 9.1.0 was compared directly with the locally installed 8.1.1 release on one frozen random sample of 12 tasks from the new hermetic Python 3.12 suite. Both arms used `openai-codex/gpt-5.6-sol` at medium effort, isolated hosts, identical neutral tools, and no more than six concurrent attempts.
+Delete `~/.prime/agent/prime-context` separately only if you also want to erase the local observation archives.
 
-| Measure | Local 8.1.1 | New 9.1.0 |
+## The completed 30-task benchmark
+
+The release gate used 30 hermetic Python 3.12 workflows with hidden future stages, fresh judge fixtures, loopback-only tool networking, isolated hosts, and a maximum of six concurrent attempts. Both arms used `openai-codex/gpt-5.6-sol` at medium effort.
+
+| Measure | Prime Context | Vanilla 0.9.1 |
 |---|---:|---:|
-| Selected strict passes | 9/12 | **10/12** |
-| Primary strict passes | 8/12 | **9/12** |
-| Selected mean progress | 4.0833 | **4.2500** |
+| Strict passes | **30/30** | 29/30 |
+| Both-pass time wins | **29/29** | 0/29 |
+| Both-pass cost wins | **29/29** | 0/29 |
+| Comparable agent time | **5,665.556 s** | 7,051.335 s |
+| Comparable billed cost | **$11.898793** | $16.852171 |
+| Comparable provider tokens | **3,627,683** | 5,997,405 |
 
-On the nine matched strict pairs, 9.1.0 cut provider tokens by **49.6%**, agent time by **31.7%**, and API cost by **31.8%**. Including every retained primary and diagnostic retry, it still used **36.0% fewer tokens**, **27.4% less time**, and **26.4% less cost**. No significant new-version regression was found, so no result-invalidating product fix was needed.
+Across the 29 strict both-pass pairs, Prime Context saved **1,385.779 seconds (19.65%)** and **$4.953378 (29.39%)**. Across all selected rows, including vanilla's failed Task 30, Prime Context used 6,172.066 seconds and $13.233338 versus 7,667.468 seconds and $18.513607.
 
-This is strong release evidence, not a claim of a finished benchmark standard. The Python suite replaces the retired Docker/synthetic protocol, and its reference points have changed. Earlier benchmark numbers remain useful as historical evidence of the architecture's direction, but they must not be compared directly with this interim result. See the [9.1.0 release report](benchmarks/RELEASE-9.1.0.md) and [benchmark protocol](benchmarks/python-realworld-30/README.md).
+Read [BENCHMARKS.md](BENCHMARKS.md) for every task, attempt, check result, time, billed cost, model-call count, provider-token count, retry, and protocol detail.
 
 ## Prime Agent compatibility
 
-Prime Context 9.1.1 targets **Prime Agent 0.9.1 with the included host compatibility patch**. The stock 0.9.1 extension ABI is not sufficient for the full projection pipeline; TypeScript declaration augmentation alone does not add runtime hooks.
+Prime Context 9.2.0 targets **Prime Agent 0.9.1 with the included host compatibility patch**. The stock 0.9.1 extension ABI is not sufficient for the full projection pipeline; TypeScript declaration augmentation alone does not add runtime hooks.
 
 | Prime Agent behavior | Prime Context support on the patched host |
 |---|---|
@@ -408,12 +499,11 @@ npm run build
 npm run package:smoke -- --shell bash
 ```
 
-The current suite contains **106 tests**. Package smoke copies a pristine repository-local or explicit `PRIME_AGENT_ROOT` host into a disposable environment, then checks the packed extension, packaged patcher, and public extension ABI without mutating the source host.
+The current suite contains **110 tests**. Package smoke copies a pristine repository-local or explicit `PRIME_AGENT_ROOT` host into a disposable environment, then checks the packed extension, packaged patcher, and public extension ABI without mutating the source host.
 
 ## Limitations
 
-- Full 9.1.1 behavior requires the included Prime Agent 0.9.1 host patch; the stock host does not emit every required runtime surface.
-- This is an interim release: the replacement benchmark and its reference points are still being refined, so retired benchmark scores are historical rather than directly comparable.
+- Full 9.2.0 behavior requires the included Prime Agent 0.9.1 host patch; the stock host does not emit every required runtime surface.
 - Capsules use generic output heuristics rather than a parser for every possible tool.
 - Most tools expose only their public result payload; Bash can additionally use its typed complete-output source when Prime Agent provides it.
 - Model-facing archive recovery is intentionally bounded and may require another page.
@@ -425,7 +515,8 @@ The current suite contains **106 tests**. Package smoke copies a pristine reposi
 - npm: [prime-agent-context](https://www.npmjs.com/package/prime-agent-context)
 - source: [BaseModelAI/prime-context](https://github.com/BaseModelAI/prime-context)
 - changelog: [CHANGELOG.md](CHANGELOG.md)
-- interim benchmark report: [benchmarks/RELEASE-9.1.0.md](benchmarks/RELEASE-9.1.0.md)
+- detailed 30-task benchmark: [BENCHMARKS.md](BENCHMARKS.md)
+- historical 9.1.0 benchmark: [benchmarks/RELEASE-9.1.0.md](benchmarks/RELEASE-9.1.0.md)
 - Prime Agent 0.9.1 migration: [PRIME_AGENT_0.9.1_MIGRATION.md](PRIME_AGENT_0.9.1_MIGRATION.md)
 - license: [MIT](LICENSE)
 
@@ -433,6 +524,6 @@ The current suite contains **106 tests**. Package smoke copies a pristine reposi
 
 <div align="center">
 
-**Keep the evidence. Lose the noise. Finish the task.**
+**Thirty tasks entered. Prime Context finished every one. Keep the evidence. Lose the noise. Finish the task.**
 
 </div>

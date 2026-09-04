@@ -2139,6 +2139,20 @@ ${renderStallRecoveryHint(result.output)}
       runtime.projectionToolSetRevision = toolSetRevision;
       advanceProjectionEpoch();
     }
+    if (refs !== undefined) {
+      const missingSourceIds = new Set(refs
+        .map((ref) => ref.entryId)
+        .filter((entryId) => !runtime.sourceMessages.has(entryId)));
+      if (missingSourceIds.size > 0) {
+        const branch = ctx.sessionManager.getBranch() as BranchEntryLike[];
+        for (let index = branch.length - 1; index >= 0 && missingSourceIds.size > 0; index -= 1) {
+          for (const candidate of branchProjectionEntries([branch[index]])) {
+            if (!missingSourceIds.delete(candidate.entryId)) continue;
+            runtime.sourceMessages.set(candidate.entryId, candidate.message);
+          }
+        }
+      }
+    }
     const projectionInput = {
       purpose,
       messages: event.messages as unknown as ContextMessageLike[],

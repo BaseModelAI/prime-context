@@ -29,7 +29,7 @@ For each product and each warehouse present in `stock.csv`:
 5. Combine nonzero lines by supplier. If their aggregate cases are below `minimum_cases`, add one case at a time. Rank candidate lines by their original unrounded uncovered target minus units already added only for minimum padding, largest first; floor that ranking value at zero. Break ties by SKU, then warehouse. These padding cases are part of that line's order.
 6. A purchase arrival is `as-of + lead_days`.
 
-Use decimal arithmetic for means and targets. Format forecast and target values with four digits after the decimal point; do not use binary floating point for those output values.
+Use decimal arithmetic for means and targets. Format forecast and target values with four digits after the decimal point; do not use binary floating point for those output values. For whole-unit transfer and purchase decisions, compute target stock and donor safety floor directly as the 28-day demand total multiplied by the applicable days and divided by 28, so an exact-integer result stays exact; do not multiply a rounded repeating daily mean.
 
 ## Initial outputs
 
@@ -71,4 +71,4 @@ Include only suppliers and lines with nonzero orders. Values in the example show
 
 ## Ordering and stated edge behavior
 
-CSV uses UTF-8 and LF line endings. JSON object keys must be deterministic. A product with stock but no demand history has forecast zero and must not create a purchase. If transfer planning is introduced later, it must not create a transfer for that zero-demand product either.
+CSV uses UTF-8 and LF line endings. JSON object keys must be deterministic. A product with stock but no demand history has forecast zero and must not create a purchase. If transfer planning is introduced later, recipient transfer need is `floor(max(0, exact_target - recipient_position))`; equivalently, use `max(0, (target_numerator - 28 * recipient_position) // 28)`. Never round this need up or transfer past the exact target. Write `output/transfers.csv` with the exact header `sku,from_warehouse,to_warehouse,quantity,cost_per_unit`, one row per nonzero transfer, sorted by `(sku, to_warehouse, from_warehouse)`; copy `cost_per_unit` from `transfer_costs.csv`. Do not create a transfer for the zero-demand product.

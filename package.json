@@ -1,6 +1,6 @@
 {
   "name": "prime-agent-context",
-  "version": "9.1.1",
+  "version": "9.2.0",
   "description": "Purpose-aware context management for long-running Prime Agent sessions",
   "type": "module",
   "license": "MIT",
@@ -24,6 +24,8 @@
     "dist",
     "scripts/patch-prime-agent.mjs",
     "README.md",
+    "BENCHMARKS.md",
+    "RECENT_RESULTS.md",
     "CHANGELOG.md",
     "LICENSE"
   ],

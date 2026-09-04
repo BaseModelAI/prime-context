@@ -23,17 +23,28 @@ def dt(value): return datetime.fromisoformat(value.replace("Z","+00:00"))
 def generate(root, fixture):
     commands=[
       [sys.executable,str(TASK_DIR/"seed.py"),"--workspace",str(root),"--fixture",fixture],
-      [sys.executable,str(TASK_DIR/"visible/_generate.py"),"--output",str(root),"--fixture",fixture],
-      [sys.executable,str(TASK_DIR/"stages/callout/_generate.py"),"--output",str(root),"--fixture",fixture],
-      [sys.executable,str(TASK_DIR/"stages/fairness/_generate.py"),"--output",str(root),"--fixture",fixture]]
+      [sys.executable,str(TASK_DIR/"visible/_generate.py"),"--output",str(root),"--fixture",fixture]]
     for command in commands: subprocess.run(command,check=True,capture_output=True,timeout=20)
+
+def inject(root, fixture, stage):
+    subprocess.run(
+        [sys.executable,str(TASK_DIR/f"stages/{stage}/_generate.py"),"--output",str(root),"--fixture",fixture],
+        check=True,capture_output=True,timeout=20)
+
+def run_candidate(root):
+    return subprocess.run(
+        [sys.executable,"-E","-S","-m","solution.volunteer_schedule","inputs","--output","output"],
+        cwd=root,text=True,capture_output=True,timeout=300)
 
 def execute(candidate, fixture):
     temporary=tempfile.TemporaryDirectory(prefix=f"pcbench-06-{fixture}-")
     root=Path(temporary.name); generate(root,fixture)
     if (candidate/"solution").is_dir():
         shutil.rmtree(root/"solution"); shutil.copytree(candidate/"solution",root/"solution")
-    run=subprocess.run([sys.executable,"-E","-S","-m","solution.volunteer_schedule","inputs","--output","output"],cwd=root,text=True,capture_output=True,timeout=45)
+    run=run_candidate(root)
+    for stage in ("callout","fairness"):
+        inject(root,fixture,stage)
+        run=run_candidate(root)
     return root,run,temporary
 
 def input_data(root):
@@ -104,9 +115,21 @@ def main():
                     checks[1]=not unfilled and len(schedule)==sum(int(r["seats"]) for r in shifts.values()) and set(actual)=={(sid,"1") for sid in shifts}
                     checks[2]=all(vid not in unavailable for vid in actual.values())
                     checks[3]=actual=={(sid,"1"):vid for sid,vid in expected.items()} and sum(actual[(sid,"1")]!=vid for sid,vid in base.items())==4
-                    counts=Counter(actual.values()); eligible=[vid for vid,row in volunteers.items() if vid not in unavailable and sum(1 for shift in shifts.values() if shift["required_skill"] in row["skills"].split(";"))>=4]
-                    expected_summary={"assignment_count_spread":max(counts[v] for v in eligible)-min(counts[v] for v in eligible),"changed_assignments":4,"fairness_exceptions":[],"filled_seats":36,"preference_score":sum(volunteers[v]["preferred_locations"]==shifts[s]["location"] for (s,_),v in actual.items()),"required_seats":36,"required_skill_coverage":36}
-                    checks[4]=summary==expected_summary and raw.endswith(b"\n") and list(summary)==sorted(summary) and max(counts[v] for v in eligible)-min(counts[v] for v in eligible)<=1
+                    counts=Counter(actual.values())
+                    policy=json.loads((root/"inputs/fairness.json").read_text(encoding="utf-8"))
+                    minimum=int(policy["eligible_shift_minimum"]); limit=int(policy["max_count_difference"])
+                    eligible=[]
+                    for vid,row in volunteers.items():
+                        if vid in unavailable: continue
+                        eligible_shifts=sum(
+                            shift["required_skill"] in row["skills"].split(";")
+                            and any(a<=dt(shift["start"]) and dt(shift["end"])<=b for a,b in availability[vid])
+                            for shift in shifts.values())
+                        if eligible_shifts>=minimum: eligible.append(vid)
+                    all_volunteer_spread=max(counts.values())-min(counts[vid] for vid in volunteers)
+                    eligible_spread=max(counts[vid] for vid in eligible)-min(counts[vid] for vid in eligible)
+                    expected_summary={"assignment_count_spread":all_volunteer_spread,"changed_assignments":4,"fairness_exceptions":[],"filled_seats":36,"preference_score":sum(volunteers[v]["preferred_locations"]==shifts[s]["location"] for (s,_),v in actual.items()),"required_seats":36,"required_skill_coverage":36}
+                    checks[4]=summary==expected_summary and raw.endswith(b"\n") and list(summary)==sorted(summary) and eligible_spread<=limit
                 except (OSError,UnicodeError,csv.Error,json.JSONDecodeError,ValueError,KeyError) as exc: notes.append(f"main outputs invalid: {type(exc).__name__}")
         edge=False
         if artifact:

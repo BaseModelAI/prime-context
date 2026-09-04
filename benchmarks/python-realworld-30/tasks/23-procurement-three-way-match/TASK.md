@@ -34,9 +34,12 @@ freight and tax are never allocated to line unit prices.
 
 - `line_matches.csv`, exact header
   `po_id,line_id,supplier_id,item_id,ordered_qty,received_qty,invoiced_qty,po_unit_price,invoice_unit_price,quantity_variance,price_variance,quantity_pass,price_pass,credit_applied,line_payable,status`.
-  Initially `credit_applied` is `0.00`. `line_payable` is the sum of invoice line
-  extensions for that PO line. Money fields use two decimals with `ROUND_HALF_UP`.
-  Boolean fields are lowercase `true` or `false`. Sort by PO ID then line ID.
+  `quantity_variance` and `price_variance` are non-negative absolute magnitudes:
+  `abs(received_qty - invoiced_qty)` and `abs(invoice_unit_price - po_unit_price)`.
+  Use those same magnitudes in `exceptions.csv`. Initially `credit_applied` is `0.00`.
+  `line_payable` is the sum of invoice line extensions for that PO line. Money fields
+  use two decimals with `ROUND_HALF_UP`. Boolean fields are lowercase `true` or
+  `false`. Sort by PO ID then line ID.
 - `exceptions.csv`, exact header
   `po_id,line_id,reason,quantity_variance,price_variance`. Emit one `quantity` row for a
   failed quantity test and one `price` row for a failed price test. Sort by PO ID,
@@ -44,9 +47,12 @@ freight and tax are never allocated to line unit prices.
 - `supplier_summary.json` with top-level key `suppliers`. Its value is a list ordered by
   supplier ID. Each object has exactly `supplier_id`, `currency`, `line_gross`,
   `credit_applied`, `line_payable`, `freight`, `tax`, `header_credit`,
-  `unapplied_credit`, and `final_payable`. Initially credit values are `0.00` and
-  `final_payable = line_payable + freight + tax`. All money values are two-decimal
-  strings. Each supplier in this fixture has one currency.
+  `unapplied_credit`, and `final_payable`. Compute supplier `line_gross` and
+  `line_payable` by summing each PO line's already two-decimal displayed gross and
+  payable amounts; do not sum unrounded line extensions and round only at the supplier
+  level. Initially credit values are `0.00` and `final_payable = line_payable + freight
+  + tax`. All money values are two-decimal strings. Each supplier in this fixture has
+  one currency.
 
 Validate PO, item, invoice, and receipt references and fail clearly on malformed input.
 Write only `solution/` and the selected output directory.

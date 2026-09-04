@@ -84,8 +84,11 @@ def reference(inputs: Path) -> dict[str, object]:
         forecast = Decimal(demand[key]) / Decimal(28)
         forecasts[key] = forecast
         product = products[sku]
-        targets[key] = forecast * Decimal(int(product["lead_days"]) + int(product["safety_days"]))
-        safety[key] = forecast * Decimal(int(product["safety_days"]))
+        target_days = int(product["lead_days"]) + int(product["safety_days"])
+        targets[key] = Decimal(demand[key] * target_days) / Decimal(28)
+        safety[key] = (
+            Decimal(demand[key] * int(product["safety_days"])) / Decimal(28)
+        )
         position[key] = Decimal(stock[key] + eligible[key])
 
     # Stage-two transfers. Received units cannot be forwarded in the same plan.

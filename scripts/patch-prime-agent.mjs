@@ -5100,6 +5100,527 @@ applyPatches(findBundledCliChunk(), [
   },
 ]);
 
+
+// Repeated read-only goal watcher turns must not re-prompt the model at machine speed.
+// Keep ordinary goal work immediate, but back off an unchanged watcher action up to three minutes.
+applyPatches("dist/core/goals.js", [
+  {
+    name: "goal watcher continuation backoff helpers",
+    before: `export function goalTokenDeltaForUsage(usage) {
+    return Math.max(0, usage.input) + Math.max(0, usage.output);
+}`,
+    after: String.raw`export function goalTokenDeltaForUsage(usage) {
+    return Math.max(0, usage.input) + Math.max(0, usage.output);
+}
+export const GOAL_CONTINUATION_BACKOFF_BASE_MS = 15000;
+export const GOAL_CONTINUATION_BACKOFF_MAX_MS = 180000;
+export function goalContinuationBackoffMs(step) {
+    const exponent = Number.isFinite(step) ? Math.max(0, Math.trunc(step)) : 0;
+    return Math.min(GOAL_CONTINUATION_BACKOFF_MAX_MS, GOAL_CONTINUATION_BACKOFF_BASE_MS * 2 ** Math.min(exponent, 30));
+}
+function goalWatcherMessageText(content) {
+    if (typeof content === "string")
+        return content;
+    if (!Array.isArray(content))
+        return "";
+    return content.flatMap((block) => block && typeof block === "object" && block.type === "text" && typeof block.text === "string" ? [block.text] : []).join("\n");
+}
+function orderedGoalWatcherValue(value) {
+    if (Array.isArray(value))
+        return value.map(orderedGoalWatcherValue);
+    if (!value || typeof value !== "object")
+        return typeof value === "string" ? value.trim() : value;
+    return Object.fromEntries(Object.entries(value).sort(([left], [right]) => left.localeCompare(right)).map(([key, child]) => [key, orderedGoalWatcherValue(child)]));
+}
+function goalWatcherCallSignature(block) {
+    if (!block || typeof block !== "object" || block.type !== "toolCall" || typeof block.name !== "string" ||
+        !block.arguments || typeof block.arguments !== "object" || Array.isArray(block.arguments))
+        return undefined;
+    if (block.name === "ipython") {
+        const code = block.arguments.code;
+        if (typeof code !== "string" ||
+            !/(?:\.running\b|\.poll\s*\(|\.tail\s*\(|st_mtime|rpc-events\.jsonl)/iu.test(code) ||
+            /(?:write_text|write_bytes|await\s+edit|\.kill\s*\(|\.terminate\s*\(|\.unlink\s*\(|\.rename\s*\(|\.mkdir\s*\(|\.rmdir\s*\(|\bbash\s*\()/iu.test(code))
+            return undefined;
+    }
+    else if (block.name === "bash") {
+        const command = block.arguments.command;
+        if (typeof command !== "string" ||
+            !/(?:\bps\b|\bpgrep\b|\bjobs\b|\btail\b|\bstat\b|\btest\s+-[efd]\b)/iu.test(command) ||
+            /(?:^|[;&|]\s*)(?:rm|mv|cp|kill|pkill|touch|mkdir|rmdir|npm|pnpm|yarn|git)\b|(?:^|[^>])>(?!>)/iu.test(command))
+            return undefined;
+    }
+    else if (!/(?:poll|watch|status|heartbeat|wait)/iu.test(block.name)) {
+        return undefined;
+    }
+    try {
+        return JSON.stringify({ name: block.name, arguments: orderedGoalWatcherValue(block.arguments) });
+    }
+    catch {
+        return undefined;
+    }
+}
+function goalWatcherTerminalText(text) {
+    return /\brunning\s*[:=]?\s*(?:false|no)\b|\bstatus\s*[:=]\s*(?:complete|completed|failed|error|exited|terminated)\b|\b(?:process|job|run)\s+(?:completed|finished|failed|exited|terminated)\b|\bexit[_ ]code\s*[:=]\s*[1-9]\d*/iu.test(text);
+}
+export function goalWatcherContinuationSignature(context) {
+    const messages = Array.isArray(context?.newMessages) ? context.newMessages : [];
+    let start = -1;
+    for (let index = messages.length - 1; index >= 0; index--) {
+        const message = messages[index];
+        if (message?.role === "custom" && message.customType === GOAL_CONTEXT_CUSTOM_TYPE && message.details?.kind === "continuation") {
+            start = index;
+            break;
+        }
+    }
+    if (start < 0 || start === messages.length - 1)
+        return undefined;
+    const callIds = new Set();
+    const resultIds = new Set();
+    let signature;
+    let finalAssistant = false;
+    for (let index = start + 1; index < messages.length; index++) {
+        const message = messages[index];
+        if (message?.role === "assistant") {
+            const calls = Array.isArray(message.content) ? message.content.filter((block) => block?.type === "toolCall") : [];
+            if (calls.length === 0) {
+                if (index !== messages.length - 1)
+                    return undefined;
+                finalAssistant = true;
+                continue;
+            }
+            if (index === messages.length - 1)
+                return undefined;
+            for (const call of calls) {
+                const current = goalWatcherCallSignature(call);
+                if (!current || signature && current !== signature)
+                    return undefined;
+                signature = current;
+                callIds.add(call.id);
+            }
+        }
+        else if (message?.role === "toolResult") {
+            const text = goalWatcherMessageText(message.content);
+            if (message.isError === true || typeof message.toolCallId !== "string" || goalWatcherTerminalText(text))
+                return undefined;
+            resultIds.add(message.toolCallId);
+        }
+        else {
+            return undefined;
+        }
+    }
+    if (!signature || !finalAssistant || callIds.size === 0 ||
+        [...callIds].some((id) => !resultIds.has(id)) || [...resultIds].some((id) => !callIds.has(id)))
+        return undefined;
+    return signature;
+}`,
+  },
+]);
+
+applyPatches("dist/core/goals.d.ts", [
+  {
+    name: "goal watcher continuation backoff declarations",
+    before: `export declare function goalTokenDeltaForUsage(usage: {
+    input: number;
+    output: number;
+}): number;`,
+    after: `export declare function goalTokenDeltaForUsage(usage: {
+    input: number;
+    output: number;
+}): number;
+export declare const GOAL_CONTINUATION_BACKOFF_BASE_MS = 15000;
+export declare const GOAL_CONTINUATION_BACKOFF_MAX_MS = 180000;
+export declare function goalContinuationBackoffMs(step: number): number;
+export declare function goalWatcherContinuationSignature(context: { newMessages?: readonly unknown[] }): string | undefined;`,
+  },
+]);
+
+applyPatches("dist/core/agent-session.js", [
+  {
+    name: "goal watcher continuation backoff imports",
+    before: `import { createGoalContextMessage, emptyGoalState, GOAL_CONTEXT_CUSTOM_TYPE, GOAL_CONTEXT_PREVIEW_LABEL, GOAL_SKILL_NAME, GOAL_STATE_CUSTOM_TYPE, goalHostResponse, goalTokenDeltaForUsage, isPersistedGoalState, normalizeGoalState, validateGoalBudget, validateGoalObjective, } from "./goals.js";`,
+    after: `import { createGoalContextMessage, emptyGoalState, GOAL_CONTEXT_CUSTOM_TYPE, GOAL_CONTEXT_PREVIEW_LABEL, GOAL_SKILL_NAME, GOAL_STATE_CUSTOM_TYPE, goalContinuationBackoffMs, goalHostResponse, goalTokenDeltaForUsage, goalWatcherContinuationSignature, isPersistedGoalState, normalizeGoalState, validateGoalBudget, validateGoalObjective, } from "./goals.js";`,
+  },
+  {
+    name: "goal watcher continuation backoff state",
+    before: `    _goalAccountingStartedAt = undefined;
+    _goalContinuationAwaitsRlmWork = false;
+    _goalAccountedAssistantMessages = new WeakSet();`,
+    after: `    _goalAccountingStartedAt = undefined;
+    _goalContinuationAwaitsRlmWork = false;
+    _goalContinuationBackoffStep = 0;
+    _goalContinuationWatcherSignature = undefined;
+    _goalContinuationBackoffCancel = undefined;
+    _goalAccountedAssistantMessages = new WeakSet();`,
+  },
+  {
+    name: "goal watcher continuation backoff methods",
+    before: `    _setGoalState(next, options = {}) {`,
+    after: `    _resetGoalContinuationBackoff() {
+        this._goalContinuationBackoffStep = 0;
+        this._goalContinuationWatcherSignature = undefined;
+        const cancel = this._goalContinuationBackoffCancel;
+        this._goalContinuationBackoffCancel = undefined;
+        cancel?.();
+    }
+    async _waitForGoalContinuationBackoff(signature, signal) {
+        if (signature !== this._goalContinuationWatcherSignature) {
+            this._goalContinuationBackoffStep = 0;
+            this._goalContinuationWatcherSignature = signature;
+        }
+        if (signal?.aborted)
+            return false;
+        const delayMs = goalContinuationBackoffMs(this._goalContinuationBackoffStep);
+        return await new Promise((resolve) => {
+            let settled = false;
+            let timer;
+            const onAbort = () => finish(false);
+            const cancel = () => finish(false);
+            const finish = (elapsed) => {
+                if (settled)
+                    return;
+                settled = true;
+                if (timer !== undefined)
+                    clearTimeout(timer);
+                signal?.removeEventListener("abort", onAbort);
+                if (this._goalContinuationBackoffCancel === cancel)
+                    this._goalContinuationBackoffCancel = undefined;
+                if (elapsed)
+                    this._goalContinuationBackoffStep += 1;
+                resolve(elapsed);
+            };
+            this._goalContinuationBackoffCancel = cancel;
+            signal?.addEventListener("abort", onAbort, { once: true });
+            timer = setTimeout(() => finish(true), delayMs);
+        });
+    }
+    _setGoalState(next, options = {}) {`,
+  },
+  {
+    name: "goal watcher continuation reset on goal transition",
+    before: `        this._goalState = normalized;
+        if (normalized.status === "active") {`,
+    after: `        const goalChanged = normalized.goalId !== this._goalState.goalId ||
+            normalized.objective !== this._goalState.objective || normalized.status !== this._goalState.status;
+        this._goalState = normalized;
+        if (goalChanged)
+            this._resetGoalContinuationBackoff();
+        if (normalized.status === "active") {`,
+  },
+  {
+    name: "goal watcher continuation await",
+    before: `        this._goalContinuationAwaitsRlmWork = false;
+        try {
+            this._ensureGoalRuntimeActive(context.context);`,
+    after: `        this._goalContinuationAwaitsRlmWork = false;
+        const watcherSignature = goalWatcherContinuationSignature(context);
+        if (watcherSignature === undefined) {
+            this._resetGoalContinuationBackoff();
+        }
+        else if (!await this._waitForGoalContinuationBackoff(watcherSignature, signal)) {
+            return [];
+        }
+        if (signal?.aborted || this._goalState.status !== "active" || !this._goalState.objective)
+            return [];
+        try {
+            this._ensureGoalRuntimeActive(context.context);`,
+  },
+  {
+    name: "goal watcher continuation arrival race",
+    before: `        const goalMessages = await this._getGoalContinuationMessages(context, signal);
+        if (goalMessages.length > 0 || signal?.aborted) {
+            if (goalMessages.length > 0 && this._sessionInputArrivalEpoch !== arrivalEpoch) {
+                this._setGoalState(goalSnapshot);
+                this._goalAccountingStartedAt = goalAccountingStartedAt;
+                return [];
+            }
+            return goalMessages;
+        }`,
+    after: `        const goalMessages = await this._getGoalContinuationMessages(context, signal);
+        if (this._sessionInputArrivalEpoch !== arrivalEpoch) {
+            if (goalMessages.length > 0) {
+                this._setGoalState(goalSnapshot);
+                this._goalAccountingStartedAt = goalAccountingStartedAt;
+            }
+            return [];
+        }
+        if (goalMessages.length > 0 || signal?.aborted)
+            return goalMessages;`,
+  },
+  {
+    name: "goal watcher continuation interrupt on session input",
+    before: `        const canStartImmediately = options.immediatelyEligible === true &&
+            (this._actionStore.unfinishedActions().length === 0 || options.front === true);`,
+    after: `        const admittedMessage = action.payload.kind === "turn" ? primaryDeliveryRecord(action).message : undefined;
+        if (options.restore !== true &&
+            (action.payload.kind !== "turn" || admittedMessage?.customType !== GOAL_CONTEXT_CUSTOM_TYPE)) {
+            this._resetGoalContinuationBackoff();
+        }
+        const canStartImmediately = options.immediatelyEligible === true &&
+            (this._actionStore.unfinishedActions().length === 0 || options.front === true);`,
+  },
+]);
+
+applyPatches("dist/core/agent-session.d.ts", [
+  {
+    name: "goal watcher continuation backoff private state",
+    before: `    private _goalContinuationAwaitsRlmWork;
+    private _goalAccountedAssistantMessages;`,
+    after: `    private _goalContinuationAwaitsRlmWork;
+    private _goalContinuationBackoffStep;
+    private _goalContinuationWatcherSignature;
+    private _goalContinuationBackoffCancel;
+    private _goalAccountedAssistantMessages;`,
+  },
+  {
+    name: "goal watcher continuation backoff private methods",
+    before: `    private _persistGoalState;
+    private _setGoalState;`,
+    after: `    private _persistGoalState;
+    private _resetGoalContinuationBackoff;
+    private _waitForGoalContinuationBackoff;
+    private _setGoalState;`,
+  },
+]);
+
+applyPatches(findBundledCliChunk(), [
+  {
+    name: "bundled goal watcher continuation backoff helpers",
+    before: `function goalTokenDeltaForUsage(usage) {
+  return Math.max(0, usage.input) + Math.max(0, usage.output);
+}`,
+    after: String.raw`function goalTokenDeltaForUsage(usage) {
+  return Math.max(0, usage.input) + Math.max(0, usage.output);
+}
+var GOAL_CONTINUATION_BACKOFF_BASE_MS = 15e3;
+var GOAL_CONTINUATION_BACKOFF_MAX_MS = 18e4;
+function goalContinuationBackoffMs(step) {
+  const exponent = Number.isFinite(step) ? Math.max(0, Math.trunc(step)) : 0;
+  return Math.min(GOAL_CONTINUATION_BACKOFF_MAX_MS, GOAL_CONTINUATION_BACKOFF_BASE_MS * 2 ** Math.min(exponent, 30));
+}
+function goalWatcherMessageText(content) {
+  if (typeof content === "string")
+    return content;
+  if (!Array.isArray(content))
+    return "";
+  return content.flatMap((block) => block && typeof block === "object" && block.type === "text" && typeof block.text === "string" ? [block.text] : []).join("\n");
+}
+function orderedGoalWatcherValue(value) {
+  if (Array.isArray(value))
+    return value.map(orderedGoalWatcherValue);
+  if (!value || typeof value !== "object")
+    return typeof value === "string" ? value.trim() : value;
+  return Object.fromEntries(Object.entries(value).sort(([left], [right]) => left.localeCompare(right)).map(([key, child]) => [key, orderedGoalWatcherValue(child)]));
+}
+function goalWatcherCallSignature(block) {
+  if (!block || typeof block !== "object" || block.type !== "toolCall" || typeof block.name !== "string" || !block.arguments || typeof block.arguments !== "object" || Array.isArray(block.arguments))
+    return void 0;
+  if (block.name === "ipython") {
+    const code = block.arguments.code;
+    if (typeof code !== "string" || !/(?:\.running\b|\.poll\s*\(|\.tail\s*\(|st_mtime|rpc-events\.jsonl)/iu.test(code) || /(?:write_text|write_bytes|await\s+edit|\.kill\s*\(|\.terminate\s*\(|\.unlink\s*\(|\.rename\s*\(|\.mkdir\s*\(|\.rmdir\s*\(|\bbash\s*\()/iu.test(code))
+      return void 0;
+  } else if (block.name === "bash") {
+    const command = block.arguments.command;
+    if (typeof command !== "string" || !/(?:\bps\b|\bpgrep\b|\bjobs\b|\btail\b|\bstat\b|\btest\s+-[efd]\b)/iu.test(command) || /(?:^|[;&|]\s*)(?:rm|mv|cp|kill|pkill|touch|mkdir|rmdir|npm|pnpm|yarn|git)\b|(?:^|[^>])>(?!>)/iu.test(command))
+      return void 0;
+  } else if (!/(?:poll|watch|status|heartbeat|wait)/iu.test(block.name)) {
+    return void 0;
+  }
+  try {
+    return JSON.stringify({ name: block.name, arguments: orderedGoalWatcherValue(block.arguments) });
+  } catch {
+    return void 0;
+  }
+}
+function goalWatcherTerminalText(text) {
+  return /\brunning\s*[:=]?\s*(?:false|no)\b|\bstatus\s*[:=]\s*(?:complete|completed|failed|error|exited|terminated)\b|\b(?:process|job|run)\s+(?:completed|finished|failed|exited|terminated)\b|\bexit[_ ]code\s*[:=]\s*[1-9]\d*/iu.test(text);
+}
+function goalWatcherContinuationSignature(context) {
+  const messages = Array.isArray(context?.newMessages) ? context.newMessages : [];
+  let start = -1;
+  for (let index = messages.length - 1; index >= 0; index--) {
+    const message = messages[index];
+    if (message?.role === "custom" && message.customType === GOAL_CONTEXT_CUSTOM_TYPE && message.details?.kind === "continuation") {
+      start = index;
+      break;
+    }
+  }
+  if (start < 0 || start === messages.length - 1)
+    return void 0;
+  const callIds = /* @__PURE__ */ new Set();
+  const resultIds = /* @__PURE__ */ new Set();
+  let signature;
+  let finalAssistant = false;
+  for (let index = start + 1; index < messages.length; index++) {
+    const message = messages[index];
+    if (message?.role === "assistant") {
+      const calls = Array.isArray(message.content) ? message.content.filter((block) => block?.type === "toolCall") : [];
+      if (calls.length === 0) {
+        if (index !== messages.length - 1)
+          return void 0;
+        finalAssistant = true;
+        continue;
+      }
+      if (index === messages.length - 1)
+        return void 0;
+      for (const call of calls) {
+        const current = goalWatcherCallSignature(call);
+        if (!current || signature && current !== signature)
+          return void 0;
+        signature = current;
+        callIds.add(call.id);
+      }
+    } else if (message?.role === "toolResult") {
+      const text = goalWatcherMessageText(message.content);
+      if (message.isError === true || typeof message.toolCallId !== "string" || goalWatcherTerminalText(text))
+        return void 0;
+      resultIds.add(message.toolCallId);
+    } else {
+      return void 0;
+    }
+  }
+  if (!signature || !finalAssistant || callIds.size === 0 || [...callIds].some((id) => !resultIds.has(id)) || [...resultIds].some((id) => !callIds.has(id)))
+    return void 0;
+  return signature;
+}`,
+  },
+  {
+    name: "bundled goal watcher continuation backoff state",
+    before: `  _goalAccountingStartedAt = void 0;
+  _goalContinuationAwaitsRlmWork = false;
+  _goalAccountedAssistantMessages = /* @__PURE__ */ new WeakSet();`,
+    after: `  _goalAccountingStartedAt = void 0;
+  _goalContinuationAwaitsRlmWork = false;
+  _goalContinuationBackoffStep = 0;
+  _goalContinuationWatcherSignature = void 0;
+  _goalContinuationBackoffCancel = void 0;
+  _goalAccountedAssistantMessages = /* @__PURE__ */ new WeakSet();`,
+  },
+  {
+    name: "bundled goal watcher continuation backoff methods",
+    before: `  _setGoalState(next, options = {}) {`,
+    after: `  _resetGoalContinuationBackoff() {
+    this._goalContinuationBackoffStep = 0;
+    this._goalContinuationWatcherSignature = void 0;
+    const cancel = this._goalContinuationBackoffCancel;
+    this._goalContinuationBackoffCancel = void 0;
+    cancel?.();
+  }
+  async _waitForGoalContinuationBackoff(signature, signal) {
+    if (signature !== this._goalContinuationWatcherSignature) {
+      this._goalContinuationBackoffStep = 0;
+      this._goalContinuationWatcherSignature = signature;
+    }
+    if (signal?.aborted)
+      return false;
+    const delayMs = goalContinuationBackoffMs(this._goalContinuationBackoffStep);
+    return await new Promise((resolve20) => {
+      let settled = false;
+      let timer;
+      const onAbort = () => finish(false);
+      const cancel = () => finish(false);
+      const finish = (elapsed) => {
+        if (settled)
+          return;
+        settled = true;
+        if (timer !== void 0)
+          clearTimeout(timer);
+        signal?.removeEventListener("abort", onAbort);
+        if (this._goalContinuationBackoffCancel === cancel)
+          this._goalContinuationBackoffCancel = void 0;
+        if (elapsed)
+          this._goalContinuationBackoffStep += 1;
+        resolve20(elapsed);
+      };
+      this._goalContinuationBackoffCancel = cancel;
+      signal?.addEventListener("abort", onAbort, { once: true });
+      timer = setTimeout(() => finish(true), delayMs);
+    });
+  }
+  _setGoalState(next, options = {}) {`,
+  },
+  {
+    name: "bundled goal watcher continuation reset on goal transition",
+    before: `    this._goalState = normalized;
+    if (normalized.status === "active") {`,
+    after: `    const goalChanged = normalized.goalId !== this._goalState.goalId || normalized.objective !== this._goalState.objective || normalized.status !== this._goalState.status;
+    this._goalState = normalized;
+    if (goalChanged)
+      this._resetGoalContinuationBackoff();
+    if (normalized.status === "active") {`,
+  },
+  {
+    name: "bundled goal watcher continuation await",
+    before: `    this._goalContinuationAwaitsRlmWork = false;
+    try {
+      this._ensureGoalRuntimeActive(context.context);`,
+    after: `    this._goalContinuationAwaitsRlmWork = false;
+    const watcherSignature = goalWatcherContinuationSignature(context);
+    if (watcherSignature === void 0) {
+      this._resetGoalContinuationBackoff();
+    } else if (!await this._waitForGoalContinuationBackoff(watcherSignature, signal)) {
+      return [];
+    }
+    if (signal?.aborted || this._goalState.status !== "active" || !this._goalState.objective)
+      return [];
+    try {
+      this._ensureGoalRuntimeActive(context.context);`,
+  },
+  {
+    name: "bundled goal watcher continuation arrival race",
+    before: `    const goalMessages = await this._getGoalContinuationMessages(context, signal);
+    if (goalMessages.length > 0 || signal?.aborted) {
+      if (goalMessages.length > 0 && this._sessionInputArrivalEpoch !== arrivalEpoch) {
+        this._setGoalState(goalSnapshot);
+        this._goalAccountingStartedAt = goalAccountingStartedAt;
+        return [];
+      }
+      return goalMessages;
+    }`,
+    after: `    const goalMessages = await this._getGoalContinuationMessages(context, signal);
+    if (this._sessionInputArrivalEpoch !== arrivalEpoch) {
+      if (goalMessages.length > 0) {
+        this._setGoalState(goalSnapshot);
+        this._goalAccountingStartedAt = goalAccountingStartedAt;
+      }
+      return [];
+    }
+    if (goalMessages.length > 0 || signal?.aborted)
+      return goalMessages;`,
+  },
+  {
+    name: "bundled goal watcher continuation interrupt on session input",
+    before: `    const canStartImmediately = options.immediatelyEligible === true && (this._actionStore.unfinishedActions().length === 0 || options.front === true);`,
+    after: `    const admittedMessage = action.payload.kind === "turn" ? primaryDeliveryRecord(action).message : void 0;
+    if (options.restore !== true && (action.payload.kind !== "turn" || admittedMessage?.customType !== GOAL_CONTEXT_CUSTOM_TYPE)) {
+      this._resetGoalContinuationBackoff();
+    }
+    const canStartImmediately = options.immediatelyEligible === true && (this._actionStore.unfinishedActions().length === 0 || options.front === true);`,
+  },
+]);
+
+applyPatches("dist/core/agent-session.js", [
+  {
+    name: "reset goal watcher backoff on branch goal reload",
+    before: `    _reloadGoalStateFromBranch() {
+        this._goalState = this._loadPersistedGoalState();`,
+    after: `    _reloadGoalStateFromBranch() {
+        this._resetGoalContinuationBackoff();
+        this._goalState = this._loadPersistedGoalState();`,
+  },
+]);
+
+applyPatches(findBundledCliChunk(), [
+  {
+    name: "bundled reset goal watcher backoff on branch goal reload",
+    before: `  _reloadGoalStateFromBranch() {
+    this._goalState = this._loadPersistedGoalState();`,
+    after: `  _reloadGoalStateFromBranch() {
+    this._resetGoalContinuationBackoff();
+    this._goalState = this._loadPersistedGoalState();`,
+  },
+]);
+
 if (!stockOnly && !checkOnly) {
   for (const [path, text] of pendingWrites) {
     writeFileSync(path, text);

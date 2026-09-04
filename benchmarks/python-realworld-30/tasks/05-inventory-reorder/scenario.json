@@ -20,7 +20,7 @@
     {
       "id": "constraints",
       "inject": "stages/constraints/",
-      "message": "A supplier blackout and a transfer option were added in `inputs/constraints.json` and `inputs/transfer_costs.csv`. Before buying, move stock from a warehouse whose projected stock remains above its own safety stock. Choose transfers by lowest cost, then donor warehouse name. Blackout arrivals move to the first permitted date. Add `output/transfers.csv` and update purchase orders.",
+      "message": "A supplier blackout and a transfer option were added in `inputs/constraints.json` and `inputs/transfer_costs.csv`. Before buying, process recipients by SKU then warehouse. Recipient transfer need is `floor(max(0, exact_target - recipient_position))`; equivalently, use `max(0, (target_numerator - 28 * recipient_position) // 28)`. Never round this need up or transfer past the exact target. After each transfer, the donor stock position (`on_hand + eligible_open_po + units_received - units_sent`) must remain at least `forecast_daily * safety_days`; this donor floor is not the lead-plus-safety target. Also cap all units sent by a donor at its original physical on-hand minus units already sent. Choose donors by lowest cost, then donor warehouse name. Blackout arrivals move to the first permitted date. `transfer_policy` may be absent when no transfer is possible; do not require it. Add `output/transfers.csv` with exact header `sku,from_warehouse,to_warehouse,quantity,cost_per_unit`, one row per nonzero transfer, sorted by `(sku, to_warehouse, from_warehouse)`; copy `cost_per_unit` from `transfer_costs.csv`. Update purchase orders.",
       "compact_after": false
     }
   ],

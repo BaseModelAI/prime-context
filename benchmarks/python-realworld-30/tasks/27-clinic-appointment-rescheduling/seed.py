@@ -151,7 +151,7 @@ def seed_edge(inputs: Path) -> None:
               [["E001", "EDGE-LOCKED", "P001", "CONSULT", "NORTH", "N-GEN-1", iso(day, "10:00"), 9]])
     csv_write(inputs / "patient_windows.csv", ["patient_id", "start", "end"],
               [["EDGE-LOCKED", iso(day, "10:00"), iso(day, "10:30")],
-               ["EDGE-URGENT", iso(day, "10:00"), iso(day, "10:30")]])
+               ["EDGE-URG", iso(day, "10:00"), iso(day, "10:30")]])
     csv_write(inputs / "provider_availability.csv", ["provider_id", "site_id", "start", "end"],
               [["P001", "NORTH", iso(day, "10:00"), iso(day, "10:30")]])
     csv_write(inputs / "locked_appointments.csv", ["appointment_id"], [["E001"]])

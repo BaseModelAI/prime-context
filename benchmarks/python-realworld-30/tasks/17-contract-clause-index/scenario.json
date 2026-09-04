@@ -20,7 +20,7 @@
     {
       "id": "review-set",
       "inject": "stages/review-set/",
-      "message": "`inputs/review_set.csv` names 18 contracts under renewal review. Generate `output/comparison.md` grouping conflicting renewal windows, liability caps, and governing-law states, with source line ranges for each statement.",
+      "message": "`inputs/review_set.csv` names 18 contracts under renewal review. Update `python3.12 -E -S -m solution.clause_index inputs/contracts --output output` so every invocation also deterministically writes `output/comparison.md`, grouping conflicting renewal windows, liability caps, and governing-law states with source line ranges for each statement.",
       "compact_after": false
     },
     {

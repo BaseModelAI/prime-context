@@ -22,6 +22,6 @@ Include active segments only. Sort by UTC start then segment ID. Detect:
 - an airport change whenever the previous transport destination differs from the next origin. Add `airport_change_minutes` to that connection's required time;
 - nights without lodging. The required dates run from `trip_start_date` inclusive to `trip_end_date` exclusive. A hotel covers the night dated `D` when local midnight at the end of `D` (the start of the next date) lies strictly after check-in and before checkout.
 
-Write `issues.json` as `{"issues": [...]}`. An overlap, duplicate booking, insufficient connection, or airport change item has `type` and the two ordered `segment_ids`. A missing-lodging item has `type: "night_without_lodging"`, an empty `segment_ids` list, and `night`. Sort items by type, joined segment IDs, then night. Use sorted JSON keys and a final LF newline.
+Write `issues.json` as `{"issues": [...]}`. Use these exact `type` strings: `"overlap"`, `"duplicate_booking"`, `"insufficient_connection"`, `"airport_change"`, and `"night_without_lodging"`. An overlap, duplicate-booking, insufficient-connection, or airport-change item has `type` and the two ordered `segment_ids`. A missing-lodging item has an empty `segment_ids` list and `night`. Sort items by type, joined segment IDs, then night. Use sorted JSON keys and a final LF newline.
 
 All CSV files use UTF-8, normal CSV quoting, and LF endings. The held-out edge has a hotel checkout at exactly a local train departure. The half-open intervals must not overlap.

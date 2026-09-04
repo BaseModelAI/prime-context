@@ -104,10 +104,11 @@ def evaluate_main(task,candidate):
    cr,new=svc.request("POST","/tickets",body);nid=new.get("id")
    pr,pending=svc.request("PATCH",f"/tickets/{nid}",{"status":"pending_customer","updated_at":"2025-06-03T10:00:00Z"}) if nid else (0,{})
    lr,listed=svc.request("GET",f"/tickets?status=pending_customer&assignee={agent.get('id')}")
+   items=listed.get("tickets",[]) if isinstance(listed,dict) else listed if isinstance(listed,list) else []
    rr,resolved=svc.request("PATCH",f"/tickets/{nid}",{"status":"resolved","updated_at":"2025-06-03T11:00:00Z"}) if nid else (0,{})
    cm,comment=svc.request("POST",f"/tickets/{nid}/comments",{"author_email":"new@example.test","author_type":"customer","body":"Still broken","created_at":"2025-06-03T12:00:00Z"}) if nid else (0,{})
    gr,final=svc.request("GET",f"/tickets/{nid}") if nid else (0,{})
-   check1=(cr==201 and isinstance(nid,int) and pr==200 and lr==200 and any(x.get("id")==nid for x in listed.get("tickets",listed if isinstance(listed,list) else [])) and rr==200 and cm==201 and gr==200 and final.get("status")=="open" and final.get("updated_at")=="2025-06-03T12:00:00Z" and t1.get("subject")=="Printer paper jam")
+   check1=(cr==201 and isinstance(nid,int) and pr==200 and lr==200 and any(x.get("id")==nid for x in items) and rr==200 and cm==201 and gr==200 and final.get("status")=="open" and final.get("updated_at")=="2025-06-03T12:00:00Z" and t1.get("subject")=="Printer paper jam")
    check2=mail_ok
    sr,sprinter=svc.request("GET","/search?"+urllib.parse.urlencode({"q":"printer grinding"}));sv,s_vpn=svc.request("GET","/search?"+urllib.parse.urlencode({"q":"VPN café"}))
    check4=(sr==sv==200 and sprinter.get("tickets") and sprinter["tickets"][0].get("id")==1 and sprinter["tickets"][0].get("score")==8 and s_vpn.get("tickets") and s_vpn["tickets"][0].get("id")==44 and s_vpn["tickets"][0].get("score")==11 and xh==["ticket_id","subject","status","priority","assignee_email","requester_email","created_at","updated_at","sla_due_at"] and [r["ticket_id"] for r in xrows]==["1","2","44"])

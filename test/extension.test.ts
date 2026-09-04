@@ -264,6 +264,136 @@ it("reuses provider entry prefixes while budget projection stays observational",
   expect(cache.epoch?.toolSetRevision).toBe("[tool-b]");
 });
 
+function goalWatcherInput(turnCount: number, errorTurn = -1, watcher: "ipython" | "bash" = "ipython") {
+  const messages: any[] = [];
+  const entryRefs: Array<{ messageIndex: number; entryId: string }> = [];
+  const sourceMessages = new Map<string, any>();
+  const add = (entryId: string, provider: any, source = provider): void => {
+    entryRefs.push({ messageIndex: messages.length, entryId });
+    messages.push(provider);
+    sourceMessages.set(entryId, source);
+  };
+  for (let turn = 0; turn < turnCount; turn += 1) {
+    const goalText = `<goal_context>\n<objective>Watch it</objective>\n- remaining tokens: unbounded\n</goal_context>`;
+    add(`goal-${turn}`, { role: "user", content: [{ type: "text", text: goalText }] }, {
+      role: "custom",
+      customType: "goal_context",
+      content: goalText,
+      details: { goalId: "watch-goal", objective: "Watch it", status: "active", continuationsUsed: turn + 1 },
+    });
+    const call = {
+      role: "assistant",
+      content: [{
+        type: "toolCall",
+        id: `call-${turn}`,
+        name: watcher,
+        arguments: watcher === "bash"
+          ? { command: "tail -n 20 worker.log" }
+          : { code: "p.read_text(); print(p.stat().st_mtime, 'rpc-events.jsonl')" },
+      }],
+      stopReason: "toolUse",
+    };
+    add(`assistant-call-${turn}`, call);
+    add(`result-${turn}`, {
+      role: "toolResult",
+      toolCallId: `call-${turn}`,
+      toolName: watcher,
+      isError: turn === errorTurn,
+      content: [{ type: "text", text: turn === errorTurn ? "process failed" : `process event ${turn}` }],
+    });
+    add(`assistant-status-${turn}`, {
+      role: "assistant",
+      content: [{ type: "text", text: turn === errorTurn ? "The watcher failed." : "The process is still running." }],
+      stopReason: "stop",
+    });
+  }
+  return { messages, entryRefs, sourceMessages };
+}
+
+it("bounds cached persistent-goal watcher turns for provider and compaction", async () => {
+  const cache: ProviderProjectionCache<any> = {};
+  const common = {
+    purpose: "provider" as const,
+    fixedViews: new Map(),
+    epochId: 1,
+    modelKey: "provider:model",
+    toolSetRevision: 0,
+    cache,
+  };
+  const firstInput = goalWatcherInput(4);
+  const first = buildProviderRepresentation({ ...common, ...firstInput });
+  const appendedInput = goalWatcherInput(5);
+  const appended = buildProviderRepresentation({ ...common, ...appendedInput });
+  const compacted = projectModelContext({
+    ...appendedInput,
+    purpose: "compaction",
+    fixedViews: new Map(),
+  });
+
+  expect(first.messages).toHaveLength(9);
+  expect(appended.messages).toHaveLength(9);
+  expect(appended.entryRefs).toHaveLength(appended.messages.length);
+  expect(appended.messages).toEqual(compacted.messages);
+  expect(appended.entryRefs).toEqual(compacted.entryRefs);
+  expect((appended.messages[0].content as any[])[0].text).toContain(
+    '<goal_watch id="watch-goal" collapsed_polls="3">',
+  );
+  expect(appended.messages.filter((message: any) => message.role === "toolResult")).toHaveLength(2);
+  expect(appended.entryRefs?.map((ref) => ref.messageIndex)).toEqual(
+    Array.from({ length: appended.messages.length }, (_, index) => index),
+  );
+  const rawOrder = new Map(appendedInput.entryRefs.map((ref, index) => [ref.entryId, index]));
+  const projectedRawOrder = appended.entryRefs?.map((ref) => rawOrder.get(ref.entryId));
+  expect(projectedRawOrder).toEqual([...(projectedRawOrder ?? [])].sort((left, right) => left! - right!));
+
+  const liveBranch: any[] = [];
+  const harness = await extensionHarness(liveBranch, "live-goal-source");
+  const liveGoal = goalWatcherInput(1);
+  liveBranch.push({
+    id: "goal-0",
+    type: "custom_message",
+    customType: "goal_context",
+    content: (liveGoal.sourceMessages.get("goal-0") as any).content,
+    details: (liveGoal.sourceMessages.get("goal-0") as any).details,
+  });
+  const live = harness.handlers.get("model_context")?.({
+    purpose: "provider",
+    messages: [liveGoal.messages[0]],
+    entryRefs: [{ messageIndex: 0, entryId: "goal-0" }],
+  }, harness.context);
+  expect(JSON.stringify(live.messages)).toContain("goal_state");
+});
+
+it("folds repeated read-only Bash watcher turns", () => {
+  const input = goalWatcherInput(5, -1, "bash");
+  const projected = projectModelContext({ ...input, purpose: "provider", fixedViews: new Map() });
+
+  expect(projected.messages).toHaveLength(9);
+  expect((projected.messages[0].content as any[])[0].text).toContain(
+    '<goal_watch id="watch-goal" collapsed_polls="3">',
+  );
+  expect(projected.messages.filter((message: any) => message.role === "toolResult")).toHaveLength(2);
+});
+
+it("does not fold a terminal watcher turn", () => {
+  const input = goalWatcherInput(3, -1, "bash");
+  input.messages[6].content = [{ type: "text", text: "running False" }];
+  const projected = projectModelContext({ ...input, purpose: "provider", fixedViews: new Map() });
+
+  expect(projected.messages).toHaveLength(input.messages.length);
+  expect(JSON.stringify(projected.messages)).toContain("running False");
+});
+
+it("does not fold a failed watcher turn or orphan its tool result", () => {
+  const input = goalWatcherInput(3, 1);
+  const projected = projectModelContext({ ...input, purpose: "provider", fixedViews: new Map() });
+
+  expect(projected.messages).toHaveLength(input.messages.length);
+  expect(projected.entryRefs).toHaveLength(projected.messages.length);
+  expect(JSON.stringify(projected.messages)).toContain("process failed");
+  expect(projected.messages.filter((message: any) => message.role === "toolResult")).toHaveLength(3);
+});
+
 it("projects a paged user-shell execution by exact entry identity", () => {
   const entryId = "bash-entry-1";
   const source = {
@@ -1899,6 +2029,11 @@ describe("Step A exchange metadata", () => {
       action: "inspect", ref: "project-session:o1:stderr", scope: "project",
     }, signal) as any;
     await execute("list-call", { action: "list", limit: 100 }, signal);
+    await expect(execute("parent-list", {
+      action: "list", scope: "parent",
+    }, signal)).rejects.toThrow(
+      "Prime Context error: prime_context list does not support scope=parent; use recall instead.",
+    );
     const projectSearch = await execute("project-search", {
       action: "search", query: "known path", scope: "project",
     }, signal) as any;

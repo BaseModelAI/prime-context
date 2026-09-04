@@ -63,10 +63,11 @@ def fresh_run(candidate: Path, fixture: str) -> tuple[Path, int, str]:
     out = work / "output"
     shutil.rmtree(out, ignore_errors=True)
     out.mkdir()
+    week_ending = "2025-11-02" if fixture == "edge" else "2025-11-09"
     with tempfile.TemporaryFile() as stdout, tempfile.TemporaryFile() as stderr:
         try:
             completed = subprocess.run(
-                [PYTHON, "-E", "-S", "-m", "solution.payroll", "inputs", "--week-ending", "2025-11-09", "--output", "output"],
+                [PYTHON, "-E", "-S", "-m", "solution.payroll", "inputs", "--week-ending", week_ending, "--output", "output"],
                 cwd=work, stdin=subprocess.DEVNULL, stdout=stdout, stderr=stderr, timeout=45,
                 env={"PATH": os.environ.get("PATH", "")},
             )
