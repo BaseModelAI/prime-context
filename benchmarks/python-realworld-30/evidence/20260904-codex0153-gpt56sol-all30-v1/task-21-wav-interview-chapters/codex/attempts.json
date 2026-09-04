@@ -1,0 +1,188 @@
+{
+  "attempts": [
+    {
+      "agent_wall_seconds": 294.7246784849558,
+      "completed_at": "2026-09-04T16:11:21.375981+00:00",
+      "error": null,
+      "isolation": {
+        "agent_instruction_files": [],
+        "api_key_environment": [],
+        "auth_mode": "ChatGPT subscription",
+        "builtin_context": "stock Codex CLI context only",
+        "codex_home": "isolated shared run home; auth.json only at startup",
+        "custom_developer_prompt": null,
+        "custom_system_prompt": null,
+        "exec_rules": "ignored",
+        "sandbox": "workspace-write with exact 127.0.0.1 command-proxy allow rule",
+        "user_config": "ignored",
+        "workspace_root": "/tmp outside every repository and AGENTS.md/.codex search path"
+      },
+      "judge": {
+        "edge_check_passed": true,
+        "main_checks_passed": 5,
+        "main_checks_total": 5,
+        "notes": [],
+        "progress_level": 5,
+        "status": "pass"
+      },
+      "judge_seconds": 0.4817464560037479,
+      "lifecycle_wall_seconds": 295.3839547340758,
+      "metrics": {
+        "api_equivalent_cost": {
+          "cached_input": 0.24704,
+          "output": 0.42489,
+          "total": 0.905405,
+          "uncached_input": 0.233475
+        },
+        "api_equivalent_cost_kind": "matched-rate estimate only; not an actual subscription bill",
+        "billing_note": "ChatGPT subscription Codex exposes no per-run billed API charge.",
+        "codex_turns": 2,
+        "model_api_calls": null,
+        "model_api_calls_note": "Codex exec JSONL does not expose underlying model request count.",
+        "provider_usage": {
+          "cacheWriteInput": 0,
+          "cachedInput": 494080,
+          "input": 540775,
+          "output": 14163,
+          "reasoningOutput": 4926,
+          "totalTokens": 554938,
+          "uncachedInput": 46695
+        },
+        "raw_usage": {
+          "cache_write_input_tokens": 0,
+          "cached_input_tokens": 494080,
+          "input_tokens": 540775,
+          "output_tokens": 14163,
+          "reasoning_output_tokens": 4926
+        },
+        "subscription_billed_cost": null
+      },
+      "pressure": "L",
+      "schema": "prime-context.python-realworld-codex-run/v1",
+      "service_events": [],
+      "setup_seconds": 0.10253053007181734,
+      "stage_events": [
+        {
+          "completed_at": "2026-09-04T16:09:49.444735+00:00",
+          "elapsed_seconds": 203.34957474598195,
+          "stage": "initial",
+          "started_at": "2026-09-04T16:06:26.094635+00:00"
+        },
+        {
+          "completed_at": "2026-09-04T16:11:20.884535+00:00",
+          "elapsed_seconds": 91.37510373897385,
+          "stage": "stereo",
+          "started_at": "2026-09-04T16:09:49.509122+00:00"
+        }
+      ],
+      "started_at": "2026-09-04T16:06:25.992030+00:00",
+      "task_id": 21,
+      "task_slug": "wav-interview-chapters",
+      "thread_id": "01a06d2b-dc9f-7332-9174-2d52d4444221",
+      "turns": [
+        {
+          "command": [
+            "/home/jdabrowski/.nvm/versions/node/v22.22.1/lib/node_modules/@openai/codex/bin/codex.js",
+            "exec",
+            "--sandbox",
+            "workspace-write",
+            "--cd",
+            "/tmp/prime-context-codex-t21-a1-sli277t5/workspace",
+            "--config",
+            "sandbox_workspace_write.network_access=true",
+            "--config",
+            "features.network_proxy.enabled=true",
+            "--config",
+            "features.network_proxy.domains={ \"127.0.0.1\" = \"allow\" }",
+            "--ignore-user-config",
+            "--ignore-rules",
+            "--skip-git-repo-check",
+            "--model",
+            "gpt-5.6-sol",
+            "--config",
+            "model_reasoning_effort=\"medium\"",
+            "--json",
+            "--color",
+            "never",
+            "--output-last-message",
+            "/home/jdabrowski/work/prime-context/benchmarks/python-realworld-30/results/20260904-codex0153-gpt56sol-all30-v1/task-21-wav-interview-chapters/codex/attempt-1/codex-last-message-1-initial.txt",
+            "-"
+          ],
+          "completed_at": "2026-09-04T16:09:49.444735+00:00",
+          "elapsed_seconds": 203.34957474598195,
+          "errors": [],
+          "event_count": 29,
+          "last_message": "Implemented the standard-library-only WAV cleanup workflow:\n\n- [audio_chapters.py](/tmp/prime-context-codex-t21-a1-sli277t5/workspace/solution/audio_chapters.py)\n- [solution package](/tmp/prime-context-codex-t21-a1-sli277t5/workspace/solution/__init__.py)\n- Generated requested files under [output](/tmp/prime-context-codex-t21-a1-sli277t5/workspace/output)\n\nVerified:\n\n- Frame-exact chapter reconstruction\n- Silence trimming and midpoint tie-breaking\n- Transcript clipping/splitting\n- All-silence behavior\n- Stale-output removal\n- Deterministic repeated output\n- Python 3.12 compilation",
+          "malformed_output": [],
+          "prompt": "Read TASK.md and complete the requested workflow using only the Python standard library.",
+          "returncode": 0,
+          "stage": "initial",
+          "started_at": "2026-09-04T16:06:26.094635+00:00",
+          "thread_id": "01a06d2b-dc9f-7332-9174-2d52d4444221",
+          "timed_out": false,
+          "usage": {
+            "cache_write_input_tokens": 0,
+            "cached_input_tokens": 217856,
+            "input_tokens": 249318,
+            "output_tokens": 10057,
+            "reasoning_output_tokens": 3543
+          }
+        },
+        {
+          "command": [
+            "/home/jdabrowski/.nvm/versions/node/v22.22.1/lib/node_modules/@openai/codex/bin/codex.js",
+            "exec",
+            "--sandbox",
+            "workspace-write",
+            "--cd",
+            "/tmp/prime-context-codex-t21-a1-sli277t5/workspace",
+            "--config",
+            "sandbox_workspace_write.network_access=true",
+            "--config",
+            "features.network_proxy.enabled=true",
+            "--config",
+            "features.network_proxy.domains={ \"127.0.0.1\" = \"allow\" }",
+            "resume",
+            "--ignore-user-config",
+            "--ignore-rules",
+            "--skip-git-repo-check",
+            "--model",
+            "gpt-5.6-sol",
+            "--config",
+            "model_reasoning_effort=\"medium\"",
+            "--json",
+            "--output-last-message",
+            "/home/jdabrowski/work/prime-context/benchmarks/python-realworld-30/results/20260904-codex0153-gpt56sol-all30-v1/task-21-wav-interview-chapters/codex/attempt-1/codex-last-message-2-stereo.txt",
+            "01a06d2b-dc9f-7332-9174-2d52d4444221",
+            "-"
+          ],
+          "completed_at": "2026-09-04T16:11:20.884535+00:00",
+          "elapsed_seconds": 91.37510373897385,
+          "errors": [],
+          "event_count": 21,
+          "last_message": "Updated [audio_chapters.py](/tmp/prime-context-codex-t21-a1-sli277t5/workspace/solution/audio_chapters.py) to:\n\n- Accept mono or stereo 16-bit PCM.\n- Treat a stereo frame as silent only when both channels are below 500.\n- Support multiple alternating WAV/CSV input pairs.\n- Write each result beneath `<output>/<wav-stem>/`.\n\nGenerated and verified:\n\n- [output/interview](/tmp/prime-context-codex-t21-a1-sli277t5/workspace/output/interview)\n- [output/interview_stereo](/tmp/prime-context-codex-t21-a1-sli277t5/workspace/output/interview_stereo)\n\nBoth outputs preserve their original channel counts and reconstruct exactly from their chapter frames.",
+          "malformed_output": [],
+          "prompt": "A stereo 16-bit recording and transcript were added. Accept either mono or stereo. A frame is silent only when both channels are below the threshold. Produce a separate output directory for each input named by WAV stem.",
+          "returncode": 0,
+          "stage": "stereo",
+          "started_at": "2026-09-04T16:09:49.509122+00:00",
+          "thread_id": "01a06d2b-dc9f-7332-9174-2d52d4444221",
+          "timed_out": false,
+          "usage": {
+            "cache_write_input_tokens": 0,
+            "cached_input_tokens": 276224,
+            "input_tokens": 291457,
+            "output_tokens": 4106,
+            "reasoning_output_tokens": 1383
+          }
+        }
+      ],
+      "variant": "codex"
+    }
+  ],
+  "retry_triggers": [],
+  "selected_attempt": 0,
+  "task_id": 21,
+  "task_slug": "wav-interview-chapters",
+  "variant": "codex"
+}

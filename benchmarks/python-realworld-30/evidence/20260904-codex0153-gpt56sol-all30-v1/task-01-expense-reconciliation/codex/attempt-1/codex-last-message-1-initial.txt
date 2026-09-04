@@ -1,0 +1,9 @@
+Implemented the standard-library-only reconciliation workflow in [solution/reconcile.py](/tmp/prime-context-codex-t01-a1-zjqr3xbi/workspace/solution/reconcile.py).
+
+Generated:
+
+- [reconciliation.csv](/tmp/prime-context-codex-t01-a1-zjqr3xbi/workspace/output/reconciliation.csv)
+- [monthly_summary.json](/tmp/prime-context-codex-t01-a1-zjqr3xbi/workspace/output/monthly_summary.json)
+- [unmatched_receipts.csv](/tmp/prime-context-codex-t01-a1-zjqr3xbi/workspace/output/unmatched_receipts.csv)
+
+Validation passed: 160 transactions, 104 matches, one unmatched receipt, deterministic reruns, and the merchant-compatibility edge case. All monetary calculations use `Decimal`.

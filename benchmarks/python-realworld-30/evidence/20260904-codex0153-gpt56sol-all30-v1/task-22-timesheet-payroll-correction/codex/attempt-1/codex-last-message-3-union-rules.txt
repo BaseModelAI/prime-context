@@ -1,0 +1,11 @@
+Implemented union daily overtime rules and regenerated all output files.
+
+Key results:
+
+- E2: `17.50` regular, `4.00` overtime, `0.50` doubletime
+- E2 gross pay: `757.50`
+- Night differential remains additive to base pay
+- Weekly overtime is not applied to union employees
+- `correction_summary.csv` retained with E1’s `-30.00` correction
+
+Deterministic reruns and threshold calculations were verified.

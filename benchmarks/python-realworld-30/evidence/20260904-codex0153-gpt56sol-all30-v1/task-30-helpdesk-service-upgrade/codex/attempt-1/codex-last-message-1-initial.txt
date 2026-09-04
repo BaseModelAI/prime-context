@@ -1,0 +1,16 @@
+Completed the helpdesk upgrade under [service/helpdesk](/tmp/prime-context-codex-t30-a1-p558ln8p/workspace/service/helpdesk).
+
+Implemented:
+
+- Idempotent v1 SQLite migration preserving all records and numeric IDs
+- Complete ticket/comment HTTP API with JSON errors and transactional writes
+- UTC timestamp and Unicode email normalization
+- Deterministic agent creation and `updated_at`
+- Business-hour SLA calculation and customer reopening
+- Mbox threading with globally unique `Message-ID` deduplication
+- Deterministic Unicode search and JSONL export
+- Explicit-time stale-ticket maintenance
+- CLI commands for serving, agents, import, export, and maintenance
+- Loopback-only server with exact flushed `LISTENING <port>` startup output
+
+Verification passed for compilation, HTTP operations, rollback behavior, persistence, reopening, filtering, search, SLA calculation, and cross-file mbox deduplication. The supplied database remains pristine with 43 tickets, one agent, and comment ID 100.

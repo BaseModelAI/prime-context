@@ -1,0 +1,13 @@
+Applied the tariff correction and refreshed all outputs:
+
+- [bills.csv](/tmp/prime-context-codex-t20-a1-i_8beww2/workspace/output/bills.csv)
+- [bill_detail.csv](/tmp/prime-context-codex-t20-a1-i_8beww2/workspace/output/bill_detail.csv)
+- [adjustments.csv](/tmp/prime-context-codex-t20-a1-i_8beww2/workspace/output/adjustments.csv)
+
+Updated totals:
+
+- C-EAST: `331.66 → 326.63` (`-5.03`)
+- C-LONDON: `228.54 → 222.77` (`-5.77`)
+- C-PHOENIX: `203.26 → 198.14` (`-5.12`)
+
+Verified customer-local correction boundaries, target-rate filtering, rounding, sorting, deterministic reruns, and LF output.

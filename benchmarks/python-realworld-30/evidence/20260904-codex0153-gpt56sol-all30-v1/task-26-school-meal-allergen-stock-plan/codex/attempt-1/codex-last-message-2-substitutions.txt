@@ -1,0 +1,11 @@
+Recomputed all reports using `inputs/substitutions.json`.
+
+Key results:
+
+- September 2 pizza now uses `plant_topping`.
+- Purchases include 120 g soy cream and 60 g almond flakes.
+- Cheese requirement falls to 300 g.
+- Three eligibility changes were recorded for students S001, S004, and S006.
+- No component-cycle errors occurred.
+
+See [substitution_impacts.csv](/tmp/prime-context-codex-t26-a1-9auwjr2x/workspace/output/substitution_impacts.csv) and [purchase_list.csv](/tmp/prime-context-codex-t26-a1-9auwjr2x/workspace/output/purchase_list.csv).

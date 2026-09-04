@@ -1,0 +1,242 @@
+{
+  "attempts": [
+    {
+      "agent_wall_seconds": 368.2289888791274,
+      "completed_at": "2026-09-04T16:11:56.734095+00:00",
+      "error": null,
+      "isolation": {
+        "agent_instruction_files": [],
+        "api_key_environment": [],
+        "auth_mode": "ChatGPT subscription",
+        "builtin_context": "stock Codex CLI context only",
+        "codex_home": "isolated shared run home; auth.json only at startup",
+        "custom_developer_prompt": null,
+        "custom_system_prompt": null,
+        "exec_rules": "ignored",
+        "sandbox": "workspace-write with exact 127.0.0.1 command-proxy allow rule",
+        "user_config": "ignored",
+        "workspace_root": "/tmp outside every repository and AGENTS.md/.codex search path"
+      },
+      "judge": {
+        "edge_check_passed": true,
+        "main_checks_passed": 5,
+        "main_checks_total": 5,
+        "notes": [],
+        "progress_level": 5,
+        "status": "pass"
+      },
+      "judge_seconds": 0.42302349500823766,
+      "lifecycle_wall_seconds": 368.7753260319587,
+      "metrics": {
+        "api_equivalent_cost": {
+          "cached_input": 0.3136,
+          "output": 0.53574,
+          "total": 1.033695,
+          "uncached_input": 0.184355
+        },
+        "api_equivalent_cost_kind": "matched-rate estimate only; not an actual subscription bill",
+        "billing_note": "ChatGPT subscription Codex exposes no per-run billed API charge.",
+        "codex_turns": 3,
+        "model_api_calls": null,
+        "model_api_calls_note": "Codex exec JSONL does not expose underlying model request count.",
+        "provider_usage": {
+          "cacheWriteInput": 0,
+          "cachedInput": 627200,
+          "input": 664071,
+          "output": 17858,
+          "reasoningOutput": 3202,
+          "totalTokens": 681929,
+          "uncachedInput": 36871
+        },
+        "raw_usage": {
+          "cache_write_input_tokens": 0,
+          "cached_input_tokens": 627200,
+          "input_tokens": 664071,
+          "output_tokens": 17858,
+          "reasoning_output_tokens": 3202
+        },
+        "subscription_billed_cost": null
+      },
+      "pressure": "M",
+      "schema": "prime-context.python-realworld-codex-run/v1",
+      "service_events": [],
+      "setup_seconds": 0.08925697207450867,
+      "stage_events": [
+        {
+          "completed_at": "2026-09-04T16:08:45.922330+00:00",
+          "elapsed_seconds": 177.8736017739866,
+          "stage": "initial",
+          "started_at": "2026-09-04T16:05:48.048165+00:00"
+        },
+        {
+          "completed_at": "2026-09-04T16:10:52.491794+00:00",
+          "elapsed_seconds": 126.54582720308099,
+          "stage": "tariff-correction",
+          "started_at": "2026-09-04T16:08:45.945706+00:00"
+        },
+        {
+          "completed_at": "2026-09-04T16:11:56.302349+00:00",
+          "elapsed_seconds": 63.809559902059846,
+          "stage": "explanations",
+          "started_at": "2026-09-04T16:10:52.492571+00:00"
+        }
+      ],
+      "started_at": "2026-09-04T16:05:47.958779+00:00",
+      "task_id": 20,
+      "task_slug": "time-of-use-energy-billing",
+      "thread_id": "01a06d2b-4803-7113-a950-77ba6dbe2b5a",
+      "turns": [
+        {
+          "command": [
+            "/home/jdabrowski/.nvm/versions/node/v22.22.1/lib/node_modules/@openai/codex/bin/codex.js",
+            "exec",
+            "--sandbox",
+            "workspace-write",
+            "--cd",
+            "/tmp/prime-context-codex-t20-a1-i_8beww2/workspace",
+            "--config",
+            "sandbox_workspace_write.network_access=true",
+            "--config",
+            "features.network_proxy.enabled=true",
+            "--config",
+            "features.network_proxy.domains={ \"127.0.0.1\" = \"allow\" }",
+            "--ignore-user-config",
+            "--ignore-rules",
+            "--skip-git-repo-check",
+            "--model",
+            "gpt-5.6-sol",
+            "--config",
+            "model_reasoning_effort=\"medium\"",
+            "--json",
+            "--color",
+            "never",
+            "--output-last-message",
+            "/home/jdabrowski/work/prime-context/benchmarks/python-realworld-30/results/20260904-codex0153-gpt56sol-all30-v1/task-20-time-of-use-energy-billing/codex/attempt-1/codex-last-message-1-initial.txt",
+            "-"
+          ],
+          "completed_at": "2026-09-04T16:08:45.922330+00:00",
+          "elapsed_seconds": 177.8736017739866,
+          "errors": [],
+          "event_count": 27,
+          "last_message": "Implemented the time-of-use billing workflow using only Python 3.12\u2019s standard library.\n\nCreated:\n\n- [energy_bill.py](/tmp/prime-context-codex-t20-a1-i_8beww2/workspace/solution/energy_bill.py)\n- [bills.csv](/tmp/prime-context-codex-t20-a1-i_8beww2/workspace/output/bills.csv)\n- [bill_detail.csv](/tmp/prime-context-codex-t20-a1-i_8beww2/workspace/output/bill_detail.csv)\n\nVerified:\n\n- Required command runs successfully.\n- Timezone, boundary, holiday, and meter-correction behavior.\n- Decimal rounding and output formatting.\n- Deterministic reruns and LF line endings.\n- Standard-library-only imports.",
+          "malformed_output": [],
+          "prompt": "Read TASK.md and complete the requested workflow using only the Python standard library.",
+          "returncode": 0,
+          "stage": "initial",
+          "started_at": "2026-09-04T16:05:48.048165+00:00",
+          "thread_id": "01a06d2b-4803-7113-a950-77ba6dbe2b5a",
+          "timed_out": false,
+          "usage": {
+            "cache_write_input_tokens": 0,
+            "cached_input_tokens": 241152,
+            "input_tokens": 258257,
+            "output_tokens": 8600,
+            "reasoning_output_tokens": 1329
+          }
+        },
+        {
+          "command": [
+            "/home/jdabrowski/.nvm/versions/node/v22.22.1/lib/node_modules/@openai/codex/bin/codex.js",
+            "exec",
+            "--sandbox",
+            "workspace-write",
+            "--cd",
+            "/tmp/prime-context-codex-t20-a1-i_8beww2/workspace",
+            "--config",
+            "sandbox_workspace_write.network_access=true",
+            "--config",
+            "features.network_proxy.enabled=true",
+            "--config",
+            "features.network_proxy.domains={ \"127.0.0.1\" = \"allow\" }",
+            "resume",
+            "--ignore-user-config",
+            "--ignore-rules",
+            "--skip-git-repo-check",
+            "--model",
+            "gpt-5.6-sol",
+            "--config",
+            "model_reasoning_effort=\"medium\"",
+            "--json",
+            "--output-last-message",
+            "/home/jdabrowski/work/prime-context/benchmarks/python-realworld-30/results/20260904-codex0153-gpt56sol-all30-v1/task-20-time-of-use-energy-billing/codex/attempt-1/codex-last-message-2-tariff-correction.txt",
+            "01a06d2b-4803-7113-a950-77ba6dbe2b5a",
+            "-"
+          ],
+          "completed_at": "2026-09-04T16:10:52.491794+00:00",
+          "elapsed_seconds": 126.54582720308099,
+          "errors": [],
+          "event_count": 16,
+          "last_message": "Applied the tariff correction and refreshed all outputs:\n\n- [bills.csv](/tmp/prime-context-codex-t20-a1-i_8beww2/workspace/output/bills.csv)\n- [bill_detail.csv](/tmp/prime-context-codex-t20-a1-i_8beww2/workspace/output/bill_detail.csv)\n- [adjustments.csv](/tmp/prime-context-codex-t20-a1-i_8beww2/workspace/output/adjustments.csv)\n\nUpdated totals:\n\n- C-EAST: `331.66 \u2192 326.63` (`-5.03`)\n- C-LONDON: `228.54 \u2192 222.77` (`-5.77`)\n- C-PHOENIX: `203.26 \u2192 198.14` (`-5.12`)\n\nVerified customer-local correction boundaries, target-rate filtering, rounding, sorting, deterministic reruns, and LF output.",
+          "malformed_output": [],
+          "prompt": "`inputs/tariff_correction.json` replaces the named energy rate from its local `effective_from` time. It applies only to intervals originally assigned that rate whose customer-local timestamp is on or after that time. Recalculate final bills and detail. Write `output/adjustments.csv` with the exact header `customer_id,old_total,corrected_total,delta`, affected customers only, sorted by customer ID. `old_total` is the bill under the original tariff, `corrected_total` is the updated bill, and `delta` is corrected minus old. Use two decimals and keep all earlier outputs current.",
+          "returncode": 0,
+          "stage": "tariff-correction",
+          "started_at": "2026-09-04T16:08:45.945706+00:00",
+          "thread_id": "01a06d2b-4803-7113-a950-77ba6dbe2b5a",
+          "timed_out": false,
+          "usage": {
+            "cache_write_input_tokens": 0,
+            "cached_input_tokens": 186496,
+            "input_tokens": 198126,
+            "output_tokens": 6341,
+            "reasoning_output_tokens": 1219
+          }
+        },
+        {
+          "command": [
+            "/home/jdabrowski/.nvm/versions/node/v22.22.1/lib/node_modules/@openai/codex/bin/codex.js",
+            "exec",
+            "--sandbox",
+            "workspace-write",
+            "--cd",
+            "/tmp/prime-context-codex-t20-a1-i_8beww2/workspace",
+            "--config",
+            "sandbox_workspace_write.network_access=true",
+            "--config",
+            "features.network_proxy.enabled=true",
+            "--config",
+            "features.network_proxy.domains={ \"127.0.0.1\" = \"allow\" }",
+            "resume",
+            "--ignore-user-config",
+            "--ignore-rules",
+            "--skip-git-repo-check",
+            "--model",
+            "gpt-5.6-sol",
+            "--config",
+            "model_reasoning_effort=\"medium\"",
+            "--json",
+            "--output-last-message",
+            "/home/jdabrowski/work/prime-context/benchmarks/python-realworld-30/results/20260904-codex0153-gpt56sol-all30-v1/task-20-time-of-use-energy-billing/codex/attempt-1/codex-last-message-3-explanations.txt",
+            "01a06d2b-4803-7113-a950-77ba6dbe2b5a",
+            "-"
+          ],
+          "completed_at": "2026-09-04T16:11:56.302349+00:00",
+          "elapsed_seconds": 63.809559902059846,
+          "errors": [],
+          "event_count": 14,
+          "last_message": "Added deterministic explanation files for every billed customer:\n\n- [C-EAST.txt](/tmp/prime-context-codex-t20-a1-i_8beww2/workspace/output/explanations/C-EAST.txt)\n- [C-LONDON.txt](/tmp/prime-context-codex-t20-a1-i_8beww2/workspace/output/explanations/C-LONDON.txt)\n- [C-PHOENIX.txt](/tmp/prime-context-codex-t20-a1-i_8beww2/workspace/output/explanations/C-PHOENIX.txt)\n\nAll prior CSV outputs remain current. Verified exact format, cross-file values, sorting, signed deltas, LF endings, deterministic reruns, and stale explanation cleanup.",
+          "malformed_output": [],
+          "prompt": "Add `output/explanations/<customer_id>.txt` for every billed customer. Follow `EXPLANATION_FORMAT.md` exactly. Show interval counts and subtotals by tariff band and exact rate ID, demand charge, tax, prior total, correction delta, and final total. Keep all prior outputs current.",
+          "returncode": 0,
+          "stage": "explanations",
+          "started_at": "2026-09-04T16:10:52.492571+00:00",
+          "thread_id": "01a06d2b-4803-7113-a950-77ba6dbe2b5a",
+          "timed_out": false,
+          "usage": {
+            "cache_write_input_tokens": 0,
+            "cached_input_tokens": 199552,
+            "input_tokens": 207688,
+            "output_tokens": 2917,
+            "reasoning_output_tokens": 654
+          }
+        }
+      ],
+      "variant": "codex"
+    }
+  ],
+  "retry_triggers": [],
+  "selected_attempt": 0,
+  "task_id": 20,
+  "task_slug": "time-of-use-energy-billing",
+  "variant": "codex"
+}

@@ -1,0 +1,12 @@
+Implemented the correction-batch contract and reran import and validation.
+
+Results:
+
+- `APP-0002` updated to revision `2` with owner `OWN-0002`.
+- Application ID `9` / `APP-0009` survived the duplicate merge.
+- Application ID `10` / `APP-0010` was removed without renumbering later applications.
+- All three linked documents now reference `APP-0009`, including the `ENERGY` document.
+- Database contains 994 applications and retains all 996 attachments.
+- Repeated imports produce the same logical state and byte-identical reports.
+
+Updated [workflow.py](/tmp/prime-context-codex-t28-a1-n35aoxbf/workspace/permitflow/workflow.py) and regenerated all reports under [output](/tmp/prime-context-codex-t28-a1-n35aoxbf/workspace/output).

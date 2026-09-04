@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import tempfile
 import unittest
+from pathlib import Path
 
 import run as benchmark
+import run_codex as codex_benchmark
 
 
 def attempt(*, wall: float, cost: float, progress: int = 5) -> dict:
@@ -103,6 +106,33 @@ class HarnessComparisonTests(unittest.TestCase):
             {item["kind"] for item in summary["regressions"]},
             {"speed", "cost"},
         )
+
+
+class CodexAdapterTests(unittest.TestCase):
+    def test_commands_use_stdin_and_safe_resume_placement(self) -> None:
+        initial = codex_benchmark.initial_command("codex", Path("/tmp/work"), Path("/tmp/last"))
+        resumed = codex_benchmark.resume_command("codex", Path("/tmp/work"), "thread-1", Path("/tmp/last-2"))
+        self.assertEqual(initial[-1], "-")
+        self.assertEqual(resumed[-1], "-")
+        self.assertIn('features.network_proxy.domains={ "127.0.0.1" = "allow" }', initial)
+        self.assertLess(resumed.index('features.network_proxy.domains={ "127.0.0.1" = "allow" }'), resumed.index("resume"))
+        self.assertEqual(resumed[-2], "thread-1")
+
+    def test_codex_environment_is_an_explicit_allowlist(self) -> None:
+        with tempfile.TemporaryDirectory(dir="/tmp") as temporary:
+            codex_home = Path(temporary) / "codex-home"
+            codex_home.mkdir()
+            environment = codex_benchmark.clean_codex_environment(codex_home)
+        self.assertEqual(environment["CODEX_HOME"], str(codex_home))
+        self.assertEqual(environment["HOME"], str(codex_home.parent / "empty-home"))
+        self.assertNotIn("OPENAI_API_KEY", environment)
+        self.assertNotIn("PRIME_API_KEY", environment)
+        self.assertEqual(set(environment), {
+            "PATH", "HOME", "CODEX_HOME", "TERM", "LANG", "LC_ALL", "TZ",
+            "PIP_NO_INDEX", "PIP_DISABLE_PIP_VERSION_CHECK", "UV_OFFLINE",
+            "npm_config_offline", "npm_config_audit", "npm_config_fund",
+            "PYTHONUTF8", "PYTHONDONTWRITEBYTECODE",
+        })
 
 
 if __name__ == "__main__":

@@ -1,0 +1,125 @@
+{
+  "agent_wall_seconds": 163.30045723100193,
+  "completed_at": "2026-09-04T16:02:20.203347+00:00",
+  "error": null,
+  "isolation": {
+    "agent_instruction_files": [],
+    "api_key_environment": [],
+    "auth_mode": "ChatGPT subscription",
+    "builtin_context": "stock Codex CLI context only",
+    "codex_home": "isolated shared run home; auth.json only at startup",
+    "custom_developer_prompt": null,
+    "custom_system_prompt": null,
+    "exec_rules": "ignored",
+    "sandbox": "workspace-write with exact 127.0.0.1 command-proxy allow rule",
+    "user_config": "ignored",
+    "workspace_root": "/tmp outside every repository and AGENTS.md/.codex search path"
+  },
+  "judge": {
+    "edge_check_passed": true,
+    "main_checks_passed": 5,
+    "main_checks_total": 5,
+    "notes": [],
+    "progress_level": 5,
+    "status": "pass"
+  },
+  "judge_seconds": 0.12800054694525898,
+  "lifecycle_wall_seconds": 163.46559717797209,
+  "metrics": {
+    "api_equivalent_cost": {
+      "cached_input": 0.090432,
+      "output": 0.23637,
+      "total": 0.475217,
+      "uncached_input": 0.148415
+    },
+    "api_equivalent_cost_kind": "matched-rate estimate only; not an actual subscription bill",
+    "billing_note": "ChatGPT subscription Codex exposes no per-run billed API charge.",
+    "codex_turns": 1,
+    "model_api_calls": null,
+    "model_api_calls_note": "Codex exec JSONL does not expose underlying model request count.",
+    "provider_usage": {
+      "cacheWriteInput": 0,
+      "cachedInput": 180864,
+      "input": 210547,
+      "output": 7879,
+      "reasoningOutput": 2686,
+      "totalTokens": 218426,
+      "uncachedInput": 29683
+    },
+    "raw_usage": {
+      "cache_write_input_tokens": 0,
+      "cached_input_tokens": 180864,
+      "input_tokens": 210547,
+      "output_tokens": 7879,
+      "reasoning_output_tokens": 2686
+    },
+    "subscription_billed_cost": null
+  },
+  "pressure": "N",
+  "schema": "prime-context.python-realworld-codex-run/v1",
+  "service_events": [],
+  "setup_seconds": 0.02345731807872653,
+  "stage_events": [
+    {
+      "completed_at": "2026-09-04T16:02:20.062253+00:00",
+      "elapsed_seconds": 163.30045723100193,
+      "stage": "initial",
+      "started_at": "2026-09-04T15:59:36.761312+00:00"
+    }
+  ],
+  "started_at": "2026-09-04T15:59:36.737758+00:00",
+  "task_id": 14,
+  "task_slug": "layered-configuration-upgrade",
+  "thread_id": "01a06d25-9d9a-7d03-af31-5ad1e69bb6e7",
+  "turns": [
+    {
+      "command": [
+        "/home/jdabrowski/.nvm/versions/node/v22.22.1/lib/node_modules/@openai/codex/bin/codex.js",
+        "exec",
+        "--sandbox",
+        "workspace-write",
+        "--cd",
+        "/tmp/prime-context-codex-t14-a1-wph61e_3/workspace",
+        "--config",
+        "sandbox_workspace_write.network_access=true",
+        "--config",
+        "features.network_proxy.enabled=true",
+        "--config",
+        "features.network_proxy.domains={ \"127.0.0.1\" = \"allow\" }",
+        "--ignore-user-config",
+        "--ignore-rules",
+        "--skip-git-repo-check",
+        "--model",
+        "gpt-5.6-sol",
+        "--config",
+        "model_reasoning_effort=\"medium\"",
+        "--json",
+        "--color",
+        "never",
+        "--output-last-message",
+        "/home/jdabrowski/work/prime-context/benchmarks/python-realworld-30/results/20260904-codex0153-gpt56sol-all30-v1/task-14-layered-configuration-upgrade/codex/attempt-1/codex-last-message-1-initial.txt",
+        "-"
+      ],
+      "completed_at": "2026-09-04T16:02:20.062253+00:00",
+      "elapsed_seconds": 163.30045723100193,
+      "errors": [],
+      "event_count": 25,
+      "last_message": "Implemented the standard-library-only configuration upgrade tool in [config_upgrade.py](/tmp/prime-context-codex-t14-a1-wph61e_3/workspace/solution/config_upgrade.py).\n\nGenerated and verified:\n\n- [config.json](/tmp/prime-context-codex-t14-a1-wph61e_3/workspace/output/config.json)\n- [report.txt](/tmp/prime-context-codex-t14-a1-wph61e_3/workspace/output/report.txt)\n\nValidation covered migrations, recursive merges, null deletion, substitutions, cycle/error reporting, unknown keys, secret redaction, and deterministic output.",
+      "malformed_output": [],
+      "prompt": "Read TASK.md and complete the requested workflow using only the Python standard library.",
+      "returncode": 0,
+      "stage": "initial",
+      "started_at": "2026-09-04T15:59:36.761312+00:00",
+      "thread_id": "01a06d25-9d9a-7d03-af31-5ad1e69bb6e7",
+      "timed_out": false,
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 180864,
+        "input_tokens": 210547,
+        "output_tokens": 7879,
+        "reasoning_output_tokens": 2686
+      }
+    }
+  ],
+  "variant": "codex"
+}

@@ -1,0 +1,14 @@
+Implemented the status and notice-letter contracts in [workflow.py](/tmp/prime-context-codex-t28-a1-n35aoxbf/workspace/permitflow/workflow.py).
+
+Generated:
+
+- [status.csv](/tmp/prime-context-codex-t28-a1-n35aoxbf/workspace/output/status.csv) with 994 sorted rows
+- 994 UTF-8 letters in [notices](/tmp/prime-context-codex-t28-a1-n35aoxbf/workspace/output/notices)
+
+Status totals:
+
+- `approved`: 512
+- `needs_information`: 47
+- `manual_review`: 435
+
+Every letter was verified against its application’s sorted validation issues and exact fee due. Revalidation produces byte-identical output.

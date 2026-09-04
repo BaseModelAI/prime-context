@@ -1,0 +1,125 @@
+{
+  "agent_wall_seconds": 164.7180831989972,
+  "completed_at": "2026-09-04T15:58:50.434318+00:00",
+  "error": null,
+  "isolation": {
+    "agent_instruction_files": [],
+    "api_key_environment": [],
+    "auth_mode": "ChatGPT subscription",
+    "builtin_context": "stock Codex CLI context only",
+    "codex_home": "isolated shared run home; auth.json only at startup",
+    "custom_developer_prompt": null,
+    "custom_system_prompt": null,
+    "exec_rules": "ignored",
+    "sandbox": "workspace-write with exact 127.0.0.1 command-proxy allow rule",
+    "user_config": "ignored",
+    "workspace_root": "/tmp outside every repository and AGENTS.md/.codex search path"
+  },
+  "judge": {
+    "edge_check_passed": true,
+    "main_checks_passed": 5,
+    "main_checks_total": 5,
+    "notes": [],
+    "progress_level": 5,
+    "status": "pass"
+  },
+  "judge_seconds": 1.966774296015501,
+  "lifecycle_wall_seconds": 167.4070958760567,
+  "metrics": {
+    "api_equivalent_cost": {
+      "cached_input": 0.143936,
+      "output": 0.22479,
+      "total": 0.519911,
+      "uncached_input": 0.151185
+    },
+    "api_equivalent_cost_kind": "matched-rate estimate only; not an actual subscription bill",
+    "billing_note": "ChatGPT subscription Codex exposes no per-run billed API charge.",
+    "codex_turns": 1,
+    "model_api_calls": null,
+    "model_api_calls_note": "Codex exec JSONL does not expose underlying model request count.",
+    "provider_usage": {
+      "cacheWriteInput": 0,
+      "cachedInput": 287872,
+      "input": 318109,
+      "output": 7493,
+      "reasoningOutput": 2233,
+      "totalTokens": 325602,
+      "uncachedInput": 30237
+    },
+    "raw_usage": {
+      "cache_write_input_tokens": 0,
+      "cached_input_tokens": 287872,
+      "input_tokens": 318109,
+      "output_tokens": 7493,
+      "reasoning_output_tokens": 2233
+    },
+    "subscription_billed_cost": null
+  },
+  "pressure": "N",
+  "schema": "prime-context.python-realworld-codex-run/v1",
+  "service_events": [],
+  "setup_seconds": 0.7076603990281001,
+  "stage_events": [
+    {
+      "completed_at": "2026-09-04T15:58:48.454030+00:00",
+      "elapsed_seconds": 164.7180831989972,
+      "stage": "initial",
+      "started_at": "2026-09-04T15:56:03.734996+00:00"
+    }
+  ],
+  "started_at": "2026-09-04T15:56:03.027229+00:00",
+  "task_id": 9,
+  "task_slug": "support-sla-event-analysis",
+  "thread_id": "01a06d22-5d8d-7232-b1e8-7c647c9747b5",
+  "turns": [
+    {
+      "command": [
+        "/home/jdabrowski/.nvm/versions/node/v22.22.1/lib/node_modules/@openai/codex/bin/codex.js",
+        "exec",
+        "--sandbox",
+        "workspace-write",
+        "--cd",
+        "/tmp/prime-context-codex-t09-a1-4rc60zuj/workspace",
+        "--config",
+        "sandbox_workspace_write.network_access=true",
+        "--config",
+        "features.network_proxy.enabled=true",
+        "--config",
+        "features.network_proxy.domains={ \"127.0.0.1\" = \"allow\" }",
+        "--ignore-user-config",
+        "--ignore-rules",
+        "--skip-git-repo-check",
+        "--model",
+        "gpt-5.6-sol",
+        "--config",
+        "model_reasoning_effort=\"medium\"",
+        "--json",
+        "--color",
+        "never",
+        "--output-last-message",
+        "/home/jdabrowski/work/prime-context/benchmarks/python-realworld-30/results/20260904-codex0153-gpt56sol-all30-v1/task-09-support-sla-event-analysis/codex/attempt-1/codex-last-message-1-initial.txt",
+        "-"
+      ],
+      "completed_at": "2026-09-04T15:58:48.454030+00:00",
+      "elapsed_seconds": 164.7180831989972,
+      "errors": [],
+      "event_count": 28,
+      "last_message": "Implemented the streaming SLA workflow using only Python\u2019s standard library.\n\n- Main module: [solution/sla_report.py](/tmp/prime-context-codex-t09-a1-4rc60zuj/workspace/solution/sla_report.py)\n- Tests: [tests/test_sla_report.py](/tmp/prime-context-codex-t09-a1-4rc60zuj/workspace/tests/test_sla_report.py)\n- Generated [tickets.csv](/tmp/prime-context-codex-t09-a1-4rc60zuj/workspace/output/tickets.csv) and [summary.json](/tmp/prime-context-codex-t09-a1-4rc60zuj/workspace/output/summary.json)\n\nVerified:\n\n- 200,000 events processed into 25,000 tickets\n- Out-of-order events and first-occurrence deduplication\n- Waiting-time clipping and reopen handling\n- Deterministic output across repeated runs\n- UTF-8 with LF endings\n- All tests pass using `python3 -m unittest discover -s tests -v`",
+      "malformed_output": [],
+      "prompt": "Read TASK.md and complete the requested workflow using only the Python standard library.",
+      "returncode": 0,
+      "stage": "initial",
+      "started_at": "2026-09-04T15:56:03.734996+00:00",
+      "thread_id": "01a06d22-5d8d-7232-b1e8-7c647c9747b5",
+      "timed_out": false,
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 287872,
+        "input_tokens": 318109,
+        "output_tokens": 7493,
+        "reasoning_output_tokens": 2233
+      }
+    }
+  ],
+  "variant": "codex"
+}

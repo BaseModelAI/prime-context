@@ -1,0 +1,12 @@
+Implemented correction handling in [library_state.py](/tmp/prime-context-codex-t25-a1-ya24ikkd/workspace/solution/library_state.py).
+
+The workflow now:
+
+- Applies voids and optional replacement transactions before ordering.
+- Supports replacements reusing the voided transaction ID.
+- Reconstructs original and corrected states.
+- Writes corrected prior outputs and `output/correction_effects.csv`.
+- Reports only patrons whose balance or active-item set changed.
+- Uses sorted, semicolon-joined item IDs and two-decimal monetary values.
+
+Verified against all 300,000 transactions. Runtime is approximately 2.2 seconds with 26 MB peak memory.

@@ -1,0 +1,11 @@
+Updated [solution/clause_index.py](/tmp/prime-context-codex-t17-a1-gjpax4uj/workspace/solution/clause_index.py:117).
+
+The unchanged command now:
+
+- Scans both `inputs/contracts/` and `inputs/contracts-late/`.
+- Recognizes configured headings across one or two lines.
+- Starts wrapped-heading citations at the first heading line.
+- Includes both heading lines in exact excerpts.
+- Preserves clause boundaries at subsequent headings and form feeds.
+
+Verified 606 extracted rows plus 9 missing outcomes across 123 contracts. Repeated runs remain deterministic.

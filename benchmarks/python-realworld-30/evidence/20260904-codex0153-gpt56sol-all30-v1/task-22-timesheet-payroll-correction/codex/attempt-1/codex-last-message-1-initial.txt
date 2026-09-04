@@ -1,0 +1,14 @@
+Implemented the payroll workflow in:
+
+- [solution/payroll.py](/tmp/prime-context-codex-t22-a1-6lx8xi__/workspace/solution/payroll.py)
+- [solution/__init__.py](/tmp/prime-context-codex-t22-a1-6lx8xi__/workspace/solution/__init__.py)
+
+Generated deterministic CSVs in `output/`. Verified:
+
+- Standard-library-only Python 3.12 execution
+- Decimal currency calculations and rounding
+- Overtime, breaks, night, and holiday premiums
+- DST fall-back elapsed-time handling
+- Malformed punch reporting
+- Six-hour automatic-break boundary
+- Deterministic reruns and successful compilation

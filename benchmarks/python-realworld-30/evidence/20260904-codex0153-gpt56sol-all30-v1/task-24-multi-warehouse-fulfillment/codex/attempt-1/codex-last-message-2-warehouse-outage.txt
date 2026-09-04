@@ -1,0 +1,13 @@
+Implemented warehouse-outage replanning in [solution/fulfill.py](/tmp/prime-context-codex-t24-a1-sboz3rt8/workspace/solution/fulfill.py).
+
+The workflow now:
+
+- Preserves shipped allocations at the unavailable warehouse.
+- Releases its reserved allocations.
+- Preserves reservations elsewhere.
+- Excludes the unavailable warehouse from new reservations.
+- Replans gaps in original order priority.
+- Generates [allocation_changes.csv](/tmp/prime-context-codex-t24-a1-sboz3rt8/workspace/output/allocation_changes.csv).
+- Remains deterministic across reruns.
+
+Validated 670 final allocations, 291 nonzero changes, and all 280 inventory rows.

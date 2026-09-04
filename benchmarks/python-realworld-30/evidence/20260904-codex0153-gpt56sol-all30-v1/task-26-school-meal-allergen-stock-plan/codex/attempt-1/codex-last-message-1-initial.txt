@@ -1,0 +1,13 @@
+Implemented the complete workflow in [solution/meal_plan.py](/tmp/prime-context-codex-t26-a1-9auwjr2x/workspace/solution/meal_plan.py).
+
+It supports:
+
+- Recursive recipe resolution with `Decimal`
+- Allergen and `may_contain` eligibility
+- Stock, shortfall, and pack calculations
+- Date-effective JSON substitutions
+- Eligibility-change impact reporting
+- Per-option cycle detection and isolation
+- Deterministically sorted, replaced UTF-8 CSV reports
+
+Generated reports are in [output](/tmp/prime-context-codex-t26-a1-9auwjr2x/workspace/output). Initial, substitution, and cyclic-substitution scenarios were validated successfully using Python 3’s standard library only.

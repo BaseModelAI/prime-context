@@ -1,0 +1,23 @@
+Implemented the restore planner in [restore_plan.py](/tmp/prime-context-codex-t15-a1-t3p0e4_8/workspace/solution/restore_plan.py).
+
+Generated:
+
+- [restore_plan.csv](/tmp/prime-context-codex-t15-a1-t3p0e4_8/workspace/output/restore_plan.csv)
+- [warnings.csv](/tmp/prime-context-codex-t15-a1-t3p0e4_8/workspace/output/warnings.csv)
+- Restored files under [output/restored](/tmp/prime-context-codex-t15-a1-t3p0e4_8/workspace/output/restored)
+
+Verified:
+
+- Correct timestamp selection and archive-name tie-breaking
+- Exact restored bytes
+- Tar, compressed tar, and ZIP handling
+- Rejection of links and non-regular members
+- Traversal protection, including `../requested.txt`
+- Header-only CSV compatibility
+- Python standard library only
+
+The environment provides `python3`, so validation used:
+
+```bash
+python3 -m solution.restore_plan inputs --output output
+```

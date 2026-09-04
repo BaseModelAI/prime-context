@@ -1,0 +1,134 @@
+{
+  "attempts": [
+    {
+      "agent_wall_seconds": 115.2327669019578,
+      "completed_at": "2026-09-04T15:55:04.906540+00:00",
+      "error": null,
+      "isolation": {
+        "agent_instruction_files": [],
+        "api_key_environment": [],
+        "auth_mode": "ChatGPT subscription",
+        "builtin_context": "stock Codex CLI context only",
+        "codex_home": "isolated shared run home; auth.json only at startup",
+        "custom_developer_prompt": null,
+        "custom_system_prompt": null,
+        "exec_rules": "ignored",
+        "sandbox": "workspace-write with exact 127.0.0.1 command-proxy allow rule",
+        "user_config": "ignored",
+        "workspace_root": "/tmp outside every repository and AGENTS.md/.codex search path"
+      },
+      "judge": {
+        "edge_check_passed": true,
+        "main_checks_passed": 5,
+        "main_checks_total": 5,
+        "notes": [],
+        "progress_level": 5,
+        "status": "pass"
+      },
+      "judge_seconds": 0.1942865540040657,
+      "lifecycle_wall_seconds": 115.4916287859669,
+      "metrics": {
+        "api_equivalent_cost": {
+          "cached_input": 0.061184,
+          "output": 0.16413,
+          "total": 0.323759,
+          "uncached_input": 0.098445
+        },
+        "api_equivalent_cost_kind": "matched-rate estimate only; not an actual subscription bill",
+        "billing_note": "ChatGPT subscription Codex exposes no per-run billed API charge.",
+        "codex_turns": 1,
+        "model_api_calls": null,
+        "model_api_calls_note": "Codex exec JSONL does not expose underlying model request count.",
+        "provider_usage": {
+          "cacheWriteInput": 0,
+          "cachedInput": 122368,
+          "input": 142057,
+          "output": 5471,
+          "reasoningOutput": 744,
+          "totalTokens": 147528,
+          "uncachedInput": 19689
+        },
+        "raw_usage": {
+          "cache_write_input_tokens": 0,
+          "cached_input_tokens": 122368,
+          "input_tokens": 142057,
+          "output_tokens": 5471,
+          "reasoning_output_tokens": 744
+        },
+        "subscription_billed_cost": null
+      },
+      "pressure": "N",
+      "schema": "prime-context.python-realworld-codex-run/v1",
+      "service_events": [],
+      "setup_seconds": 0.051730214967392385,
+      "stage_events": [
+        {
+          "completed_at": "2026-09-04T15:55:04.699935+00:00",
+          "elapsed_seconds": 115.2327669019578,
+          "stage": "initial",
+          "started_at": "2026-09-04T15:53:09.466714+00:00"
+        }
+      ],
+      "started_at": "2026-09-04T15:53:09.414920+00:00",
+      "task_id": 4,
+      "task_slug": "invoice-payment-matching",
+      "thread_id": "01a06d1f-b786-7cd1-8922-d05ddadd297a",
+      "turns": [
+        {
+          "command": [
+            "/home/jdabrowski/.nvm/versions/node/v22.22.1/lib/node_modules/@openai/codex/bin/codex.js",
+            "exec",
+            "--sandbox",
+            "workspace-write",
+            "--cd",
+            "/tmp/prime-context-codex-t04-a1-9fel5cd5/workspace",
+            "--config",
+            "sandbox_workspace_write.network_access=true",
+            "--config",
+            "features.network_proxy.enabled=true",
+            "--config",
+            "features.network_proxy.domains={ \"127.0.0.1\" = \"allow\" }",
+            "--ignore-user-config",
+            "--ignore-rules",
+            "--skip-git-repo-check",
+            "--model",
+            "gpt-5.6-sol",
+            "--config",
+            "model_reasoning_effort=\"medium\"",
+            "--json",
+            "--color",
+            "never",
+            "--output-last-message",
+            "/home/jdabrowski/work/prime-context/benchmarks/python-realworld-30/results/20260904-codex0153-gpt56sol-all30-v1/task-04-invoice-payment-matching/codex/attempt-1/codex-last-message-1-initial.txt",
+            "-"
+          ],
+          "completed_at": "2026-09-04T15:55:04.699935+00:00",
+          "elapsed_seconds": 115.2327669019578,
+          "errors": [],
+          "event_count": 19,
+          "last_message": "Implemented [solution/invoice_match.py](/tmp/prime-context-codex-t04-a1-9fel5cd5/workspace/solution/invoice_match.py) using only Python\u2019s standard library and `Decimal`.\n\nGenerated all three reports in [output](/tmp/prime-context-codex-t04-a1-9fel5cd5/workspace/output). Verified:\n\n- All 120 invoice balances reconcile.\n- Memo precedence and closed-invoice behavior.\n- Credit processing order and tie-breaking.\n- Mismatched specific credits remain unapplied.\n- No negative balances.\n- Repeated runs produce identical output.\n\nThe container provides `python3` rather than `python`; the equivalent command completed successfully.",
+          "malformed_output": [],
+          "prompt": "Read TASK.md and complete the requested workflow using only the Python standard library.",
+          "returncode": 0,
+          "stage": "initial",
+          "started_at": "2026-09-04T15:53:09.466714+00:00",
+          "thread_id": "01a06d1f-b786-7cd1-8922-d05ddadd297a",
+          "timed_out": false,
+          "usage": {
+            "cache_write_input_tokens": 0,
+            "cached_input_tokens": 122368,
+            "input_tokens": 142057,
+            "output_tokens": 5471,
+            "reasoning_output_tokens": 744
+          }
+        }
+      ],
+      "variant": "codex"
+    }
+  ],
+  "retry_triggers": [],
+  "selected_attempt": 0,
+  "task_id": 4,
+  "task_slug": "invoice-payment-matching",
+  "variant": "codex"
+}

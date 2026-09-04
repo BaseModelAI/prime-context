@@ -1,0 +1,8 @@
+Implemented the standard-library-only itinerary checker in [itinerary_check.py](/tmp/prime-context-codex-t08-a1-qaewr_jj/workspace/solution/itinerary_check.py).
+
+Generated:
+
+- [timeline.csv](/tmp/prime-context-codex-t08-a1-qaewr_jj/workspace/output/timeline.csv)
+- [issues.json](/tmp/prime-context-codex-t08-a1-qaewr_jj/workspace/output/issues.json)
+
+Validated UTC conversion, half-open intervals, deterministic ordering, JSON sorting, and LF endings. The initial fixtures report an airport change (`F2` → `T3`) and duplicate booking (`A2`, `A3`).

@@ -1,0 +1,132 @@
+{
+  "agent_wall_seconds": 130.94058768101968,
+  "completed_at": "2026-09-04T15:59:36.736326+00:00",
+  "error": null,
+  "isolation": {
+    "agent_instruction_files": [],
+    "api_key_environment": [],
+    "auth_mode": "ChatGPT subscription",
+    "builtin_context": "stock Codex CLI context only",
+    "codex_home": "isolated shared run home; auth.json only at startup",
+    "custom_developer_prompt": null,
+    "custom_system_prompt": null,
+    "exec_rules": "ignored",
+    "sandbox": "workspace-write with exact 127.0.0.1 command-proxy allow rule",
+    "user_config": "ignored",
+    "workspace_root": "/tmp outside every repository and AGENTS.md/.codex search path"
+  },
+  "judge": {
+    "edge_check_passed": true,
+    "main_checks_passed": 5,
+    "main_checks_total": 5,
+    "notes": [],
+    "progress_level": 5,
+    "status": "pass"
+  },
+  "judge_seconds": 1.3487809220096096,
+  "lifecycle_wall_seconds": 132.3592809389811,
+  "metrics": {
+    "api_equivalent_cost": {
+      "cached_input": 0.077952,
+      "output": 0.1839,
+      "total": 0.345367,
+      "uncached_input": 0.083515
+    },
+    "api_equivalent_cost_kind": "matched-rate estimate only; not an actual subscription bill",
+    "billing_note": "ChatGPT subscription Codex exposes no per-run billed API charge.",
+    "codex_turns": 1,
+    "model_api_calls": null,
+    "model_api_calls_note": "Codex exec JSONL does not expose underlying model request count.",
+    "provider_usage": {
+      "cacheWriteInput": 0,
+      "cachedInput": 155904,
+      "input": 172607,
+      "output": 6130,
+      "reasoningOutput": 2186,
+      "totalTokens": 178737,
+      "uncachedInput": 16703
+    },
+    "raw_usage": {
+      "cache_write_input_tokens": 0,
+      "cached_input_tokens": 155904,
+      "input_tokens": 172607,
+      "output_tokens": 6130,
+      "reasoning_output_tokens": 2186
+    },
+    "subscription_billed_cost": null
+  },
+  "pressure": "N",
+  "schema": "prime-context.python-realworld-codex-run/v1",
+  "service_events": [
+    {
+      "at": "2026-09-04T15:57:24.429326+00:00",
+      "event": "started",
+      "kind": "fixture_service",
+      "url": "http://127.0.0.1:38079"
+    }
+  ],
+  "setup_seconds": 0.020453938050195575,
+  "stage_events": [
+    {
+      "completed_at": "2026-09-04T15:59:35.370372+00:00",
+      "elapsed_seconds": 130.94058768101968,
+      "stage": "initial",
+      "started_at": "2026-09-04T15:57:24.429357+00:00"
+    }
+  ],
+  "started_at": "2026-09-04T15:57:24.377055+00:00",
+  "task_id": 10,
+  "task_slug": "local-supplier-catalog-crawler",
+  "thread_id": "01a06d23-98ae-7813-80bc-dee0e6b89c49",
+  "turns": [
+    {
+      "command": [
+        "/home/jdabrowski/.nvm/versions/node/v22.22.1/lib/node_modules/@openai/codex/bin/codex.js",
+        "exec",
+        "--sandbox",
+        "workspace-write",
+        "--cd",
+        "/tmp/prime-context-codex-t10-a1-aq6krtd3/workspace",
+        "--config",
+        "sandbox_workspace_write.network_access=true",
+        "--config",
+        "features.network_proxy.enabled=true",
+        "--config",
+        "features.network_proxy.domains={ \"127.0.0.1\" = \"allow\" }",
+        "--ignore-user-config",
+        "--ignore-rules",
+        "--skip-git-repo-check",
+        "--model",
+        "gpt-5.6-sol",
+        "--config",
+        "model_reasoning_effort=\"medium\"",
+        "--json",
+        "--color",
+        "never",
+        "--output-last-message",
+        "/home/jdabrowski/work/prime-context/benchmarks/python-realworld-30/results/20260904-codex0153-gpt56sol-all30-v1/task-10-local-supplier-catalog-crawler/codex/attempt-1/codex-last-message-1-initial.txt",
+        "-"
+      ],
+      "completed_at": "2026-09-04T15:59:35.370372+00:00",
+      "elapsed_seconds": 130.94058768101968,
+      "errors": [],
+      "event_count": 24,
+      "last_message": "Implemented the catalog synchronization workflow using only Python\u2019s standard library.\n\n- Source: [catalog_sync.py](/tmp/prime-context-codex-t10-a1-aq6krtd3/workspace/solution/catalog_sync.py)\n- Generated catalog: [catalog.csv](/tmp/prime-context-codex-t10-a1-aq6krtd3/workspace/output/catalog.csv)\n- Validated 323 unique, sorted records with the exact header, UTF-8 encoding, and LF line endings.\n- Confirmed entity decoding and numeric revision selection.\n- This environment lacks `python`, so validation used `python3 -m solution.catalog_sync`.",
+      "malformed_output": [],
+      "prompt": "Read TASK.md and complete the requested workflow using only the Python standard library.",
+      "returncode": 0,
+      "stage": "initial",
+      "started_at": "2026-09-04T15:57:24.429357+00:00",
+      "thread_id": "01a06d23-98ae-7813-80bc-dee0e6b89c49",
+      "timed_out": false,
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 155904,
+        "input_tokens": 172607,
+        "output_tokens": 6130,
+        "reasoning_output_tokens": 2186
+      }
+    }
+  ],
+  "variant": "codex"
+}

@@ -1,0 +1,8 @@
+Updated [three_way_match.py](/tmp/prime-context-codex-t23-a1-s9cosrhm/workspace/solution/three_way_match.py) to apply receipt voids and replacements before validation and aggregation.
+
+Regenerated all outputs. Verified:
+
+- Corrected quantities: `PO-100/L01 = 102`, `PO-100/L02 = 235.2`
+- Unknown, duplicate, and malformed corrections fail clearly
+- Repeated runs produce identical files
+- All calculations remain standard-library-only using `Decimal`

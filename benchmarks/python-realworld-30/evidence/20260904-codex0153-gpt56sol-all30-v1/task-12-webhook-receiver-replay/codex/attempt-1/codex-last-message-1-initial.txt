@@ -1,0 +1,19 @@
+Implemented the webhook receiver and delivery workflow using only Python’s standard library.
+
+Key features:
+
+- Durable SQLite event storage and automatic parent-directory creation.
+- `POST /events` validation and persistence.
+- `GET /events/<id>` status responses.
+- Ordered delivery of due events.
+- Exact 1/2/4-minute retry schedule and terminal failure.
+- Payload preservation and `application/json` delivery.
+- Loopback-safe HTTP requests that bypass environment proxies.
+- Immediate commit after every state transition.
+
+Verified with compilation and end-to-end loopback integration tests covering valid/invalid input, retries, due-time filtering, successful delivery, and permanent failure.
+
+Changed:
+
+- [server.py](/tmp/prime-context-codex-t12-a1-zaih8g9d/workspace/webhook_app/server.py)
+- [worker.py](/tmp/prime-context-codex-t12-a1-zaih8g9d/workspace/webhook_app/worker.py)

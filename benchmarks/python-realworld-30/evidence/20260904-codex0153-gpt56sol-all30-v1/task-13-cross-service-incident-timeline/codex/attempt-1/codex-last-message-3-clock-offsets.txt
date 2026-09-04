@@ -1,0 +1,15 @@
+Updated and verified:
+
+- Applied each service offset using `UTC = raw timestamp − offset`.
+- Preserved all `raw_timestamp` values.
+- Re-sorted the eight timeline records by corrected UTC.
+- Named release `2025.04.17.3`.
+- Identified the exact operation: `ALTER TABLE customers DROP COLUMN customer_status`.
+- Used exactly three anchors: deployment change, first application failure, and first HTTP 500.
+- Treated `SCHEMA_APPLIED` only as confirmation.
+
+Files:
+
+- [timeline.csv](/tmp/prime-context-codex-t13-a1-l8xp57y7/workspace/output/timeline.csv)
+- [incident_report.md](/tmp/prime-context-codex-t13-a1-l8xp57y7/workspace/output/incident_report.md)
+- [incident.py](/tmp/prime-context-codex-t13-a1-l8xp57y7/workspace/solution/incident.py)

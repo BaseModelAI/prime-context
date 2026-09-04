@@ -1,0 +1,12 @@
+Implemented expedite-stage replanning in [solution/fulfill.py](/tmp/prime-context-codex-t24-a1-sboz3rt8/workspace/solution/fulfill.py).
+
+The planner now:
+
+- Promotes listed orders to urgent.
+- Preserves shipped allocations only.
+- Rebuilds all reservations while retaining the warehouse outage.
+- Compares expedited results against the outage plan.
+- Preserves 291 outage changes and appends 585 expedited changes in the required order.
+- Produces deterministic outputs across reruns.
+
+O0499 and O0500 are now fully reserved with 6 and 7 units respectively.

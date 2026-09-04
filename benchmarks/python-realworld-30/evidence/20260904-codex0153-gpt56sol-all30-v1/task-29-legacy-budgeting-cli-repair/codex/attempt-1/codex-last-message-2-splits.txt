@@ -1,0 +1,27 @@
+Implemented split transaction support.
+
+- Migrated the database to schema version 3 with `split_parts`.
+- Added exact group validation and deterministic split errors.
+- Rejected groups remove previous parts without affecting valid groups.
+- Reimports replace parts without duplicates.
+- Monthly reports use split categories while preserving totals.
+- Existing transactions and legacy data remain intact.
+
+Generated:
+
+- [split_errors.json](/tmp/prime-context-codex-t29-a1-m44zoy9k/workspace/output/split_errors.json) — `[]`
+- [monthly.json](/tmp/prime-context-codex-t29-a1-m44zoy9k/workspace/output/monthly.json)
+
+Verified report categories:
+
+```json
+{
+  "Groceries": "118.50",
+  "Home Office": "200.00",
+  "Housing": "1000.00",
+  "Internet": "40.00",
+  "Utilities": "80.00"
+}
+```
+
+Total spending remains `1438.50`.

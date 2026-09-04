@@ -1,0 +1,12 @@
+Implemented the workflow in:
+
+- [library_state.py](/tmp/prime-context-codex-t25-a1-ya24ikkd/workspace/solution/library_state.py)
+- [__init__.py](/tmp/prime-context-codex-t25-a1-ya24ikkd/workspace/solution/__init__.py)
+
+Verified the requested command against all 300,000 transactions. It:
+
+- Uses only Python’s standard library.
+- Uses disk-backed SQLite sorting for low memory usage (~27 MB).
+- Correctly handles timezone-local accrual, caps, renewals, losses, restores, and waivers.
+- Deterministically replaces CSVs and notices, including stale-notice cleanup.
+- Produces exact headers, LF endings, sorting, and two-decimal `ROUND_HALF_UP` money formatting.

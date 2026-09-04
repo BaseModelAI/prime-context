@@ -1,0 +1,13 @@
+Added the `update` command to [notes_index.py](/tmp/prime-context-codex-t18-a1-7jkup2r4/workspace/solution/notes_index.py).
+
+It now:
+
+- Inserts or replaces notes from `inputs/notes-new/`.
+- Removes paths from `inputs/deleted.txt`.
+- Reuses stored stop words.
+- Recomputes document frequencies.
+- Regenerates duplicates from the complete updated corpus.
+- Atomically replaces the database.
+- Preserves deterministic search output.
+
+Verified the updated 8,000-note database against an independently merged corpus. Update time is approximately 0.25 seconds.

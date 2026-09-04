@@ -1,0 +1,11 @@
+Implemented [crm/import_contacts.py](/tmp/prime-context-codex-t11-a1-no2lkt1x/workspace/crm/import_contacts.py) using only the Python standard library.
+
+The requested import completed successfully:
+
+- Inserted IDs: `14`, `15`
+- Updated IDs: `1`, `3`, `14`
+- Skipped CSV row: `4`
+- Final database: 14 contacts, 26 methods
+- Idempotent rerun verified
+- Phone-only imports and primary-method handling verified
+- JSON report: [import_report.json](/tmp/prime-context-codex-t11-a1-no2lkt1x/workspace/output/import_report.json)

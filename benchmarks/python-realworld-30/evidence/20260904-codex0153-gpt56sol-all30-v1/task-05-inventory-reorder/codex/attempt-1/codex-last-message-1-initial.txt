@@ -1,0 +1,18 @@
+Implemented the inventory reorder workflow using Python 3.12’s standard library only.
+
+Files:
+
+- [solution/reorder.py](/tmp/prime-context-codex-t05-a1-57imi8l8/workspace/solution/reorder.py)
+- [reorder.csv](/tmp/prime-context-codex-t05-a1-57imi8l8/workspace/output/reorder.csv)
+- [supplier_orders.json](/tmp/prime-context-codex-t05-a1-57imi8l8/workspace/output/supplier_orders.json)
+
+Verified:
+
+- 240 SKU/warehouse output rows
+- Exact decimal forecasting and target calculations
+- Inclusive PO arrival boundary
+- Case-pack rounding and supplier minimum padding
+- Zero-demand behavior
+- Deterministic ordering
+- UTF-8 with LF endings
+- Successful execution with Python 3.12.3

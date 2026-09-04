@@ -1,0 +1,15 @@
+Implemented the exact maintenance command and JSON contract.
+
+Generated [maintenance.json](/tmp/prime-context-codex-t30-a1-p558ln8p/workspace/output/maintenance.json):
+
+```json
+{"as_of":"2025-06-02T17:00:00Z","closed_ticket_ids":[3]}
+```
+
+Ticket 3 was closed with:
+
+- `updated_at` and `closed_at` set to `2025-06-02T17:00:00Z`
+- `pending_since` cleared
+- All comments preserved
+
+Also added persistent `pending_since` transition handling and verified repeat execution is idempotent. Earlier API, mail import, SLA, search, and export behavior remains intact.

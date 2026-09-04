@@ -2,7 +2,7 @@
 
 > **The result:** Prime Context completed **30/30** real-world tasks. Stock Prime Agent 0.9.1 completed **29/30**. On the 29 tasks both systems strictly passed, Prime Context was faster **29 out of 29 times** and cheaper **29 out of 29 times**.
 
-This document is the detailed record behind the headline numbers in [README.md](README.md). It reports the selected-attempt correctness, agent wall time, and billed API cost used for decisions, plus model-call and provider-token diagnostics. Billed API cost is authoritative; token counts are diagnostic.
+This document is the detailed record behind the headline numbers in [README.md](README.md). For the two Prime Agent arms, it reports the selected-attempt correctness, agent wall time, and billed API cost used for decisions, plus model-call and provider-token diagnostics. Billed API cost is authoritative for those two arms; token counts are diagnostic. The supplemental ChatGPT-subscription Codex CLI arm has no exposed per-run billed cost, so its same-rate API equivalent is diagnostic only.
 
 ## Headline result
 
@@ -39,6 +39,38 @@ This document is the detailed record behind the headline numbers in [README.md](
 | Model calls | **416** | 462 | **9.96% fewer** |
 | Provider tokens | **4,920,239** | 8,170,962 | **39.78% fewer** |
 
+### Supplemental pure vanilla Codex CLI arm
+
+The independent Codex run completed every task on its first attempt.
+
+| Measure | Pure vanilla Codex CLI |
+|---|---:|
+| Selected strict passes | **30/30** |
+| Selected main checks | **150/150** |
+| Selected edge checks | **30/30** |
+| Selected/retained attempts | 30 / 30 |
+| Selected agent wall time | 10,338.905 s |
+| Six-worker run makespan | 2,293.349 s |
+| Actual per-run billed API cost | **N/A** (ChatGPT subscription) |
+| Same-rate API equivalent | $31.447008 (diagnostic; not a bill) |
+| Codex staged turns | 69 |
+| Underlying model API calls | N/A (not exposed) |
+| Input tokens | 22,839,654 |
+| Cached input tokens | 21,638,656 |
+| Cache-write input tokens | 0 |
+| Output tokens | 487,423 |
+| Reasoning-output subset | 149,589 |
+| Provider tokens (`input + output`) | 23,327,077 |
+
+The diagnostic equivalent applies the recorded rates of $5.00/M uncached input, $0.50/M cached input, and $30.00/M output. Its components are $6.004990, $10.819328, and $14.622690. It is not a subscription bill and is not used for cost-win claims.
+
+| Strict-pair time comparison | Eligible pairs | Left wins | Codex wins | Left time | Codex time | Left advantage |
+|---|---:|---:|---:|---:|---:|---:|
+| Prime Context vs Codex | 30 | **29** | 1 | **6,172.066 s** | 10,338.905 s | **4,166.839 s / 40.30% less** |
+| Stock Prime Agent vs Codex | 29 | **28** | 1 | **7,051.335 s** | 9,400.628 s | **2,349.293 s / 24.99% less** |
+
+Codex's time win in both rows was Task 13. Codex also strictly passed Task 30, where stock Prime Agent failed both attempts, so Codex wins that correctness comparison. Across all 30 strict Prime Context–Codex pairs, Prime Context used 4,199,330 versus 23,327,077 diagnostic provider tokens, **81.998% fewer**. Across the 29 strict stock-Prime-Agent–Codex pairs, stock Prime Agent used 5,997,405 versus 19,684,627, **69.53% fewer**. Timing is supplemental because the Codex run was independent rather than contemporaneously paired.
+
 ## Method
 
 - **Recorded:** 2026-09-03.
@@ -55,6 +87,22 @@ This document is the detailed record behind the headline numbers in [README.md](
 - **Targeted replacement:** clean targeted reruns may replace invalidated or regressing rows while unaffected evidence from the complete all-30 run remains fixed.
 
 The final publication set combines 22 unaffected rows from the all-30 run with clean replacements for Tasks 7, 8, 13, 16, and 27–30. This protocol was fixed before publication; it avoids rerunning unaffected tasks merely because one task contract changed.
+
+### Supplemental pure vanilla Codex CLI method
+
+- **Recorded:** 2026-09-04 with installed `codex-cli 0.153.0` and existing ChatGPT subscription authentication.
+- **Product isolation:** stock `codex exec` only; no Prime Agent, Prime Context, API-key authentication, unrelated extension, or custom system/developer prompt.
+- **Model and scheduling:** `gpt-5.6-sol`, medium reasoning effort, maximum six first attempts; only an initial strict failure receives one retry in a second wave.
+- **Same task protocol:** identical corpus, visible and hidden staged messages, task-specific fixtures and judges, and scenario timeouts. Benchmark user messages are sent on stdin. Resume uses the thread ID emitted by the preceding stock Codex turn.
+- **Config and instruction isolation:** `--ignore-user-config`, `--ignore-rules`, an explicit allowlisted process environment, a fresh empty `HOME`, and a fresh run-scoped `CODEX_HOME` shared by the concurrent sessions. Only a mode-`0600` copy of ChatGPT `auth.json` is present at startup. The runner rejects global or local `AGENTS.md`, `AGENTS.override.md`, `.codex/config.toml`, and local Codex system-config files. Stock Codex built-in instructions remain; server-side enterprise policy, if any, is not observable locally.
+- **Workspace and tools:** every attempt runs under `/tmp`, outside the repository instruction path, in the stock `workspace-write` sandbox. The stock command-network proxy permits only exact `127.0.0.1`, which is required by Tasks 10 and 12; other command destinations are blocked.
+- **Timing:** Codex agent wall time is the sum of its CLI-turn subprocess intervals. It excludes setup, service staging between turns, judging, and cleanup.
+- **Selection:** strict pass, progress, main-check count, edge check, lower agent time, then lower API-equivalent diagnostic. Every attempt remains in the raw record.
+- **Telemetry:** JSONL usage is subscription telemetry. Cached input is a subset of input, and reasoning output is a subset of output. Codex does not expose underlying model-request count or actual per-run billed API cost.
+
+### Comparison rules for the Codex arm
+
+Correctness remains first. Time is compared pairwise only when both selected arms strictly pass, with a separate eligible denominator for Prime Context versus Codex and stock Prime Agent versus Codex. An all-selected Codex wall-time total is standalone when failure sets differ. The Codex run was independent rather than contemporaneously paired with the Prime Agent waves, so its timing is supplemental. No billed-cost wins or losses are assigned to Codex: subscription cost is `N/A`, and the same-rate API equivalent is diagnostic only. Codex staged CLI turns are not compared with Prime Agent model-call counts.
 
 ## Every task and every selected metric
 
@@ -93,7 +141,46 @@ The final publication set combines 22 unaffected rows from the all-30 run with c
 | 29 | Legacy Budgeting CLI Repair | M / 1200 s | Repair a legacy budgeting CLI, preserve its SQLite data, and produce corrected reports. | gate20 | PASS 5/5 + edge (P5); 272.815 s; $0.656941; 23 calls; 297,598 tokens; A1 | PASS 5/5 + edge (P5); 330.506 s; $0.829247; 20 calls; 276,741 tokens; A1 | Time −17.46%; cost −20.78% |
 | 30 | Helpdesk Service Upgrade | H / 1800 s | Migrate and extend a persistent helpdesk service across staged API and CLI requirements. | gate20 | PASS 5/5 + edge (P5); 506.510 s; $1.334545; 35 calls; 571,647 tokens; A1 | FAIL 4/5 + edge (P3); 616.133 s; $1.661436; 38 calls; 868,051 tokens; A2 | Correctness win; vanilla failed both attempts |
 
+### Every selected Codex metric
+
+Dollar values in this table are same-rate API equivalents for diagnostic context, not billed cost. All rows selected A1 because every task strictly passed on its first attempt.
+
+| # | Task | Result | Agent time | API-equivalent diagnostic | Codex turns | Provider tokens |
+|---:|---|---|---:|---:|---:|---:|
+| 1 | Household Expense Reconciliation | PASS 5/5 + edge (P5); A1 | 139.397 s | $0.408256 | 1 | 235,949 |
+| 2 | Calendar Merge and Conflict Report | PASS 5/5 + edge (P5); A1 | 173.250 s | $0.512317 | 2 | 357,215 |
+| 3 | Mailbox Thread Cleanup | PASS 5/5 + edge (P5); A1 | 277.720 s | $0.823944 | 2 | 476,729 |
+| 4 | Invoice and Payment Matching | PASS 5/5 + edge (P5); A1 | 115.233 s | $0.323759 | 1 | 147,528 |
+| 5 | Inventory Reorder and Transfer Plan | PASS 5/5 + edge (P5); A1 | 383.458 s | $1.209097 | 2 | 966,651 |
+| 6 | Volunteer Shift Rescheduling | PASS 5/5 + edge (P5); A1 | 395.555 s | $1.174572 | 3 | 854,204 |
+| 7 | Utility Consumption Anomaly Report | PASS 5/5 + edge (P5); A1 | 139.230 s | $0.453450 | 1 | 262,684 |
+| 8 | Travel Itinerary Repair | PASS 5/5 + edge (P5); A1 | 294.024 s | $0.853226 | 2 | 535,066 |
+| 9 | Support SLA Event Analysis | PASS 5/5 + edge (P5); A1 | 164.718 s | $0.519911 | 1 | 325,602 |
+| 10 | Local Supplier Catalog Crawler | PASS 5/5 + edge (P5); A1 | 130.941 s | $0.345367 | 1 | 178,737 |
+| 11 | SQLite CRM Migration | PASS 5/5 + edge (P5); A1 | 263.438 s | $0.737017 | 2 | 418,329 |
+| 12 | Webhook Receiver and Replay | PASS 5/5 + edge (P5); A1 | 416.562 s | $1.157267 | 3 | 808,592 |
+| 13 | Cross-Service Incident Timeline | PASS 5/5 + edge (P5); A1 | 714.691 s | $2.583957 | 4 | 2,690,804 |
+| 14 | Layered Configuration Upgrade | PASS 5/5 + edge (P5); A1 | 163.300 s | $0.475217 | 1 | 218,426 |
+| 15 | Backup Restore Planner | PASS 5/5 + edge (P5); A1 | 162.203 s | $0.406602 | 1 | 200,467 |
+| 16 | Markdown Knowledge-Base Repair | PASS 5/5 + edge (P5); A1 | 520.892 s | $1.583143 | 2 | 1,157,873 |
+| 17 | Contract Clause Index and Comparison | PASS 5/5 + edge (P5); A1 | 390.786 s | $1.120477 | 3 | 790,458 |
+| 18 | Research-Note Search and Deduplication | PASS 5/5 + edge (P5); A1 | 338.524 s | $0.906710 | 2 | 500,188 |
+| 19 | Sensor Resampling and Gap Report | PASS 5/5 + edge (P5); A1 | 223.904 s | $0.530444 | 1 | 295,150 |
+| 20 | Time-of-Use Energy Billing | PASS 5/5 + edge (P5); A1 | 368.229 s | $1.033695 | 3 | 681,929 |
+| 21 | WAV Interview Cleanup and Chapters | PASS 5/5 + edge (P5); A1 | 294.725 s | $0.905405 | 2 | 554,938 |
+| 22 | Timesheet and Payroll Correction | PASS 5/5 + edge (P5); A1 | 377.406 s | $1.092536 | 3 | 755,269 |
+| 23 | Procurement Three-Way Match | PASS 5/5 + edge (P5); A1 | 415.371 s | $1.264481 | 3 | 952,905 |
+| 24 | Multi-Warehouse Order Fulfillment | PASS 5/5 + edge (P5); A1 | 388.167 s | $1.135334 | 3 | 748,855 |
+| 25 | Library Circulation Reconstruction | PASS 5/5 + edge (P5); A1 | 359.053 s | $0.968833 | 2 | 627,799 |
+| 26 | School Meal Allergen and Stock Plan | PASS 5/5 + edge (P5); A1 | 206.944 s | $0.590063 | 2 | 437,654 |
+| 27 | Clinic Appointment Rescheduling | PASS 5/5 + edge (P5); A1 | 587.593 s | $1.848188 | 4 | 1,441,837 |
+| 28 | Permit Intake and Status Pipeline | PASS 5/5 + edge (P5); A1 | 595.744 s | $1.790333 | 4 | 1,335,571 |
+| 29 | Legacy Budgeting CLI Repair | PASS 5/5 + edge (P5); A1 | 399.569 s | $1.145535 | 3 | 727,218 |
+| 30 | Helpdesk Service Upgrade | PASS 5/5 + edge (P5); A1 | 938.277 s | $3.547872 | 5 | 3,642,450 |
+
 ## Every retained retry
+
+The Codex arm retained no retries: all 30 tasks strictly passed A1. The Prime Agent pair retained the following second attempts.
 
 Only four task/variant pairs retained a second attempt. These rows disclose both attempts, including the one non-product transport error. All other task/variant pairs used one attempt, already reported above.
 
@@ -118,16 +205,18 @@ Task 30 is not treated as a time/cost comparison. Prime Context passed 5/5 plus 
 | `t7-r2` | `20260903-pa091-pc911-targeted-task07-replacement2` | Task 7 |
 | `gate20` | `20260903-pa091-pc911-postfix-gate-task08-16-27-30` | Tasks 8, 16, 27–30 |
 | `t7-13` | `20260903-pa091-pc911-targeted-task07-13-replacement` | Task 13 |
+| `codex-v1` | `20260904-codex0153-gpt56sol-all30-v1` | Tasks 1–30, supplemental pure Codex arm |
 
-Raw invocation evidence is retained locally under `benchmarks/python-realworld-30/results/` and is intentionally excluded from the npm tarball because it contains full generated workspaces and session material. The harness, task contracts, judges, and isolation builder are published under [`benchmarks/python-realworld-30/`](benchmarks/python-realworld-30/). The concise publication snapshot is [`RECENT_RESULTS.md`](RECENT_RESULTS.md).
+Full raw invocation evidence is retained locally under `benchmarks/python-realworld-30/results/` and is intentionally excluded from the npm tarball because it contains generated workspaces and session material. Curated raw Codex evidence is persisted under [`benchmarks/python-realworld-30/evidence/20260904-codex0153-gpt56sol-all30-v1/`](benchmarks/python-realworld-30/evidence/20260904-codex0153-gpt56sol-all30-v1/): invocation, summary, comparison, every attempt result, all 69 public JSONL event streams, stderr, final messages, service/judge logs, and the exact runner. It excludes authentication state, Codex private rollout state, and bulky duplicated workspaces. The harness, task contracts, judges, and isolation builder are published under [`benchmarks/python-realworld-30/`](benchmarks/python-realworld-30/). The concise publication snapshot is [`RECENT_RESULTS.md`](RECENT_RESULTS.md).
 
 ## Validation of the publication set
 
 - Corpus validator: valid, 30 tasks, 669 staged files.
-- Harness tests: 4/4 passed.
+- Harness tests: 6/6 passed, including Codex stdin/resume-command and environment-isolation coverage.
 - Product tests: 110/110 passed, including focused Bash-watcher and terminal-state projection cases added during the final release audit.
 - Python compilation, TypeScript typecheck/build, package smoke against Prime Agent 0.9.1, and `git diff --check`: passed.
-- Evidence audit: 30 current strict passes, 29 vanilla strict passes, 29/29 both-pass time wins, 29/29 both-pass billed-cost wins, no selected-attempt errors, no excessive retries, and no report/invocation mismatches.
+- Prime Agent evidence audit: 30 current strict passes, 29 vanilla strict passes, 29/29 both-pass time wins, 29/29 both-pass billed-cost wins, no selected-attempt errors, no excessive retries, and no report/invocation mismatches.
+- Codex evidence audit: 30 tasks and 30 first attempts; 69 completed JSONL turns; 150/150 main and 30/30 edge checks; no errors, malformed JSONL, usage-accounting mismatch, external command URL, package installation, or instruction-path leak.
 
 ## Reproduce
 
@@ -152,4 +241,17 @@ python3 benchmarks/python-realworld-30/run.py \
   --output benchmarks/python-realworld-30/results/reproduction
 ```
 
-Provider credentials and billed-cost reporting must already be configured for Prime Agent. See [`benchmarks/python-realworld-30/README.md`](benchmarks/python-realworld-30/README.md) for corpus validation, targeted task selection, retry behavior, and summary generation.
+Provider credentials and billed-cost reporting must already be configured for Prime Agent.
+
+Run the supplemental pure Codex arm separately. The installed `codex` must already report `Logged in using ChatGPT`; API-key authentication is rejected:
+
+```bash
+python3 benchmarks/python-realworld-30/run_codex.py \
+  --tasks 1-30 \
+  --max-workers 6 \
+  --retry-failed 1 \
+  --timeout-seconds 1800 \
+  --output benchmarks/python-realworld-30/results/20260904-codex0153-gpt56sol-all30-v1
+```
+
+The Codex runner pins the model and effort internally. See [`benchmarks/python-realworld-30/README.md`](benchmarks/python-realworld-30/README.md) for corpus validation, targeted task selection, retry behavior, isolation, and summary generation.

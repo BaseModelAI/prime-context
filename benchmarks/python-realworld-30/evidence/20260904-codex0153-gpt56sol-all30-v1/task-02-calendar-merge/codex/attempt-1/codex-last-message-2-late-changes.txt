@@ -1,0 +1,12 @@
+Merged `inputs/late_changes.ics` using the unchanged command.
+
+Results:
+
+- 86 retained events
+- `event-alpha` and `filler-005` cancelled
+- `room-change` updated to sequence 4, Room C
+- `dst-span` normalized to `20251102T043000Z–20251102T083000Z`
+- New conflict: `dst-span,night-watch`
+- Deterministic CRLF outputs regenerated
+
+Updated files: [calendar_merge.py](/tmp/prime-context-codex-t02-a1-818qqk7b/workspace/solution/calendar_merge.py), [merged.ics](/tmp/prime-context-codex-t02-a1-818qqk7b/workspace/output/merged.ics), and [conflicts.csv](/tmp/prime-context-codex-t02-a1-818qqk7b/workspace/output/conflicts.csv).

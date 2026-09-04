@@ -1,0 +1,7 @@
+Updated the workflow and regenerated all outputs:
+
+- [rebook.csv](/tmp/prime-context-codex-t08-a1-qaewr_jj/workspace/output/rebook.csv) selects `ALT-C` for `F2`.
+- [timeline.csv](/tmp/prime-context-codex-t08-a1-qaewr_jj/workspace/output/timeline.csv) applies revision 3, the replacement, and removes cancelled `A1`.
+- [issues.json](/tmp/prime-context-codex-t08-a1-qaewr_jj/workspace/output/issues.json) contains no insufficient connection after rebooking.
+
+Validated deterministic output, exact headers, and LF endings using only Python’s standard library.

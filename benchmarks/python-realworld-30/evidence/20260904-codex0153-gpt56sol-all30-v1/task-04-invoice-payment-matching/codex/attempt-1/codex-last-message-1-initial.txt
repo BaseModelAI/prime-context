@@ -1,0 +1,12 @@
+Implemented [solution/invoice_match.py](/tmp/prime-context-codex-t04-a1-9fel5cd5/workspace/solution/invoice_match.py) using only Python’s standard library and `Decimal`.
+
+Generated all three reports in [output](/tmp/prime-context-codex-t04-a1-9fel5cd5/workspace/output). Verified:
+
+- All 120 invoice balances reconcile.
+- Memo precedence and closed-invoice behavior.
+- Credit processing order and tie-breaking.
+- Mismatched specific credits remain unapplied.
+- No negative balances.
+- Repeated runs produce identical output.
+
+The container provides `python3` rather than `python`; the equivalent command completed successfully.

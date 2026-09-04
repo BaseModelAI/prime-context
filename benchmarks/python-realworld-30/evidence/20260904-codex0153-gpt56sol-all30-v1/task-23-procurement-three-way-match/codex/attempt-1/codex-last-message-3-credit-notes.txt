@@ -1,0 +1,12 @@
+Updated [three_way_match.py](/tmp/prime-context-codex-t23-a1-s9cosrhm/workspace/solution/three_way_match.py) and regenerated all outputs.
+
+Implemented:
+
+- Invoice-line-specific credit application
+- Line payables capped at zero
+- Excess line credits added to supplier `unapplied_credit`
+- Header credits applied after line payables, freight, and tax
+- Supplier totals capped at zero with excess header credit carried as unapplied
+- Credit-note reference and duplicate-ID validation
+
+Verified deterministic output and both line/header over-credit scenarios.

@@ -1,0 +1,242 @@
+{
+  "attempts": [
+    {
+      "agent_wall_seconds": 415.37147160898894,
+      "completed_at": "2026-09-04T16:15:39.000825+00:00",
+      "error": null,
+      "isolation": {
+        "agent_instruction_files": [],
+        "api_key_environment": [],
+        "auth_mode": "ChatGPT subscription",
+        "builtin_context": "stock Codex CLI context only",
+        "codex_home": "isolated shared run home; auth.json only at startup",
+        "custom_developer_prompt": null,
+        "custom_system_prompt": null,
+        "exec_rules": "ignored",
+        "sandbox": "workspace-write with exact 127.0.0.1 command-proxy allow rule",
+        "user_config": "ignored",
+        "workspace_root": "/tmp outside every repository and AGENTS.md/.codex search path"
+      },
+      "judge": {
+        "edge_check_passed": true,
+        "main_checks_passed": 5,
+        "main_checks_total": 5,
+        "notes": [],
+        "progress_level": 5,
+        "status": "pass"
+      },
+      "judge_seconds": 0.2962025870801881,
+      "lifecycle_wall_seconds": 415.75899368408136,
+      "metrics": {
+        "api_equivalent_cost": {
+          "cached_input": 0.444416,
+          "output": 0.59964,
+          "total": 1.264481,
+          "uncached_input": 0.220425
+        },
+        "api_equivalent_cost_kind": "matched-rate estimate only; not an actual subscription bill",
+        "billing_note": "ChatGPT subscription Codex exposes no per-run billed API charge.",
+        "codex_turns": 3,
+        "model_api_calls": null,
+        "model_api_calls_note": "Codex exec JSONL does not expose underlying model request count.",
+        "provider_usage": {
+          "cacheWriteInput": 0,
+          "cachedInput": 888832,
+          "input": 932917,
+          "output": 19988,
+          "reasoningOutput": 5596,
+          "totalTokens": 952905,
+          "uncachedInput": 44085
+        },
+        "raw_usage": {
+          "cache_write_input_tokens": 0,
+          "cached_input_tokens": 888832,
+          "input_tokens": 932917,
+          "output_tokens": 19988,
+          "reasoning_output_tokens": 5596
+        },
+        "subscription_billed_cost": null
+      },
+      "pressure": "M",
+      "schema": "prime-context.python-realworld-codex-run/v1",
+      "service_events": [],
+      "setup_seconds": 0.02678573492448777,
+      "stage_events": [
+        {
+          "completed_at": "2026-09-04T16:12:44.471094+00:00",
+          "elapsed_seconds": 241.20162965997588,
+          "stage": "initial",
+          "started_at": "2026-09-04T16:08:43.268700+00:00"
+        },
+        {
+          "completed_at": "2026-09-04T16:13:57.482703+00:00",
+          "elapsed_seconds": 72.98636232002173,
+          "stage": "receipt-corrections",
+          "started_at": "2026-09-04T16:12:44.495826+00:00"
+        },
+        {
+          "completed_at": "2026-09-04T16:15:38.693507+00:00",
+          "elapsed_seconds": 101.18347962899134,
+          "stage": "credit-notes",
+          "started_at": "2026-09-04T16:13:57.509657+00:00"
+        }
+      ],
+      "started_at": "2026-09-04T16:08:43.241843+00:00",
+      "task_id": 23,
+      "task_slug": "procurement-three-way-match",
+      "thread_id": "01a06d2d-f47d-7f00-8ce3-922fe9dda5c3",
+      "turns": [
+        {
+          "command": [
+            "/home/jdabrowski/.nvm/versions/node/v22.22.1/lib/node_modules/@openai/codex/bin/codex.js",
+            "exec",
+            "--sandbox",
+            "workspace-write",
+            "--cd",
+            "/tmp/prime-context-codex-t23-a1-s9cosrhm/workspace",
+            "--config",
+            "sandbox_workspace_write.network_access=true",
+            "--config",
+            "features.network_proxy.enabled=true",
+            "--config",
+            "features.network_proxy.domains={ \"127.0.0.1\" = \"allow\" }",
+            "--ignore-user-config",
+            "--ignore-rules",
+            "--skip-git-repo-check",
+            "--model",
+            "gpt-5.6-sol",
+            "--config",
+            "model_reasoning_effort=\"medium\"",
+            "--json",
+            "--color",
+            "never",
+            "--output-last-message",
+            "/home/jdabrowski/work/prime-context/benchmarks/python-realworld-30/results/20260904-codex0153-gpt56sol-all30-v1/task-23-procurement-three-way-match/codex/attempt-1/codex-last-message-1-initial.txt",
+            "-"
+          ],
+          "completed_at": "2026-09-04T16:12:44.471094+00:00",
+          "elapsed_seconds": 241.20162965997588,
+          "errors": [],
+          "event_count": 33,
+          "last_message": "Implemented the standard-library-only three-way matching workflow in:\n\n- [three_way_match.py](/tmp/prime-context-codex-t23-a1-s9cosrhm/workspace/solution/three_way_match.py)\n- [__init__.py](/tmp/prime-context-codex-t23-a1-s9cosrhm/workspace/solution/__init__.py)\n\nGenerated deterministic outputs in [output](/tmp/prime-context-codex-t23-a1-s9cosrhm/workspace/output):\n\n- `line_matches.csv`\n- `exceptions.csv`\n- `supplier_summary.json`\n\nVerified compilation, repeatability, all 30 PO lines, 21 exceptions, summary calculations, sorting, rounding, and malformed-reference handling.",
+          "malformed_output": [],
+          "prompt": "Read TASK.md and complete the requested workflow using only the Python standard library.",
+          "returncode": 0,
+          "stage": "initial",
+          "started_at": "2026-09-04T16:08:43.268700+00:00",
+          "thread_id": "01a06d2d-f47d-7f00-8ce3-922fe9dda5c3",
+          "timed_out": false,
+          "usage": {
+            "cache_write_input_tokens": 0,
+            "cached_input_tokens": 414592,
+            "input_tokens": 441189,
+            "output_tokens": 11651,
+            "reasoning_output_tokens": 2565
+          }
+        },
+        {
+          "command": [
+            "/home/jdabrowski/.nvm/versions/node/v22.22.1/lib/node_modules/@openai/codex/bin/codex.js",
+            "exec",
+            "--sandbox",
+            "workspace-write",
+            "--cd",
+            "/tmp/prime-context-codex-t23-a1-s9cosrhm/workspace",
+            "--config",
+            "sandbox_workspace_write.network_access=true",
+            "--config",
+            "features.network_proxy.enabled=true",
+            "--config",
+            "features.network_proxy.domains={ \"127.0.0.1\" = \"allow\" }",
+            "resume",
+            "--ignore-user-config",
+            "--ignore-rules",
+            "--skip-git-repo-check",
+            "--model",
+            "gpt-5.6-sol",
+            "--config",
+            "model_reasoning_effort=\"medium\"",
+            "--json",
+            "--output-last-message",
+            "/home/jdabrowski/work/prime-context/benchmarks/python-realworld-30/results/20260904-codex0153-gpt56sol-all30-v1/task-23-procurement-three-way-match/codex/attempt-1/codex-last-message-2-receipt-corrections.txt",
+            "01a06d2d-f47d-7f00-8ce3-922fe9dda5c3",
+            "-"
+          ],
+          "completed_at": "2026-09-04T16:13:57.482703+00:00",
+          "elapsed_seconds": 72.98636232002173,
+          "errors": [],
+          "event_count": 15,
+          "last_message": "Updated [three_way_match.py](/tmp/prime-context-codex-t23-a1-s9cosrhm/workspace/solution/three_way_match.py) to apply receipt voids and replacements before validation and aggregation.\n\nRegenerated all outputs. Verified:\n\n- Corrected quantities: `PO-100/L01 = 102`, `PO-100/L02 = 235.2`\n- Unknown, duplicate, and malformed corrections fail clearly\n- Repeated runs produce identical files\n- All calculations remain standard-library-only using `Decimal`",
+          "malformed_output": [],
+          "prompt": "inputs/receipt_corrections.json voids or replaces selected receipt records by record_id (the receipt_id in goods_receipts.json). Remove a voided record; replace a selected record with its replacement object. Apply corrections before aggregation and regenerate every output.",
+          "returncode": 0,
+          "stage": "receipt-corrections",
+          "started_at": "2026-09-04T16:12:44.495826+00:00",
+          "thread_id": "01a06d2d-f47d-7f00-8ce3-922fe9dda5c3",
+          "timed_out": false,
+          "usage": {
+            "cache_write_input_tokens": 0,
+            "cached_input_tokens": 194816,
+            "input_tokens": 204428,
+            "output_tokens": 3462,
+            "reasoning_output_tokens": 1169
+          }
+        },
+        {
+          "command": [
+            "/home/jdabrowski/.nvm/versions/node/v22.22.1/lib/node_modules/@openai/codex/bin/codex.js",
+            "exec",
+            "--sandbox",
+            "workspace-write",
+            "--cd",
+            "/tmp/prime-context-codex-t23-a1-s9cosrhm/workspace",
+            "--config",
+            "sandbox_workspace_write.network_access=true",
+            "--config",
+            "features.network_proxy.enabled=true",
+            "--config",
+            "features.network_proxy.domains={ \"127.0.0.1\" = \"allow\" }",
+            "resume",
+            "--ignore-user-config",
+            "--ignore-rules",
+            "--skip-git-repo-check",
+            "--model",
+            "gpt-5.6-sol",
+            "--config",
+            "model_reasoning_effort=\"medium\"",
+            "--json",
+            "--output-last-message",
+            "/home/jdabrowski/work/prime-context/benchmarks/python-realworld-30/results/20260904-codex0153-gpt56sol-all30-v1/task-23-procurement-three-way-match/codex/attempt-1/codex-last-message-3-credit-notes.txt",
+            "01a06d2d-f47d-7f00-8ce3-922fe9dda5c3",
+            "-"
+          ],
+          "completed_at": "2026-09-04T16:15:38.693507+00:00",
+          "elapsed_seconds": 101.18347962899134,
+          "errors": [],
+          "event_count": 17,
+          "last_message": "Updated [three_way_match.py](/tmp/prime-context-codex-t23-a1-s9cosrhm/workspace/solution/three_way_match.py) and regenerated all outputs.\n\nImplemented:\n\n- Invoice-line-specific credit application\n- Line payables capped at zero\n- Excess line credits added to supplier `unapplied_credit`\n- Header credits applied after line payables, freight, and tax\n- Supplier totals capped at zero with excess header credit carried as unapplied\n- Credit-note reference and duplicate-ID validation\n\nVerified deterministic output and both line/header over-credit scenarios.",
+          "malformed_output": [],
+          "prompt": "inputs/credit_notes.xml contains line and header credits. Apply each line credit only to its referenced invoice line, cap that line at zero, and add excess to the supplier unapplied_credit. Header credits reduce the supplier total after line payables, freight, and tax, capped at zero; add any excess to unapplied_credit. Update line credit_applied and line_payable, supplier credit_applied, header_credit, unapplied_credit, and final_payable. Regenerate all files.",
+          "returncode": 0,
+          "stage": "credit-notes",
+          "started_at": "2026-09-04T16:13:57.509657+00:00",
+          "thread_id": "01a06d2d-f47d-7f00-8ce3-922fe9dda5c3",
+          "timed_out": false,
+          "usage": {
+            "cache_write_input_tokens": 0,
+            "cached_input_tokens": 279424,
+            "input_tokens": 287300,
+            "output_tokens": 4875,
+            "reasoning_output_tokens": 1862
+          }
+        }
+      ],
+      "variant": "codex"
+    }
+  ],
+  "retry_triggers": [],
+  "selected_attempt": 0,
+  "task_id": 23,
+  "task_slug": "procurement-three-way-match",
+  "variant": "codex"
+}

@@ -1,0 +1,2 @@
+WARNING: proceeding, even though we could not create PATH aliases: Refusing to create helper binaries under temporary dir "/tmp" (codex_home: AbsolutePathBuf("/tmp/prime-context-codex-realworld30-yyh1c8sq/codex-home"))
+2026-09-04T16:16:46.649790Z ERROR codex_core::tools::router: error=apply_patch verification failed: invalid patch: multiple operations target /tmp/prime-context-codex-t28-a1-n35aoxbf/workspace/permitflow/__main__.py

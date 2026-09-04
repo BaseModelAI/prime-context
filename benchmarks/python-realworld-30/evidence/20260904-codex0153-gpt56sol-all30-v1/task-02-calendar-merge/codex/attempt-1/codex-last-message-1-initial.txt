@@ -1,0 +1,20 @@
+Implemented the deterministic calendar merge workflow using only Python’s standard library.
+
+Files:
+
+- [calendar_merge.py](/tmp/prime-context-codex-t02-a1-818qqk7b/workspace/solution/calendar_merge.py)
+- [merged.ics](/tmp/prime-context-codex-t02-a1-818qqk7b/workspace/output/merged.ics)
+- [conflicts.csv](/tmp/prime-context-codex-t02-a1-818qqk7b/workspace/output/conflicts.csv)
+
+Verified:
+
+- 87 retained events
+- Sequence replacement and cancellation
+- UTC, local, `TZID`, and all-day conversion
+- Folded summary unfolding
+- Half-open endpoint behavior
+- CRLF output
+- Deterministic output hashes
+- Expected five conflicts
+
+The container lacks a `python` alias, so validation used `python3 -m solution.calendar_merge ...`.

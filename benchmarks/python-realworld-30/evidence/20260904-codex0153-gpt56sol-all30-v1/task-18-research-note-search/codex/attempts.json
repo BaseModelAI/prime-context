@@ -1,0 +1,188 @@
+{
+  "attempts": [
+    {
+      "agent_wall_seconds": 338.5240372888511,
+      "completed_at": "2026-09-04T16:08:03.338961+00:00",
+      "error": null,
+      "isolation": {
+        "agent_instruction_files": [],
+        "api_key_environment": [],
+        "auth_mode": "ChatGPT subscription",
+        "builtin_context": "stock Codex CLI context only",
+        "codex_home": "isolated shared run home; auth.json only at startup",
+        "custom_developer_prompt": null,
+        "custom_system_prompt": null,
+        "exec_rules": "ignored",
+        "sandbox": "workspace-write with exact 127.0.0.1 command-proxy allow rule",
+        "user_config": "ignored",
+        "workspace_root": "/tmp outside every repository and AGENTS.md/.codex search path"
+      },
+      "judge": {
+        "edge_check_passed": true,
+        "main_checks_passed": 5,
+        "main_checks_total": 5,
+        "notes": [],
+        "progress_level": 5,
+        "status": "pass"
+      },
+      "judge_seconds": 3.326430825982243,
+      "lifecycle_wall_seconds": 343.13426327705383,
+      "metrics": {
+        "api_equivalent_cost": {
+          "cached_input": 0.21952,
+          "output": 0.45774,
+          "total": 0.9067099999999999,
+          "uncached_input": 0.22945
+        },
+        "api_equivalent_cost_kind": "matched-rate estimate only; not an actual subscription bill",
+        "billing_note": "ChatGPT subscription Codex exposes no per-run billed API charge.",
+        "codex_turns": 2,
+        "model_api_calls": null,
+        "model_api_calls_note": "Codex exec JSONL does not expose underlying model request count.",
+        "provider_usage": {
+          "cacheWriteInput": 0,
+          "cachedInput": 439040,
+          "input": 484930,
+          "output": 15258,
+          "reasoningOutput": 5194,
+          "totalTokens": 500188,
+          "uncachedInput": 45890
+        },
+        "raw_usage": {
+          "cache_write_input_tokens": 0,
+          "cached_input_tokens": 439040,
+          "input_tokens": 484930,
+          "output_tokens": 15258,
+          "reasoning_output_tokens": 5194
+        },
+        "subscription_billed_cost": null
+      },
+      "pressure": "L",
+      "schema": "prime-context.python-realworld-codex-run/v1",
+      "service_events": [],
+      "setup_seconds": 1.1321932749124244,
+      "stage_events": [
+        {
+          "completed_at": "2026-09-04T16:05:58.114316+00:00",
+          "elapsed_seconds": 216.77694572589826,
+          "stage": "initial",
+          "started_at": "2026-09-04T16:02:21.336999+00:00"
+        },
+        {
+          "completed_at": "2026-09-04T16:07:59.997594+00:00",
+          "elapsed_seconds": 121.74709156295285,
+          "stage": "update",
+          "started_at": "2026-09-04T16:05:58.250079+00:00"
+        }
+      ],
+      "started_at": "2026-09-04T16:02:20.204708+00:00",
+      "task_id": 18,
+      "task_slug": "research-note-search",
+      "thread_id": "01a06d28-2089-7820-b414-4deff84f989f",
+      "turns": [
+        {
+          "command": [
+            "/home/jdabrowski/.nvm/versions/node/v22.22.1/lib/node_modules/@openai/codex/bin/codex.js",
+            "exec",
+            "--sandbox",
+            "workspace-write",
+            "--cd",
+            "/tmp/prime-context-codex-t18-a1-7jkup2r4/workspace",
+            "--config",
+            "sandbox_workspace_write.network_access=true",
+            "--config",
+            "features.network_proxy.enabled=true",
+            "--config",
+            "features.network_proxy.domains={ \"127.0.0.1\" = \"allow\" }",
+            "--ignore-user-config",
+            "--ignore-rules",
+            "--skip-git-repo-check",
+            "--model",
+            "gpt-5.6-sol",
+            "--config",
+            "model_reasoning_effort=\"medium\"",
+            "--json",
+            "--color",
+            "never",
+            "--output-last-message",
+            "/home/jdabrowski/work/prime-context/benchmarks/python-realworld-30/results/20260904-codex0153-gpt56sol-all30-v1/task-18-research-note-search/codex/attempt-1/codex-last-message-1-initial.txt",
+            "-"
+          ],
+          "completed_at": "2026-09-04T16:05:58.114316+00:00",
+          "elapsed_seconds": 216.77694572589826,
+          "errors": [],
+          "event_count": 28,
+          "last_message": "Implemented the complete standard-library-only workflow in [notes_index.py](/tmp/prime-context-codex-t18-a1-7jkup2r4/workspace/solution/notes_index.py).\n\nGenerated:\n\n- [notes.db](/tmp/prime-context-codex-t18-a1-7jkup2r4/workspace/workspace/notes.db)\n- [duplicates.csv](/tmp/prime-context-codex-t18-a1-7jkup2r4/workspace/output/duplicates.csv)\n\nVerified Unicode normalization, scoring, tie ordering, stop words, unusual paths, duplicate boundaries, randomized duplicate detection, and byte-identical deterministic rebuilds. The supplied 8,000-note corpus builds in approximately 0.8 seconds.",
+          "malformed_output": [],
+          "prompt": "Read TASK.md and complete the requested workflow using only the Python standard library.",
+          "returncode": 0,
+          "stage": "initial",
+          "started_at": "2026-09-04T16:02:21.336999+00:00",
+          "thread_id": "01a06d28-2089-7820-b414-4deff84f989f",
+          "timed_out": false,
+          "usage": {
+            "cache_write_input_tokens": 0,
+            "cached_input_tokens": 236800,
+            "input_tokens": 275453,
+            "output_tokens": 9726,
+            "reasoning_output_tokens": 3000
+          }
+        },
+        {
+          "command": [
+            "/home/jdabrowski/.nvm/versions/node/v22.22.1/lib/node_modules/@openai/codex/bin/codex.js",
+            "exec",
+            "--sandbox",
+            "workspace-write",
+            "--cd",
+            "/tmp/prime-context-codex-t18-a1-7jkup2r4/workspace",
+            "--config",
+            "sandbox_workspace_write.network_access=true",
+            "--config",
+            "features.network_proxy.enabled=true",
+            "--config",
+            "features.network_proxy.domains={ \"127.0.0.1\" = \"allow\" }",
+            "resume",
+            "--ignore-user-config",
+            "--ignore-rules",
+            "--skip-git-repo-check",
+            "--model",
+            "gpt-5.6-sol",
+            "--config",
+            "model_reasoning_effort=\"medium\"",
+            "--json",
+            "--output-last-message",
+            "/home/jdabrowski/work/prime-context/benchmarks/python-realworld-30/results/20260904-codex0153-gpt56sol-all30-v1/task-18-research-note-search/codex/attempt-1/codex-last-message-2-update.txt",
+            "01a06d28-2089-7820-b414-4deff84f989f",
+            "-"
+          ],
+          "completed_at": "2026-09-04T16:07:59.997594+00:00",
+          "elapsed_seconds": 121.74709156295285,
+          "errors": [],
+          "event_count": 16,
+          "last_message": "Added the `update` command to [notes_index.py](/tmp/prime-context-codex-t18-a1-7jkup2r4/workspace/solution/notes_index.py).\n\nIt now:\n\n- Inserts or replaces notes from `inputs/notes-new/`.\n- Removes paths from `inputs/deleted.txt`.\n- Reuses stored stop words.\n- Recomputes document frequencies.\n- Regenerates duplicates from the complete updated corpus.\n- Atomically replaces the database.\n- Preserves deterministic search output.\n\nVerified the updated 8,000-note database against an independently merged corpus. Update time is approximately 0.25 seconds.",
+          "malformed_output": [],
+          "prompt": "`inputs/notes-new/` contains 600 new and edited notes. Add an `update` command that refreshes changed paths, removes deleted paths listed in `inputs/deleted.txt`, and preserves deterministic search results. The command is `python3.12 -E -S -m solution.notes_index update workspace/notes.db inputs/notes-new inputs/deleted.txt output/duplicates.csv`. Each recursive `.md` path relative to `notes-new` is the database path to insert or replace. Each nonempty line of `deleted.txt` is a database path to remove; the fixture does not list a path in both places. Keep the stored stop words and rewrite the duplicate report from the complete post-update database.",
+          "returncode": 0,
+          "stage": "update",
+          "started_at": "2026-09-04T16:05:58.250079+00:00",
+          "thread_id": "01a06d28-2089-7820-b414-4deff84f989f",
+          "timed_out": false,
+          "usage": {
+            "cache_write_input_tokens": 0,
+            "cached_input_tokens": 202240,
+            "input_tokens": 209477,
+            "output_tokens": 5532,
+            "reasoning_output_tokens": 2194
+          }
+        }
+      ],
+      "variant": "codex"
+    }
+  ],
+  "retry_triggers": [],
+  "selected_attempt": 0,
+  "task_id": 18,
+  "task_slug": "research-note-search",
+  "variant": "codex"
+}

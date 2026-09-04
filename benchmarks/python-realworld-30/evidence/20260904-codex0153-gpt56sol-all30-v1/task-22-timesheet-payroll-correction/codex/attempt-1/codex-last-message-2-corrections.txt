@@ -1,0 +1,10 @@
+Implemented correction processing in [solution/payroll.py](/tmp/prime-context-codex-t22-a1-6lx8xi__/workspace/solution/payroll.py).
+
+Corrections now supersede punches before pairing, and `output/correction_summary.csv` reports:
+
+```csv
+employee_id,old_gross_pay,corrected_gross_pay,delta
+E1,875.00,845.00,-30.00
+```
+
+Verified corrected payroll output, Decimal rounding, deterministic reruns, and syntax.

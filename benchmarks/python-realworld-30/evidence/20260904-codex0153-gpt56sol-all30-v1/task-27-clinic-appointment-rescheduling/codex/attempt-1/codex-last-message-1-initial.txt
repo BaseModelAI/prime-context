@@ -1,0 +1,17 @@
+Implemented the standard-library-only clinic scheduler.
+
+Created:
+
+- [clinic_schedule.py](/tmp/prime-context-codex-t27-a1-s6ieb3jk/workspace/solution/clinic_schedule.py)
+- [schedule.csv](/tmp/prime-context-codex-t27-a1-s6ieb3jk/workspace/output/schedule.csv)
+- [baseline_issues.csv](/tmp/prime-context-codex-t27-a1-s6ieb3jk/workspace/output/baseline_issues.csv)
+
+Verified with Python 3.12:
+
+- 250 appointments normalized and sorted
+- 10 locked appointments preserved
+- All seven validation rules implemented
+- No baseline issues in the supplied fixture
+- LF-only CSV output
+- Repeated runs replace files and produce identical results
+- Only Python standard-library imports used

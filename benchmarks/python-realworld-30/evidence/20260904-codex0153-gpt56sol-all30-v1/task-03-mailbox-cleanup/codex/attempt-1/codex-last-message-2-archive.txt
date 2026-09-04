@@ -1,0 +1,15 @@
+Updated [mailbox_clean.py](/tmp/prime-context-codex-t03-a1-gy7vd3gu/workspace/solution/mailbox_clean.py) with multi-input support:
+
+```bash
+python3 -m solution.mailbox_clean \
+  inputs/current.mbox inputs/archive.mbox \
+  --output output
+```
+
+Inputs are processed in positional order. Verified:
+
+- 176 retained messages across 44 threads
+- Forwarded duplicates resolve by latest valid date
+- Known dates sort before unknown dates
+- Threads without valid dates have blank CSV date fields
+- Output remains deterministic across repeated runs

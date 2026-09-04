@@ -1,0 +1,8 @@
+Implemented the complete standard-library-only workflow in [notes_index.py](/tmp/prime-context-codex-t18-a1-7jkup2r4/workspace/solution/notes_index.py).
+
+Generated:
+
+- [notes.db](/tmp/prime-context-codex-t18-a1-7jkup2r4/workspace/workspace/notes.db)
+- [duplicates.csv](/tmp/prime-context-codex-t18-a1-7jkup2r4/workspace/output/duplicates.csv)
+
+Verified Unicode normalization, scoring, tie ordering, stop words, unusual paths, duplicate boundaries, randomized duplicate detection, and byte-identical deterministic rebuilds. The supplied 8,000-note corpus builds in approximately 0.8 seconds.

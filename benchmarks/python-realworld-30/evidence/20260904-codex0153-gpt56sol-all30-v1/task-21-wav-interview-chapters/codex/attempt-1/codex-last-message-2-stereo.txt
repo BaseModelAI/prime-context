@@ -1,0 +1,13 @@
+Updated [audio_chapters.py](/tmp/prime-context-codex-t21-a1-sli277t5/workspace/solution/audio_chapters.py) to:
+
+- Accept mono or stereo 16-bit PCM.
+- Treat a stereo frame as silent only when both channels are below 500.
+- Support multiple alternating WAV/CSV input pairs.
+- Write each result beneath `<output>/<wav-stem>/`.
+
+Generated and verified:
+
+- [output/interview](/tmp/prime-context-codex-t21-a1-sli277t5/workspace/output/interview)
+- [output/interview_stereo](/tmp/prime-context-codex-t21-a1-sli277t5/workspace/output/interview_stereo)
+
+Both outputs preserve their original channel counts and reconstruct exactly from their chapter frames.

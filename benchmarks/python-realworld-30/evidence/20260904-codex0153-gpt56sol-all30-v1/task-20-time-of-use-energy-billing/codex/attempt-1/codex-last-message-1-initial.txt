@@ -1,0 +1,15 @@
+Implemented the time-of-use billing workflow using only Python 3.12’s standard library.
+
+Created:
+
+- [energy_bill.py](/tmp/prime-context-codex-t20-a1-i_8beww2/workspace/solution/energy_bill.py)
+- [bills.csv](/tmp/prime-context-codex-t20-a1-i_8beww2/workspace/output/bills.csv)
+- [bill_detail.csv](/tmp/prime-context-codex-t20-a1-i_8beww2/workspace/output/bill_detail.csv)
+
+Verified:
+
+- Required command runs successfully.
+- Timezone, boundary, holiday, and meter-correction behavior.
+- Decimal rounding and output formatting.
+- Deterministic reruns and LF line endings.
+- Standard-library-only imports.

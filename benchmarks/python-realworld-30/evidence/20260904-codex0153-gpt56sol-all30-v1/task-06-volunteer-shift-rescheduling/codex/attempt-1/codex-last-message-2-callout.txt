@@ -1,0 +1,10 @@
+Rescheduled successfully:
+
+- Coverage remains **36/36**
+- Changed assignments: **4**
+- Preference score: **32**
+- Assignment spread: **1**
+- `V01` and `V13` are excluded and recorded as fairness exceptions
+- All unaffected assignments remain unchanged
+
+Updated [scheduler](/tmp/prime-context-codex-t06-a1-5k0v4j1s/workspace/solution/volunteer_schedule.py), [schedule.csv](/tmp/prime-context-codex-t06-a1-5k0v4j1s/workspace/output/schedule.csv), and [summary.json](/tmp/prime-context-codex-t06-a1-5k0v4j1s/workspace/output/summary.json). All validation checks passed.

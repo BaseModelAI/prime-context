@@ -1,0 +1,14 @@
+Implemented the exact `SEARCH.md` contracts.
+
+Created [tickets.csv](/tmp/prime-context-codex-t30-a1-p558ln8p/workspace/output/tickets.csv) with the required header, open-ticket filter, ascending IDs, null handling, CSV quoting, and LF endings.
+
+Also implemented `GET /search?q=<text>` with:
+
+- Unicode NFKC/casefold alphanumeric tokenization
+- AND semantics
+- Deduplicated query terms
+- Weighted subject/body/comment scoring
+- Score, normalized `updated_at`, then ID ordering
+- `{"tickets":[...]}` response shape
+
+The requested export command ran successfully, producing tickets 1, 2, and 44.

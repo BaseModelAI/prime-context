@@ -1,0 +1,12 @@
+Implemented the ordinance update and reran validation.
+
+Results:
+
+- 138 open residential applications received the new policy.
+- Required documents changed from `PLAN` to `ENERGY+PLAN`.
+- Required fee changed from `100.00` to `125.00`.
+- Closed-before-effective applications retained the original policy.
+- [ordinance_impacts.csv](/tmp/prime-context-codex-t28-a1-n35aoxbf/workspace/output/ordinance_impacts.csv) contains 276 correctly sorted impact rows.
+- All four reports use UTF-8, exact headers, LF endings, and deterministic replacement behavior.
+
+Updated logic: [workflow.py](/tmp/prime-context-codex-t28-a1-n35aoxbf/workspace/permitflow/workflow.py)

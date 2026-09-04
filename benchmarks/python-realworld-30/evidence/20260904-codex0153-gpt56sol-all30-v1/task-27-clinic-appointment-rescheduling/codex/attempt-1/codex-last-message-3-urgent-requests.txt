@@ -1,0 +1,17 @@
+Implemented the urgent-request workflow in [clinic_schedule.py](/tmp/prime-context-codex-t27-a1-s6ieb3jk/workspace/solution/clinic_schedule.py).
+
+Final result:
+
+- 252 appointments scheduled; none unscheduled.
+- `U001` scheduled with preferred provider `P002`.
+- Lower-priority unlocked `A003` displaced from 10:00 to 10:30.
+- `U002` scheduled directly at 11:00 with `P002`.
+- All locked appointments remain unchanged.
+- Reports match the required headers, ordering, blank fields, LF endings, and deterministic replacement behavior.
+
+Updated reports:
+
+- [schedule.csv](/tmp/prime-context-codex-t27-a1-s6ieb3jk/workspace/output/schedule.csv)
+- [changes.csv](/tmp/prime-context-codex-t27-a1-s6ieb3jk/workspace/output/changes.csv)
+- [unscheduled.csv](/tmp/prime-context-codex-t27-a1-s6ieb3jk/workspace/output/unscheduled.csv)
+- [baseline_issues.csv](/tmp/prime-context-codex-t27-a1-s6ieb3jk/workspace/output/baseline_issues.csv)

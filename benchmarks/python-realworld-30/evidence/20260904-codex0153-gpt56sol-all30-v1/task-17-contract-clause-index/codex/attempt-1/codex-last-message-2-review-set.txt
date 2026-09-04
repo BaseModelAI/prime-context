@@ -1,0 +1,11 @@
+Updated the command to also generate [comparison.md](/tmp/prime-context-codex-t17-a1-gjpax4uj/workspace/output/comparison.md).
+
+It now:
+
+- Reads and validates `inputs/review_set.csv`.
+- Groups renewal windows, liability caps, and governing-law states.
+- Includes contract filenames and inclusive source-line ranges.
+- Uses deterministic group and contract ordering.
+- Preserves the existing CSV outputs unchanged.
+
+Verified with repeated full runs and synthetic edge-case tests.

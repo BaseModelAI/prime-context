@@ -1,0 +1,17 @@
+Updated [solution/reorder.py](/tmp/prime-context-codex-t05-a1-57imi8l8/workspace/solution/reorder.py) with:
+
+- Stateful transfer planning in SKU/recipient order
+- Exact recipient and donor-floor arithmetic
+- Physical on-hand donor caps
+- Cost and warehouse tie-breaking
+- Supplier blackout arrival adjustments
+- Optional `transfer_policy` handling
+- Recalculated purchase orders after transfers
+
+Generated outputs:
+
+- [transfers.csv](/tmp/prime-context-codex-t05-a1-57imi8l8/workspace/output/transfers.csv) — 184 transfers
+- [reorder.csv](/tmp/prime-context-codex-t05-a1-57imi8l8/workspace/output/reorder.csv)
+- [supplier_orders.json](/tmp/prime-context-codex-t05-a1-57imi8l8/workspace/output/supplier_orders.json)
+
+Validated transfer ordering, cost priority, exact safety floors, physical limits, blackout dates, supplier minimums, zero-demand behavior, and LF output formatting.

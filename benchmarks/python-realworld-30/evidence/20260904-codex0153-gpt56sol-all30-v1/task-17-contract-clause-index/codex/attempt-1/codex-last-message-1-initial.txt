@@ -1,0 +1,14 @@
+Implemented the standard-library-only clause indexing workflow.
+
+- Source: [solution/clause_index.py](/tmp/prime-context-codex-t17-a1-gjpax4uj/workspace/solution/clause_index.py)
+- Clause index: [output/clauses.csv](/tmp/prime-context-codex-t17-a1-gjpax4uj/workspace/output/clauses.csv)
+- Missing clauses: [output/missing.csv](/tmp/prime-context-codex-t17-a1-gjpax4uj/workspace/output/missing.csv)
+
+Validation passed:
+
+- 120 contracts / 600 clause outcomes
+- 591 extracted clauses
+- 9 missing or unsupported clauses
+- Deterministic output across repeated runs
+- Exact source/excerpt and line-number consistency verified
+- Python 3.12 with standard library only

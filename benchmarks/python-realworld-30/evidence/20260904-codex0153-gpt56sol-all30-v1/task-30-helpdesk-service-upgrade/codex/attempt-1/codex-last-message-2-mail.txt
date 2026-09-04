@@ -1,0 +1,20 @@
+Implemented the exact `MAIL.md` contract and ran the positional command.
+
+First import output:
+
+```json
+{"imported":4999,"skipped":1,"created_tickets":1,"created_comments":4998}
+```
+
+Verified:
+
+- To/Cc `support+<ticket-id>@example.test` routing
+- Threading through `In-Reply-To` and `References`
+- Agent/customer sender classification
+- Customer-triggered reopening
+- RFC header and plain-text decoding
+- Per-message malformed-input rollback
+- Globally unique persisted `Message-ID` values
+- Cross-invocation idempotency
+
+A second import correctly reported all 5,000 messages skipped. The database now contains 44 tickets, 4,999 comments, and 4,999 unique imported Message-IDs.

@@ -1,0 +1,45 @@
+# Vanilla Codex benchmark summary
+
+- Strict passes: **30/30**
+- Agent wall time: **10338.905 s**
+- Actual billed API cost: **N/A** (ChatGPT subscription; Codex exposes no per-run charge)
+- Matched-rate API equivalent: **$31.447008** (not an actual bill)
+- Underlying model API calls: **N/A** (not exposed by Codex CLI JSONL)
+- Codex staged turns: **69**
+- Provider tokens: **23,327,077**
+- Input / cached input / output: **22,839,654 / 21,638,656 / 487,423**
+- Cache-write input / reasoning output (subsets): **0 / 149,589**
+- Selected failures: **[]**
+
+| Task | Result | Agent seconds | API-equivalent | Turns | Provider tokens | Attempt |
+|---:|---|---:|---:|---:|---:|---:|
+| 1 | PASS 5/5 + edge (P5) | 139.397 | $0.408256 | 1 | 235,949 | A1 |
+| 2 | PASS 5/5 + edge (P5) | 173.250 | $0.512317 | 2 | 357,215 | A1 |
+| 3 | PASS 5/5 + edge (P5) | 277.720 | $0.823944 | 2 | 476,729 | A1 |
+| 4 | PASS 5/5 + edge (P5) | 115.233 | $0.323759 | 1 | 147,528 | A1 |
+| 5 | PASS 5/5 + edge (P5) | 383.458 | $1.209097 | 2 | 966,651 | A1 |
+| 6 | PASS 5/5 + edge (P5) | 395.555 | $1.174572 | 3 | 854,204 | A1 |
+| 7 | PASS 5/5 + edge (P5) | 139.230 | $0.453450 | 1 | 262,684 | A1 |
+| 8 | PASS 5/5 + edge (P5) | 294.024 | $0.853226 | 2 | 535,066 | A1 |
+| 9 | PASS 5/5 + edge (P5) | 164.718 | $0.519911 | 1 | 325,602 | A1 |
+| 10 | PASS 5/5 + edge (P5) | 130.941 | $0.345367 | 1 | 178,737 | A1 |
+| 11 | PASS 5/5 + edge (P5) | 263.438 | $0.737017 | 2 | 418,329 | A1 |
+| 12 | PASS 5/5 + edge (P5) | 416.562 | $1.157267 | 3 | 808,592 | A1 |
+| 13 | PASS 5/5 + edge (P5) | 714.691 | $2.583957 | 4 | 2,690,804 | A1 |
+| 14 | PASS 5/5 + edge (P5) | 163.300 | $0.475217 | 1 | 218,426 | A1 |
+| 15 | PASS 5/5 + edge (P5) | 162.203 | $0.406602 | 1 | 200,467 | A1 |
+| 16 | PASS 5/5 + edge (P5) | 520.892 | $1.583143 | 2 | 1,157,873 | A1 |
+| 17 | PASS 5/5 + edge (P5) | 390.786 | $1.120477 | 3 | 790,458 | A1 |
+| 18 | PASS 5/5 + edge (P5) | 338.524 | $0.906710 | 2 | 500,188 | A1 |
+| 19 | PASS 5/5 + edge (P5) | 223.904 | $0.530444 | 1 | 295,150 | A1 |
+| 20 | PASS 5/5 + edge (P5) | 368.229 | $1.033695 | 3 | 681,929 | A1 |
+| 21 | PASS 5/5 + edge (P5) | 294.725 | $0.905405 | 2 | 554,938 | A1 |
+| 22 | PASS 5/5 + edge (P5) | 377.406 | $1.092536 | 3 | 755,269 | A1 |
+| 23 | PASS 5/5 + edge (P5) | 415.371 | $1.264481 | 3 | 952,905 | A1 |
+| 24 | PASS 5/5 + edge (P5) | 388.167 | $1.135334 | 3 | 748,855 | A1 |
+| 25 | PASS 5/5 + edge (P5) | 359.053 | $0.968833 | 2 | 627,799 | A1 |
+| 26 | PASS 5/5 + edge (P5) | 206.944 | $0.590063 | 2 | 437,654 | A1 |
+| 27 | PASS 5/5 + edge (P5) | 587.593 | $1.848188 | 4 | 1,441,837 | A1 |
+| 28 | PASS 5/5 + edge (P5) | 595.744 | $1.790333 | 4 | 1,335,571 | A1 |
+| 29 | PASS 5/5 + edge (P5) | 399.569 | $1.145535 | 3 | 727,218 | A1 |
+| 30 | PASS 5/5 + edge (P5) | 938.277 | $3.547872 | 5 | 3,642,450 | A1 |

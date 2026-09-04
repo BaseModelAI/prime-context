@@ -1,0 +1,17 @@
+Implemented the provider-absence workflow in [clinic_schedule.py](/tmp/prime-context-codex-t27-a1-s6ieb3jk/workspace/solution/clinic_schedule.py).
+
+Results:
+
+- All 250 appointments remain scheduled.
+- `A001` and `A002` changed from `P001` to `P002`.
+- Both retain their original time and room, producing zero-minute moves.
+- No appointments are unscheduled.
+- Baseline validation remains based on the original schedule.
+- All reports have exact headers, ordering, LF endings, and deterministic replacement behavior.
+
+Reports:
+
+- [schedule.csv](/tmp/prime-context-codex-t27-a1-s6ieb3jk/workspace/output/schedule.csv)
+- [changes.csv](/tmp/prime-context-codex-t27-a1-s6ieb3jk/workspace/output/changes.csv)
+- [unscheduled.csv](/tmp/prime-context-codex-t27-a1-s6ieb3jk/workspace/output/unscheduled.csv)
+- [baseline_issues.csv](/tmp/prime-context-codex-t27-a1-s6ieb3jk/workspace/output/baseline_issues.csv)

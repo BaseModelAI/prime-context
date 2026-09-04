@@ -1,0 +1,188 @@
+{
+  "attempts": [
+    {
+      "agent_wall_seconds": 173.25015013397206,
+      "completed_at": "2026-09-04T15:56:03.025861+00:00",
+      "error": null,
+      "isolation": {
+        "agent_instruction_files": [],
+        "api_key_environment": [],
+        "auth_mode": "ChatGPT subscription",
+        "builtin_context": "stock Codex CLI context only",
+        "codex_home": "isolated shared run home; auth.json only at startup",
+        "custom_developer_prompt": null,
+        "custom_system_prompt": null,
+        "exec_rules": "ignored",
+        "sandbox": "workspace-write with exact 127.0.0.1 command-proxy allow rule",
+        "user_config": "ignored",
+        "workspace_root": "/tmp outside every repository and AGENTS.md/.codex search path"
+      },
+      "judge": {
+        "edge_check_passed": true,
+        "main_checks_passed": 5,
+        "main_checks_total": 5,
+        "notes": [],
+        "progress_level": 5,
+        "status": "pass"
+      },
+      "judge_seconds": 0.2736924020573497,
+      "lifecycle_wall_seconds": 173.61197382200044,
+      "metrics": {
+        "api_equivalent_cost": {
+          "cached_input": 0.163712,
+          "output": 0.23958,
+          "total": 0.512317,
+          "uncached_input": 0.109025
+        },
+        "api_equivalent_cost_kind": "matched-rate estimate only; not an actual subscription bill",
+        "billing_note": "ChatGPT subscription Codex exposes no per-run billed API charge.",
+        "codex_turns": 2,
+        "model_api_calls": null,
+        "model_api_calls_note": "Codex exec JSONL does not expose underlying model request count.",
+        "provider_usage": {
+          "cacheWriteInput": 0,
+          "cachedInput": 327424,
+          "input": 349229,
+          "output": 7986,
+          "reasoningOutput": 1919,
+          "totalTokens": 357215,
+          "uncachedInput": 21805
+        },
+        "raw_usage": {
+          "cache_write_input_tokens": 0,
+          "cached_input_tokens": 327424,
+          "input_tokens": 349229,
+          "output_tokens": 7986,
+          "reasoning_output_tokens": 1919
+        },
+        "subscription_billed_cost": null
+      },
+      "pressure": "L",
+      "schema": "prime-context.python-realworld-codex-run/v1",
+      "service_events": [],
+      "setup_seconds": 0.05131914291996509,
+      "stage_events": [
+        {
+          "completed_at": "2026-09-04T15:55:14.538071+00:00",
+          "elapsed_seconds": 125.07203952397685,
+          "stage": "initial",
+          "started_at": "2026-09-04T15:53:09.465353+00:00"
+        },
+        {
+          "completed_at": "2026-09-04T15:56:02.740822+00:00",
+          "elapsed_seconds": 48.1781106099952,
+          "stage": "late-changes",
+          "started_at": "2026-09-04T15:55:14.562408+00:00"
+        }
+      ],
+      "started_at": "2026-09-04T15:53:09.413896+00:00",
+      "task_id": 2,
+      "task_slug": "calendar-merge",
+      "thread_id": "01a06d1f-b913-76a3-975b-ed2ed06b2c06",
+      "turns": [
+        {
+          "command": [
+            "/home/jdabrowski/.nvm/versions/node/v22.22.1/lib/node_modules/@openai/codex/bin/codex.js",
+            "exec",
+            "--sandbox",
+            "workspace-write",
+            "--cd",
+            "/tmp/prime-context-codex-t02-a1-818qqk7b/workspace",
+            "--config",
+            "sandbox_workspace_write.network_access=true",
+            "--config",
+            "features.network_proxy.enabled=true",
+            "--config",
+            "features.network_proxy.domains={ \"127.0.0.1\" = \"allow\" }",
+            "--ignore-user-config",
+            "--ignore-rules",
+            "--skip-git-repo-check",
+            "--model",
+            "gpt-5.6-sol",
+            "--config",
+            "model_reasoning_effort=\"medium\"",
+            "--json",
+            "--color",
+            "never",
+            "--output-last-message",
+            "/home/jdabrowski/work/prime-context/benchmarks/python-realworld-30/results/20260904-codex0153-gpt56sol-all30-v1/task-02-calendar-merge/codex/attempt-1/codex-last-message-1-initial.txt",
+            "-"
+          ],
+          "completed_at": "2026-09-04T15:55:14.538071+00:00",
+          "elapsed_seconds": 125.07203952397685,
+          "errors": [],
+          "event_count": 22,
+          "last_message": "Implemented the deterministic calendar merge workflow using only Python\u2019s standard library.\n\nFiles:\n\n- [calendar_merge.py](/tmp/prime-context-codex-t02-a1-818qqk7b/workspace/solution/calendar_merge.py)\n- [merged.ics](/tmp/prime-context-codex-t02-a1-818qqk7b/workspace/output/merged.ics)\n- [conflicts.csv](/tmp/prime-context-codex-t02-a1-818qqk7b/workspace/output/conflicts.csv)\n\nVerified:\n\n- 87 retained events\n- Sequence replacement and cancellation\n- UTC, local, `TZID`, and all-day conversion\n- Folded summary unfolding\n- Half-open endpoint behavior\n- CRLF output\n- Deterministic output hashes\n- Expected five conflicts\n\nThe container lacks a `python` alias, so validation used `python3 -m solution.calendar_merge ...`.",
+          "malformed_output": [],
+          "prompt": "Read TASK.md and complete the requested workflow using only the Python standard library.",
+          "returncode": 0,
+          "stage": "initial",
+          "started_at": "2026-09-04T15:53:09.465353+00:00",
+          "thread_id": "01a06d1f-b913-76a3-975b-ed2ed06b2c06",
+          "timed_out": false,
+          "usage": {
+            "cache_write_input_tokens": 0,
+            "cached_input_tokens": 184192,
+            "input_tokens": 202202,
+            "output_tokens": 5895,
+            "reasoning_output_tokens": 1063
+          }
+        },
+        {
+          "command": [
+            "/home/jdabrowski/.nvm/versions/node/v22.22.1/lib/node_modules/@openai/codex/bin/codex.js",
+            "exec",
+            "--sandbox",
+            "workspace-write",
+            "--cd",
+            "/tmp/prime-context-codex-t02-a1-818qqk7b/workspace",
+            "--config",
+            "sandbox_workspace_write.network_access=true",
+            "--config",
+            "features.network_proxy.enabled=true",
+            "--config",
+            "features.network_proxy.domains={ \"127.0.0.1\" = \"allow\" }",
+            "resume",
+            "--ignore-user-config",
+            "--ignore-rules",
+            "--skip-git-repo-check",
+            "--model",
+            "gpt-5.6-sol",
+            "--config",
+            "model_reasoning_effort=\"medium\"",
+            "--json",
+            "--output-last-message",
+            "/home/jdabrowski/work/prime-context/benchmarks/python-realworld-30/results/20260904-codex0153-gpt56sol-all30-v1/task-02-calendar-merge/codex/attempt-1/codex-last-message-2-late-changes.txt",
+            "01a06d1f-b913-76a3-975b-ed2ed06b2c06",
+            "-"
+          ],
+          "completed_at": "2026-09-04T15:56:02.740822+00:00",
+          "elapsed_seconds": 48.1781106099952,
+          "errors": [],
+          "event_count": 15,
+          "last_message": "Merged `inputs/late_changes.ics` using the unchanged command.\n\nResults:\n\n- 86 retained events\n- `event-alpha` and `filler-005` cancelled\n- `room-change` updated to sequence 4, Room C\n- `dst-span` normalized to `20251102T043000Z\u201320251102T083000Z`\n- New conflict: `dst-span,night-watch`\n- Deterministic CRLF outputs regenerated\n\nUpdated files: [calendar_merge.py](/tmp/prime-context-codex-t02-a1-818qqk7b/workspace/solution/calendar_merge.py), [merged.ics](/tmp/prime-context-codex-t02-a1-818qqk7b/workspace/output/merged.ics), and [conflicts.csv](/tmp/prime-context-codex-t02-a1-818qqk7b/workspace/output/conflicts.csv).",
+          "malformed_output": [],
+          "prompt": "A fourth calendar, `inputs/late_changes.ics`, has arrived with cancellations, one higher-sequence room change, and one event spanning a daylight-saving transition. Merge it into the same outputs without changing the command.",
+          "returncode": 0,
+          "stage": "late-changes",
+          "started_at": "2026-09-04T15:55:14.562408+00:00",
+          "thread_id": "01a06d1f-b913-76a3-975b-ed2ed06b2c06",
+          "timed_out": false,
+          "usage": {
+            "cache_write_input_tokens": 0,
+            "cached_input_tokens": 143232,
+            "input_tokens": 147027,
+            "output_tokens": 2091,
+            "reasoning_output_tokens": 856
+          }
+        }
+      ],
+      "variant": "codex"
+    }
+  ],
+  "retry_triggers": [],
+  "selected_attempt": 0,
+  "task_id": 2,
+  "task_slug": "calendar-merge",
+  "variant": "codex"
+}

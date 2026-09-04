@@ -1,0 +1,9 @@
+Implemented the standard-library-only reporting workflow in [utility_anomalies.py](/tmp/prime-context-codex-t07-a1-iu9yic_t/workspace/solution/utility_anomalies.py).
+
+Generated:
+
+- [anomalies.csv](/tmp/prime-context-codex-t07-a1-iu9yic_t/workspace/output/anomalies.csv) — 4 anomalies
+- [gaps.csv](/tmp/prime-context-codex-t07-a1-iu9yic_t/workspace/output/gaps.csv) — 5 gaps
+- [report.html](/tmp/prime-context-codex-t07-a1-iu9yic_t/workspace/output/report.html) — 50 meters
+
+Verified deterministic results under reversed input order, LF line endings, HTML escaping, numeric sorting, and the zero-MAD 30% increase edge case.

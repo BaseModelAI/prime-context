@@ -1,0 +1,188 @@
+{
+  "attempts": [
+    {
+      "agent_wall_seconds": 263.4376229699701,
+      "completed_at": "2026-09-04T16:02:11.758802+00:00",
+      "error": null,
+      "isolation": {
+        "agent_instruction_files": [],
+        "api_key_environment": [],
+        "auth_mode": "ChatGPT subscription",
+        "builtin_context": "stock Codex CLI context only",
+        "codex_home": "isolated shared run home; auth.json only at startup",
+        "custom_developer_prompt": null,
+        "custom_system_prompt": null,
+        "exec_rules": "ignored",
+        "sandbox": "workspace-write with exact 127.0.0.1 command-proxy allow rule",
+        "user_config": "ignored",
+        "workspace_root": "/tmp outside every repository and AGENTS.md/.codex search path"
+      },
+      "judge": {
+        "edge_check_passed": true,
+        "main_checks_passed": 5,
+        "main_checks_total": 5,
+        "notes": [],
+        "progress_level": 5,
+        "status": "pass"
+      },
+      "judge_seconds": 0.29543612501583993,
+      "lifecycle_wall_seconds": 263.7778820199892,
+      "metrics": {
+        "api_equivalent_cost": {
+          "cached_input": 0.185792,
+          "output": 0.381,
+          "total": 0.737017,
+          "uncached_input": 0.170225
+        },
+        "api_equivalent_cost_kind": "matched-rate estimate only; not an actual subscription bill",
+        "billing_note": "ChatGPT subscription Codex exposes no per-run billed API charge.",
+        "codex_turns": 2,
+        "model_api_calls": null,
+        "model_api_calls_note": "Codex exec JSONL does not expose underlying model request count.",
+        "provider_usage": {
+          "cacheWriteInput": 0,
+          "cachedInput": 371584,
+          "input": 405629,
+          "output": 12700,
+          "reasoningOutput": 4244,
+          "totalTokens": 418329,
+          "uncachedInput": 34045
+        },
+        "raw_usage": {
+          "cache_write_input_tokens": 0,
+          "cached_input_tokens": 371584,
+          "input_tokens": 405629,
+          "output_tokens": 12700,
+          "reasoning_output_tokens": 4244
+        },
+        "subscription_billed_cost": null
+      },
+      "pressure": "L",
+      "schema": "prime-context.python-realworld-codex-run/v1",
+      "service_events": [],
+      "setup_seconds": 0.027629530057311058,
+      "stage_events": [
+        {
+          "completed_at": "2026-09-04T15:59:57.350010+00:00",
+          "elapsed_seconds": 129.34072136692703,
+          "stage": "initial",
+          "started_at": "2026-09-04T15:57:48.008634+00:00"
+        },
+        {
+          "completed_at": "2026-09-04T16:02:11.449510+00:00",
+          "elapsed_seconds": 134.09690160304308,
+          "stage": "import-contacts",
+          "started_at": "2026-09-04T15:59:57.352168+00:00"
+        }
+      ],
+      "started_at": "2026-09-04T15:57:47.980932+00:00",
+      "task_id": 11,
+      "task_slug": "sqlite-crm-migration",
+      "thread_id": "01a06d23-f4c9-76f2-8c2b-62269ece70e1",
+      "turns": [
+        {
+          "command": [
+            "/home/jdabrowski/.nvm/versions/node/v22.22.1/lib/node_modules/@openai/codex/bin/codex.js",
+            "exec",
+            "--sandbox",
+            "workspace-write",
+            "--cd",
+            "/tmp/prime-context-codex-t11-a1-no2lkt1x/workspace",
+            "--config",
+            "sandbox_workspace_write.network_access=true",
+            "--config",
+            "features.network_proxy.enabled=true",
+            "--config",
+            "features.network_proxy.domains={ \"127.0.0.1\" = \"allow\" }",
+            "--ignore-user-config",
+            "--ignore-rules",
+            "--skip-git-repo-check",
+            "--model",
+            "gpt-5.6-sol",
+            "--config",
+            "model_reasoning_effort=\"medium\"",
+            "--json",
+            "--color",
+            "never",
+            "--output-last-message",
+            "/home/jdabrowski/work/prime-context/benchmarks/python-realworld-30/results/20260904-codex0153-gpt56sol-all30-v1/task-11-sqlite-crm-migration/codex/attempt-1/codex-last-message-1-initial.txt",
+            "-"
+          ],
+          "completed_at": "2026-09-04T15:59:57.350010+00:00",
+          "elapsed_seconds": 129.34072136692703,
+          "errors": [],
+          "event_count": 27,
+          "last_message": "Implemented the SQLite CRM migration in [crm/migrate.py](/tmp/prime-context-codex-t11-a1-no2lkt1x/workspace/crm/migrate.py).\n\nCompleted:\n\n- Migrates version 1 to version 2 transactionally.\n- Merges duplicate contacts and deduplicates methods/notes.\n- Normalizes emails and phone numbers as specified.\n- Preserves primary-method ordering and surviving IDs.\n- Safely handles already-migrated databases.\n- Uses only Python\u2019s standard library.\n- Migrated `workspace/crm.db` successfully.\n\nVerification passed: schema version 2, 12 contacts, 21 contact methods, valid foreign keys, and idempotent reruns.",
+          "malformed_output": [],
+          "prompt": "Read TASK.md and complete the requested workflow using only the Python standard library.",
+          "returncode": 0,
+          "stage": "initial",
+          "started_at": "2026-09-04T15:57:48.008634+00:00",
+          "thread_id": "01a06d23-f4c9-76f2-8c2b-62269ece70e1",
+          "timed_out": false,
+          "usage": {
+            "cache_write_input_tokens": 0,
+            "cached_input_tokens": 206464,
+            "input_tokens": 230648,
+            "output_tokens": 5967,
+            "reasoning_output_tokens": 1340
+          }
+        },
+        {
+          "command": [
+            "/home/jdabrowski/.nvm/versions/node/v22.22.1/lib/node_modules/@openai/codex/bin/codex.js",
+            "exec",
+            "--sandbox",
+            "workspace-write",
+            "--cd",
+            "/tmp/prime-context-codex-t11-a1-no2lkt1x/workspace",
+            "--config",
+            "sandbox_workspace_write.network_access=true",
+            "--config",
+            "features.network_proxy.enabled=true",
+            "--config",
+            "features.network_proxy.domains={ \"127.0.0.1\" = \"allow\" }",
+            "resume",
+            "--ignore-user-config",
+            "--ignore-rules",
+            "--skip-git-repo-check",
+            "--model",
+            "gpt-5.6-sol",
+            "--config",
+            "model_reasoning_effort=\"medium\"",
+            "--json",
+            "--output-last-message",
+            "/home/jdabrowski/work/prime-context/benchmarks/python-realworld-30/results/20260904-codex0153-gpt56sol-all30-v1/task-11-sqlite-crm-migration/codex/attempt-1/codex-last-message-2-import-contacts.txt",
+            "01a06d23-f4c9-76f2-8c2b-62269ece70e1",
+            "-"
+          ],
+          "completed_at": "2026-09-04T16:02:11.449510+00:00",
+          "elapsed_seconds": 134.09690160304308,
+          "errors": [],
+          "event_count": 16,
+          "last_message": "Implemented [crm/import_contacts.py](/tmp/prime-context-codex-t11-a1-no2lkt1x/workspace/crm/import_contacts.py) using only the Python standard library.\n\nThe requested import completed successfully:\n\n- Inserted IDs: `14`, `15`\n- Updated IDs: `1`, `3`, `14`\n- Skipped CSV row: `4`\n- Final database: 14 contacts, 26 methods\n- Idempotent rerun verified\n- Phone-only imports and primary-method handling verified\n- JSON report: [import_report.json](/tmp/prime-context-codex-t11-a1-no2lkt1x/workspace/output/import_report.json)",
+          "malformed_output": [],
+          "prompt": "Add `python -m crm.import_contacts workspace/crm.db inputs/new_contacts.csv output/import_report.json`. Read the UTF-8 CSV columns `display_name,email,phone,notes` in data-row order. Update an existing contact when the trimmed, casefolded email matches; otherwise insert a contact using consecutive IDs starting one above the current maximum. A nonblank imported display name replaces the existing one, a new distinct nonblank note is appended with `\\n`, and previously unseen methods are added using the migration normalization rules. Keep the existing primary method for a kind, or make its first method primary. Skip rows missing both a usable email and phone. Write JSON with exactly `inserted_ids`, `updated_ids`, and `skipped_rows`; ID lists record each processed row in CSV order, and skipped rows are 1-based data-row numbers. Re-running the import must not duplicate contacts, notes, or methods.",
+          "returncode": 0,
+          "stage": "import-contacts",
+          "started_at": "2026-09-04T15:59:57.352168+00:00",
+          "thread_id": "01a06d23-f4c9-76f2-8c2b-62269ece70e1",
+          "timed_out": false,
+          "usage": {
+            "cache_write_input_tokens": 0,
+            "cached_input_tokens": 165120,
+            "input_tokens": 174981,
+            "output_tokens": 6733,
+            "reasoning_output_tokens": 2904
+          }
+        }
+      ],
+      "variant": "codex"
+    }
+  ],
+  "retry_triggers": [],
+  "selected_attempt": 0,
+  "task_id": 11,
+  "task_slug": "sqlite-crm-migration",
+  "variant": "codex"
+}

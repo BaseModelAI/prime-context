@@ -1,0 +1,12 @@
+Implemented the standard-library-only three-way matching workflow in:
+
+- [three_way_match.py](/tmp/prime-context-codex-t23-a1-s9cosrhm/workspace/solution/three_way_match.py)
+- [__init__.py](/tmp/prime-context-codex-t23-a1-s9cosrhm/workspace/solution/__init__.py)
+
+Generated deterministic outputs in [output](/tmp/prime-context-codex-t23-a1-s9cosrhm/workspace/output):
+
+- `line_matches.csv`
+- `exceptions.csv`
+- `supplier_summary.json`
+
+Verified compilation, repeatability, all 30 PO lines, 21 exceptions, summary calculations, sorting, rounding, and malformed-reference handling.

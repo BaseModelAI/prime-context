@@ -1,0 +1,6 @@
+Implemented the deterministic fulfillment planner using only Python 3.12’s standard library:
+
+- [solution/fulfill.py](/tmp/prime-context-codex-t24-a1-sboz3rt8/workspace/solution/fulfill.py)
+- [solution/__init__.py](/tmp/prime-context-codex-t24-a1-sboz3rt8/workspace/solution/__init__.py)
+
+Generated all three output CSVs. Verified compilation, deterministic reruns, LF endings, allocation limits, inventory limits, and backorder calculations across 971 order lines.

@@ -1,0 +1,188 @@
+{
+  "attempts": [
+    {
+      "agent_wall_seconds": 206.9435698518064,
+      "completed_at": "2026-09-04T16:15:12.096411+00:00",
+      "error": null,
+      "isolation": {
+        "agent_instruction_files": [],
+        "api_key_environment": [],
+        "auth_mode": "ChatGPT subscription",
+        "builtin_context": "stock Codex CLI context only",
+        "codex_home": "isolated shared run home; auth.json only at startup",
+        "custom_developer_prompt": null,
+        "custom_system_prompt": null,
+        "exec_rules": "ignored",
+        "sandbox": "workspace-write with exact 127.0.0.1 command-proxy allow rule",
+        "user_config": "ignored",
+        "workspace_root": "/tmp outside every repository and AGENTS.md/.codex search path"
+      },
+      "judge": {
+        "edge_check_passed": true,
+        "main_checks_passed": 5,
+        "main_checks_total": 5,
+        "notes": [],
+        "progress_level": 5,
+        "status": "pass"
+      },
+      "judge_seconds": 0.2708558520535007,
+      "lifecycle_wall_seconds": 207.28128122992348,
+      "metrics": {
+        "api_equivalent_cost": {
+          "cached_input": 0.203648,
+          "output": 0.28155,
+          "total": 0.590063,
+          "uncached_input": 0.104865
+        },
+        "api_equivalent_cost_kind": "matched-rate estimate only; not an actual subscription bill",
+        "billing_note": "ChatGPT subscription Codex exposes no per-run billed API charge.",
+        "codex_turns": 2,
+        "model_api_calls": null,
+        "model_api_calls_note": "Codex exec JSONL does not expose underlying model request count.",
+        "provider_usage": {
+          "cacheWriteInput": 0,
+          "cachedInput": 407296,
+          "input": 428269,
+          "output": 9385,
+          "reasoningOutput": 2040,
+          "totalTokens": 437654,
+          "uncachedInput": 20973
+        },
+        "raw_usage": {
+          "cache_write_input_tokens": 0,
+          "cached_input_tokens": 407296,
+          "input_tokens": 428269,
+          "output_tokens": 9385,
+          "reasoning_output_tokens": 2040
+        },
+        "subscription_billed_cost": null
+      },
+      "pressure": "L",
+      "schema": "prime-context.python-realworld-codex-run/v1",
+      "service_events": [],
+      "setup_seconds": 0.028978157904930413,
+      "stage_events": [
+        {
+          "completed_at": "2026-09-04T16:14:48.395879+00:00",
+          "elapsed_seconds": 183.55118892889004,
+          "stage": "initial",
+          "started_at": "2026-09-04T16:11:44.844207+00:00"
+        },
+        {
+          "completed_at": "2026-09-04T16:15:11.812484+00:00",
+          "elapsed_seconds": 23.392380922916345,
+          "stage": "substitutions",
+          "started_at": "2026-09-04T16:14:48.419691+00:00"
+        }
+      ],
+      "started_at": "2026-09-04T16:11:44.815137+00:00",
+      "task_id": 26,
+      "task_slug": "school-meal-allergen-stock-plan",
+      "thread_id": "01a06d30-b9ab-7ba3-9ce0-c5f42be9a454",
+      "turns": [
+        {
+          "command": [
+            "/home/jdabrowski/.nvm/versions/node/v22.22.1/lib/node_modules/@openai/codex/bin/codex.js",
+            "exec",
+            "--sandbox",
+            "workspace-write",
+            "--cd",
+            "/tmp/prime-context-codex-t26-a1-9auwjr2x/workspace",
+            "--config",
+            "sandbox_workspace_write.network_access=true",
+            "--config",
+            "features.network_proxy.enabled=true",
+            "--config",
+            "features.network_proxy.domains={ \"127.0.0.1\" = \"allow\" }",
+            "--ignore-user-config",
+            "--ignore-rules",
+            "--skip-git-repo-check",
+            "--model",
+            "gpt-5.6-sol",
+            "--config",
+            "model_reasoning_effort=\"medium\"",
+            "--json",
+            "--color",
+            "never",
+            "--output-last-message",
+            "/home/jdabrowski/work/prime-context/benchmarks/python-realworld-30/results/20260904-codex0153-gpt56sol-all30-v1/task-26-school-meal-allergen-stock-plan/codex/attempt-1/codex-last-message-1-initial.txt",
+            "-"
+          ],
+          "completed_at": "2026-09-04T16:14:48.395879+00:00",
+          "elapsed_seconds": 183.55118892889004,
+          "errors": [],
+          "event_count": 32,
+          "last_message": "Implemented the complete workflow in [solution/meal_plan.py](/tmp/prime-context-codex-t26-a1-9auwjr2x/workspace/solution/meal_plan.py).\n\nIt supports:\n\n- Recursive recipe resolution with `Decimal`\n- Allergen and `may_contain` eligibility\n- Stock, shortfall, and pack calculations\n- Date-effective JSON substitutions\n- Eligibility-change impact reporting\n- Per-option cycle detection and isolation\n- Deterministically sorted, replaced UTF-8 CSV reports\n\nGenerated reports are in [output](/tmp/prime-context-codex-t26-a1-9auwjr2x/workspace/output). Initial, substitution, and cyclic-substitution scenarios were validated successfully using Python 3\u2019s standard library only.",
+          "malformed_output": [],
+          "prompt": "Read TASK.md and complete the requested workflow using only the Python standard library.",
+          "returncode": 0,
+          "stage": "initial",
+          "started_at": "2026-09-04T16:11:44.844207+00:00",
+          "thread_id": "01a06d30-b9ab-7ba3-9ce0-c5f42be9a454",
+          "timed_out": false,
+          "usage": {
+            "cache_write_input_tokens": 0,
+            "cached_input_tokens": 325760,
+            "input_tokens": 343507,
+            "output_tokens": 8512,
+            "reasoning_output_tokens": 1907
+          }
+        },
+        {
+          "command": [
+            "/home/jdabrowski/.nvm/versions/node/v22.22.1/lib/node_modules/@openai/codex/bin/codex.js",
+            "exec",
+            "--sandbox",
+            "workspace-write",
+            "--cd",
+            "/tmp/prime-context-codex-t26-a1-9auwjr2x/workspace",
+            "--config",
+            "sandbox_workspace_write.network_access=true",
+            "--config",
+            "features.network_proxy.enabled=true",
+            "--config",
+            "features.network_proxy.domains={ \"127.0.0.1\" = \"allow\" }",
+            "resume",
+            "--ignore-user-config",
+            "--ignore-rules",
+            "--skip-git-repo-check",
+            "--model",
+            "gpt-5.6-sol",
+            "--config",
+            "model_reasoning_effort=\"medium\"",
+            "--json",
+            "--output-last-message",
+            "/home/jdabrowski/work/prime-context/benchmarks/python-realworld-30/results/20260904-codex0153-gpt56sol-all30-v1/task-26-school-meal-allergen-stock-plan/codex/attempt-1/codex-last-message-2-substitutions.txt",
+            "01a06d30-b9ab-7ba3-9ce0-c5f42be9a454",
+            "-"
+          ],
+          "completed_at": "2026-09-04T16:15:11.812484+00:00",
+          "elapsed_seconds": 23.392380922916345,
+          "errors": [],
+          "event_count": 10,
+          "last_message": "Recomputed all reports using `inputs/substitutions.json`.\n\nKey results:\n\n- September 2 pizza now uses `plant_topping`.\n- Purchases include 120 g soy cream and 60 g almond flakes.\n- Cheese requirement falls to 300 g.\n- Three eligibility changes were recorded for students S001, S004, and S006.\n- No component-cycle errors occurred.\n\nSee [substitution_impacts.csv](/tmp/prime-context-codex-t26-a1-9auwjr2x/workspace/output/substitution_impacts.csv) and [purchase_list.csv](/tmp/prime-context-codex-t26-a1-9auwjr2x/workspace/output/purchase_list.csv).",
+          "malformed_output": [],
+          "prompt": "`inputs/substitutions.json` changes selected ingredients by effective date and may introduce new component recipes. Recompute allergens and purchases, and add `output/substitution_impacts.csv` for eligibility changes.",
+          "returncode": 0,
+          "stage": "substitutions",
+          "started_at": "2026-09-04T16:14:48.419691+00:00",
+          "thread_id": "01a06d30-b9ab-7ba3-9ce0-c5f42be9a454",
+          "timed_out": false,
+          "usage": {
+            "cache_write_input_tokens": 0,
+            "cached_input_tokens": 81536,
+            "input_tokens": 84762,
+            "output_tokens": 873,
+            "reasoning_output_tokens": 133
+          }
+        }
+      ],
+      "variant": "codex"
+    }
+  ],
+  "retry_triggers": [],
+  "selected_attempt": 0,
+  "task_id": 26,
+  "task_slug": "school-meal-allergen-stock-plan",
+  "variant": "codex"
+}

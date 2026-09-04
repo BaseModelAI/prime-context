@@ -1,0 +1,7 @@
+Added deterministic explanation files for every billed customer:
+
+- [C-EAST.txt](/tmp/prime-context-codex-t20-a1-i_8beww2/workspace/output/explanations/C-EAST.txt)
+- [C-LONDON.txt](/tmp/prime-context-codex-t20-a1-i_8beww2/workspace/output/explanations/C-LONDON.txt)
+- [C-PHOENIX.txt](/tmp/prime-context-codex-t20-a1-i_8beww2/workspace/output/explanations/C-PHOENIX.txt)
+
+All prior CSV outputs remain current. Verified exact format, cross-file values, sorting, signed deltas, LF endings, deterministic reruns, and stale explanation cleanup.

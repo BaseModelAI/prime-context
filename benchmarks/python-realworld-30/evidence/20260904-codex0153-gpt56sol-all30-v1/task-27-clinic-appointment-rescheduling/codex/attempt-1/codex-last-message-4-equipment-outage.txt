@@ -1,0 +1,11 @@
+Implemented the equipment-outage and notice contracts in [clinic_schedule.py](/tmp/prime-context-codex-t27-a1-s6ieb3jk/workspace/solution/clinic_schedule.py).
+
+Final outcome:
+
+- All 252 appointments remain scheduled.
+- `A004` moves to `N-IMG-2` at 14:30, retaining provider `P003`.
+- Previous absence and urgent-request outcomes remain intact.
+- Baseline validation continues to ignore later disruptions.
+- Six exact UTF-8 notices were generated under [output/notices](/tmp/prime-context-codex-t27-a1-s6ieb3jk/workspace/output/notices).
+- Repeat runs replace the notice directory and produce byte-identical output.
+- All schedule, equipment, absence, locking, conflict, formatting, and newline checks pass.

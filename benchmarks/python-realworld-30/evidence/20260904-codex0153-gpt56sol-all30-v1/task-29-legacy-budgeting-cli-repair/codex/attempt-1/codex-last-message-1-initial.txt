@@ -1,0 +1,25 @@
+Implemented the budgeting workflow using only Python’s standard library.
+
+Key results:
+
+- Migrated the supplied SQLite database in place without removing legacy data.
+- Added both bank statement dialects.
+- Uses `Decimal` exclusively for monetary values.
+- Normalizes descriptions and dates.
+- Applies category rules in listed order.
+- Enforces `(source_account, source_id)` uniqueness.
+- Imports CSV files in lexical order.
+- Produces deterministic monthly JSON reports.
+- Verified repeated imports remain at nine transactions.
+- Verified the archived transaction remains intact.
+
+Generated report: [monthly.json](/tmp/prime-context-codex-t29-a1-m44zoy9k/workspace/output/monthly.json)
+
+Fixture totals match:
+
+- Income: `4100.00`
+- Spending: `1438.50`
+- Transfers in/out: `500.00` each
+- Grocery variance: `81.50`
+
+Validation used Python 3.12.3 via `python3`; this environment does not provide a `python` alias.

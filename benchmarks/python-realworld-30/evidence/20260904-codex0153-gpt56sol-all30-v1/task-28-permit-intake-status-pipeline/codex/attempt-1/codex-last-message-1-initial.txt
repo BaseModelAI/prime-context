@@ -1,0 +1,22 @@
+Implemented and ran the standard-library-only permit workflow.
+
+Created:
+
+- [CLI entry point](/tmp/prime-context-codex-t28-a1-n35aoxbf/workspace/permitflow/__main__.py)
+- [Import and validation logic](/tmp/prime-context-codex-t28-a1-n35aoxbf/workspace/permitflow/workflow.py)
+- [SQLite database](/tmp/prime-context-codex-t28-a1-n35aoxbf/workspace/workspace/permits.db)
+- [Applications report](/tmp/prime-context-codex-t28-a1-n35aoxbf/workspace/output/applications.csv)
+- [Validation issues report](/tmp/prime-context-codex-t28-a1-n35aoxbf/workspace/output/validation_issues.csv)
+- [Fees report](/tmp/prime-context-codex-t28-a1-n35aoxbf/workspace/output/fees.csv)
+
+Results:
+
+- 995 normalized applications
+- Five duplicate source IDs resolved to their highest revisions
+- 438 validation issues
+- 995 fee rows
+- LF-only CSV output
+- Repeat runs produced byte-identical reports
+- Malformed-field preservation and strict parsing checks passed
+
+The environment provides `python3` instead of `python`, so the workflow was executed with the equivalent `python3 -m permitflow ...` commands.

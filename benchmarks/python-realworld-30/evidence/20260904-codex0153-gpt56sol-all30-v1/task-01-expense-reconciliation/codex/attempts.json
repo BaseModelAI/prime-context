@@ -1,0 +1,134 @@
+{
+  "attempts": [
+    {
+      "agent_wall_seconds": 139.39719833503477,
+      "completed_at": "2026-09-04T15:55:29.044258+00:00",
+      "error": null,
+      "isolation": {
+        "agent_instruction_files": [],
+        "api_key_environment": [],
+        "auth_mode": "ChatGPT subscription",
+        "builtin_context": "stock Codex CLI context only",
+        "codex_home": "isolated shared run home; auth.json only at startup",
+        "custom_developer_prompt": null,
+        "custom_system_prompt": null,
+        "exec_rules": "ignored",
+        "sandbox": "workspace-write with exact 127.0.0.1 command-proxy allow rule",
+        "user_config": "ignored",
+        "workspace_root": "/tmp outside every repository and AGENTS.md/.codex search path"
+      },
+      "judge": {
+        "edge_check_passed": true,
+        "main_checks_passed": 5,
+        "main_checks_total": 5,
+        "notes": [],
+        "progress_level": 5,
+        "status": "pass"
+      },
+      "judge_seconds": 0.17156735598109663,
+      "lifecycle_wall_seconds": 139.63040168804582,
+      "metrics": {
+        "api_equivalent_cost": {
+          "cached_input": 0.103296,
+          "output": 0.18981,
+          "total": 0.408256,
+          "uncached_input": 0.11515
+        },
+        "api_equivalent_cost_kind": "matched-rate estimate only; not an actual subscription bill",
+        "billing_note": "ChatGPT subscription Codex exposes no per-run billed API charge.",
+        "codex_turns": 1,
+        "model_api_calls": null,
+        "model_api_calls_note": "Codex exec JSONL does not expose underlying model request count.",
+        "provider_usage": {
+          "cacheWriteInput": 0,
+          "cachedInput": 206592,
+          "input": 229622,
+          "output": 6327,
+          "reasoningOutput": 1453,
+          "totalTokens": 235949,
+          "uncachedInput": 23030
+        },
+        "raw_usage": {
+          "cache_write_input_tokens": 0,
+          "cached_input_tokens": 206592,
+          "input_tokens": 229622,
+          "output_tokens": 6327,
+          "reasoning_output_tokens": 1453
+        },
+        "subscription_billed_cost": null
+      },
+      "pressure": "N",
+      "schema": "prime-context.python-realworld-codex-run/v1",
+      "service_events": [],
+      "setup_seconds": 0.05030069698113948,
+      "stage_events": [
+        {
+          "completed_at": "2026-09-04T15:55:28.861798+00:00",
+          "elapsed_seconds": 139.39719833503477,
+          "stage": "initial",
+          "started_at": "2026-09-04T15:53:09.464261+00:00"
+        }
+      ],
+      "started_at": "2026-09-04T15:53:09.413864+00:00",
+      "task_id": 1,
+      "task_slug": "expense-reconciliation",
+      "thread_id": "01a06d1f-b770-73a2-baed-7b49816c5947",
+      "turns": [
+        {
+          "command": [
+            "/home/jdabrowski/.nvm/versions/node/v22.22.1/lib/node_modules/@openai/codex/bin/codex.js",
+            "exec",
+            "--sandbox",
+            "workspace-write",
+            "--cd",
+            "/tmp/prime-context-codex-t01-a1-zjqr3xbi/workspace",
+            "--config",
+            "sandbox_workspace_write.network_access=true",
+            "--config",
+            "features.network_proxy.enabled=true",
+            "--config",
+            "features.network_proxy.domains={ \"127.0.0.1\" = \"allow\" }",
+            "--ignore-user-config",
+            "--ignore-rules",
+            "--skip-git-repo-check",
+            "--model",
+            "gpt-5.6-sol",
+            "--config",
+            "model_reasoning_effort=\"medium\"",
+            "--json",
+            "--color",
+            "never",
+            "--output-last-message",
+            "/home/jdabrowski/work/prime-context/benchmarks/python-realworld-30/results/20260904-codex0153-gpt56sol-all30-v1/task-01-expense-reconciliation/codex/attempt-1/codex-last-message-1-initial.txt",
+            "-"
+          ],
+          "completed_at": "2026-09-04T15:55:28.861798+00:00",
+          "elapsed_seconds": 139.39719833503477,
+          "errors": [],
+          "event_count": 28,
+          "last_message": "Implemented the standard-library-only reconciliation workflow in [solution/reconcile.py](/tmp/prime-context-codex-t01-a1-zjqr3xbi/workspace/solution/reconcile.py).\n\nGenerated:\n\n- [reconciliation.csv](/tmp/prime-context-codex-t01-a1-zjqr3xbi/workspace/output/reconciliation.csv)\n- [monthly_summary.json](/tmp/prime-context-codex-t01-a1-zjqr3xbi/workspace/output/monthly_summary.json)\n- [unmatched_receipts.csv](/tmp/prime-context-codex-t01-a1-zjqr3xbi/workspace/output/unmatched_receipts.csv)\n\nValidation passed: 160 transactions, 104 matches, one unmatched receipt, deterministic reruns, and the merchant-compatibility edge case. All monetary calculations use `Decimal`.",
+          "malformed_output": [],
+          "prompt": "Read TASK.md and complete the requested workflow using only the Python standard library.",
+          "returncode": 0,
+          "stage": "initial",
+          "started_at": "2026-09-04T15:53:09.464261+00:00",
+          "thread_id": "01a06d1f-b770-73a2-baed-7b49816c5947",
+          "timed_out": false,
+          "usage": {
+            "cache_write_input_tokens": 0,
+            "cached_input_tokens": 206592,
+            "input_tokens": 229622,
+            "output_tokens": 6327,
+            "reasoning_output_tokens": 1453
+          }
+        }
+      ],
+      "variant": "codex"
+    }
+  ],
+  "retry_triggers": [],
+  "selected_attempt": 0,
+  "task_id": 1,
+  "task_slug": "expense-reconciliation",
+  "variant": "codex"
+}

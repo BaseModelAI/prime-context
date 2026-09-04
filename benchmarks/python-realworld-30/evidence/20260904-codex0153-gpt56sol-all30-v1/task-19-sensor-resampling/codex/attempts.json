@@ -1,0 +1,134 @@
+{
+  "attempts": [
+    {
+      "agent_wall_seconds": 223.9042297831038,
+      "completed_at": "2026-09-04T16:06:25.970986+00:00",
+      "error": null,
+      "isolation": {
+        "agent_instruction_files": [],
+        "api_key_environment": [],
+        "auth_mode": "ChatGPT subscription",
+        "builtin_context": "stock Codex CLI context only",
+        "codex_home": "isolated shared run home; auth.json only at startup",
+        "custom_developer_prompt": null,
+        "custom_system_prompt": null,
+        "exec_rules": "ignored",
+        "sandbox": "workspace-write with exact 127.0.0.1 command-proxy allow rule",
+        "user_config": "ignored",
+        "workspace_root": "/tmp outside every repository and AGENTS.md/.codex search path"
+      },
+      "judge": {
+        "edge_check_passed": true,
+        "main_checks_passed": 5,
+        "main_checks_total": 5,
+        "notes": [],
+        "progress_level": 5,
+        "status": "pass"
+      },
+      "judge_seconds": 12.035477112047374,
+      "lifecycle_wall_seconds": 238.11078664497472,
+      "metrics": {
+        "api_equivalent_cost": {
+          "cached_input": 0.133184,
+          "output": 0.30402,
+          "total": 0.530444,
+          "uncached_input": 0.09324
+        },
+        "api_equivalent_cost_kind": "matched-rate estimate only; not an actual subscription bill",
+        "billing_note": "ChatGPT subscription Codex exposes no per-run billed API charge.",
+        "codex_turns": 1,
+        "model_api_calls": null,
+        "model_api_calls_note": "Codex exec JSONL does not expose underlying model request count.",
+        "provider_usage": {
+          "cacheWriteInput": 0,
+          "cachedInput": 266368,
+          "input": 285016,
+          "output": 10134,
+          "reasoningOutput": 3108,
+          "totalTokens": 295150,
+          "uncachedInput": 18648
+        },
+        "raw_usage": {
+          "cache_write_input_tokens": 0,
+          "cached_input_tokens": 266368,
+          "input_tokens": 285016,
+          "output_tokens": 10134,
+          "reasoning_output_tokens": 3108
+        },
+        "subscription_billed_cost": null
+      },
+      "pressure": "N",
+      "schema": "prime-context.python-realworld-codex-run/v1",
+      "service_events": [],
+      "setup_seconds": 2.157549819909036,
+      "stage_events": [
+        {
+          "completed_at": "2026-09-04T16:06:13.922547+00:00",
+          "elapsed_seconds": 223.9042297831038,
+          "stage": "initial",
+          "started_at": "2026-09-04T16:02:30.017863+00:00"
+        }
+      ],
+      "started_at": "2026-09-04T16:02:27.860209+00:00",
+      "task_id": 19,
+      "task_slug": "sensor-resampling",
+      "thread_id": "01a06d28-4281-7b81-9dca-4454914aed60",
+      "turns": [
+        {
+          "command": [
+            "/home/jdabrowski/.nvm/versions/node/v22.22.1/lib/node_modules/@openai/codex/bin/codex.js",
+            "exec",
+            "--sandbox",
+            "workspace-write",
+            "--cd",
+            "/tmp/prime-context-codex-t19-a1-9qulvpdd/workspace",
+            "--config",
+            "sandbox_workspace_write.network_access=true",
+            "--config",
+            "features.network_proxy.enabled=true",
+            "--config",
+            "features.network_proxy.domains={ \"127.0.0.1\" = \"allow\" }",
+            "--ignore-user-config",
+            "--ignore-rules",
+            "--skip-git-repo-check",
+            "--model",
+            "gpt-5.6-sol",
+            "--config",
+            "model_reasoning_effort=\"medium\"",
+            "--json",
+            "--color",
+            "never",
+            "--output-last-message",
+            "/home/jdabrowski/work/prime-context/benchmarks/python-realworld-30/results/20260904-codex0153-gpt56sol-all30-v1/task-19-sensor-resampling/codex/attempt-1/codex-last-message-1-initial.txt",
+            "-"
+          ],
+          "completed_at": "2026-09-04T16:06:13.922547+00:00",
+          "elapsed_seconds": 223.9042297831038,
+          "errors": [],
+          "event_count": 34,
+          "last_message": "Implemented the standard-library-only workflow in [sensor_resample.py](/tmp/prime-context-codex-t19-a1-9qulvpdd/workspace/solution/sensor_resample.py).\n\nGenerated:\n\n- [resampled.csv.gz](/tmp/prime-context-codex-t19-a1-9qulvpdd/workspace/output/resampled.csv.gz) \u2014 1,199,860 rows\n- [resets.csv](/tmp/prime-context-codex-t19-a1-9qulvpdd/workspace/output/resets.csv) \u2014 1 reset\n- [gaps.csv](/tmp/prime-context-codex-t19-a1-9qulvpdd/workspace/output/gaps.csv) \u2014 2 gaps\n\nVerified the required command under Python 3.12 with `-E -S`, exact decimal arithmetic, output schemas, and sorting. Full processing took approximately 8.5 seconds with 23 MB peak memory.",
+          "malformed_output": [],
+          "prompt": "Read TASK.md and complete the requested workflow using only the Python standard library.",
+          "returncode": 0,
+          "stage": "initial",
+          "started_at": "2026-09-04T16:02:30.017863+00:00",
+          "thread_id": "01a06d28-4281-7b81-9dca-4454914aed60",
+          "timed_out": false,
+          "usage": {
+            "cache_write_input_tokens": 0,
+            "cached_input_tokens": 266368,
+            "input_tokens": 285016,
+            "output_tokens": 10134,
+            "reasoning_output_tokens": 3108
+          }
+        }
+      ],
+      "variant": "codex"
+    }
+  ],
+  "retry_triggers": [],
+  "selected_attempt": 0,
+  "task_id": 19,
+  "task_slug": "sensor-resampling",
+  "variant": "codex"
+}

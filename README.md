@@ -44,6 +44,8 @@ The raw session remains local and intact. The model sees the part that can move 
 
 That is **19.65% less agent time**, **29.39% less billed cost**, and **39.51% fewer provider tokens** across the 29 tasks both systems strictly passed. Prime Context also won correctness on Task 30 after vanilla failed both allowed attempts.
 
+These headline sweep claims compare Prime Context with stock Prime Agent 0.9.1. A separately run pure vanilla Codex CLI baseline is reported in [the benchmark section](#the-completed-30-task-benchmark) and the detailed record.
+
 **Twenty-nine strict head-to-heads. Twenty-nine time wins. Twenty-nine cost wins. That is not a cherry-picked average. It is a sweep.**
 
 The recorded current arm used npm-installed `prime-agent-context@9.1.1` plus the release-candidate host patch. Version 9.2.0 ships that work together with the newly audited goal-state projection and error-surface improvements. No repository checkout was loaded by the benchmark. See [BENCHMARKS.md](BENCHMARKS.md) for methodology, all 30 task descriptions, every selected metric, all retained retries, and the evidence map.
@@ -439,7 +441,7 @@ Delete `~/.prime/agent/prime-context` separately only if you also want to erase 
 
 ## The completed 30-task benchmark
 
-The release gate used 30 hermetic Python 3.12 workflows with hidden future stages, fresh judge fixtures, loopback-only tool networking, isolated hosts, and a maximum of six concurrent attempts. Both arms used `openai-codex/gpt-5.6-sol` at medium effort.
+The release gate used 30 hermetic Python 3.12 workflows with hidden future stages, fresh judge fixtures, loopback-only tool networking, isolated hosts, and a maximum of six concurrent attempts. The two Prime Agent arms used `openai-codex/gpt-5.6-sol` at medium effort.
 
 | Measure | Prime Context | Vanilla 0.9.1 |
 |---|---:|---:|
@@ -450,9 +452,27 @@ The release gate used 30 hermetic Python 3.12 workflows with hidden future stage
 | Comparable billed cost | **$11.898793** | $16.852171 |
 | Comparable provider tokens | **3,627,683** | 5,997,405 |
 
-Across the 29 strict both-pass pairs, Prime Context saved **1,385.779 seconds (19.65%)** and **$4.953378 (29.39%)**. Across all selected rows, including vanilla's failed Task 30, Prime Context used 6,172.066 seconds and $13.233338 versus 7,667.468 seconds and $18.513607.
+Across the 29 strict both-pass Prime Agent pairs, Prime Context saved **1,385.779 seconds (19.65%)** and **$4.953378 (29.39%)**. Across all selected Prime Agent rows, including vanilla's failed Task 30, Prime Context used 6,172.066 seconds and $13.233338 versus 7,667.468 seconds and $18.513607.
 
-Read [BENCHMARKS.md](BENCHMARKS.md) for every task, attempt, check result, time, billed cost, model-call count, provider-token count, retry, and protocol detail.
+### Supplemental pure vanilla Codex CLI
+
+A separate 2026-09-04 run used stock `codex-cli 0.153.0` with ChatGPT subscription authentication, `gpt-5.6-sol`, medium effort, at most six sessions, no Prime Agent or Prime Context, no custom system/developer prompt, and with no global or local `AGENTS.md` or Codex config file loaded.
+
+| Measure | Pure vanilla Codex CLI |
+|---|---:|
+| Strict passes | **30/30** |
+| Selected agent wall time | 10,338.905 s |
+| Actual billed API cost | **N/A** (ChatGPT subscription) |
+| Same-rate API equivalent | $31.447008 (diagnostic; not a bill) |
+| Provider tokens | 23,327,077 |
+| Codex staged turns | 69 |
+| Retried tasks | 0 |
+
+Prime Context and Codex both strictly passed all 30 tasks. Across those 30 pairs, Prime Context was faster on **29/30**, used **6,172.066 s** versus **10,338.905 s**, and therefore used **4,166.839 s (40.30%) less agent time**. Codex won Task 13's time comparison. Prime Context used **81.998% fewer diagnostic provider tokens**. The Codex run was independent rather than contemporaneously paired, so these timing figures are supplemental.
+
+Pure Codex also passed Task 30, where stock Prime Agent failed both attempts. On the other 29 tasks both systems strictly passed, stock Prime Agent was faster than Codex on **28/29** and used **24.99% less agent time**; Codex again won Task 13. No billed-cost win or loss is assigned to Codex because the CLI exposes no per-run subscription charge.
+
+Read [BENCHMARKS.md](BENCHMARKS.md) for every task, attempt, check result, timing, billed-cost scope, token diagnostic, retry, isolation detail, and evidence path.
 
 ## Prime Agent compatibility
 
@@ -486,6 +506,7 @@ Autonomous quality-gate commands run as Prime Agent host subprocesses rather tha
 | `src/tool.ts` / `src/commands.ts` | Model recovery API and `/pc` operator commands. |
 | `src/policy.ts` | Bundled global system-prompt policy. |
 | `scripts/patch-prime-agent.mjs` | Version-pinned Prime Agent 0.9.1 host contract patch. |
+| `benchmarks/python-realworld-30/` | Published corpus, Prime Agent and pure Codex runners, judges, and benchmark evidence. |
 
 ## Development
 

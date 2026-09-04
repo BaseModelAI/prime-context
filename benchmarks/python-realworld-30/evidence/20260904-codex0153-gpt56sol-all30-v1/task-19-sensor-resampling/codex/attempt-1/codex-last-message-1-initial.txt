@@ -1,0 +1,9 @@
+Implemented the standard-library-only workflow in [sensor_resample.py](/tmp/prime-context-codex-t19-a1-9qulvpdd/workspace/solution/sensor_resample.py).
+
+Generated:
+
+- [resampled.csv.gz](/tmp/prime-context-codex-t19-a1-9qulvpdd/workspace/output/resampled.csv.gz) — 1,199,860 rows
+- [resets.csv](/tmp/prime-context-codex-t19-a1-9qulvpdd/workspace/output/resets.csv) — 1 reset
+- [gaps.csv](/tmp/prime-context-codex-t19-a1-9qulvpdd/workspace/output/gaps.csv) — 2 gaps
+
+Verified the required command under Python 3.12 with `-E -S`, exact decimal arithmetic, output schemas, and sorting. Full processing took approximately 8.5 seconds with 23 MB peak memory.

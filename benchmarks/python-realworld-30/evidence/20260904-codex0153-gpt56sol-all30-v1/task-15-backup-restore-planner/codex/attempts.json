@@ -1,0 +1,134 @@
+{
+  "attempts": [
+    {
+      "agent_wall_seconds": 162.20269689895213,
+      "completed_at": "2026-09-04T16:02:27.858603+00:00",
+      "error": null,
+      "isolation": {
+        "agent_instruction_files": [],
+        "api_key_environment": [],
+        "auth_mode": "ChatGPT subscription",
+        "builtin_context": "stock Codex CLI context only",
+        "codex_home": "isolated shared run home; auth.json only at startup",
+        "custom_developer_prompt": null,
+        "custom_system_prompt": null,
+        "exec_rules": "ignored",
+        "sandbox": "workspace-write with exact 127.0.0.1 command-proxy allow rule",
+        "user_config": "ignored",
+        "workspace_root": "/tmp outside every repository and AGENTS.md/.codex search path"
+      },
+      "judge": {
+        "edge_check_passed": true,
+        "main_checks_passed": 5,
+        "main_checks_total": 5,
+        "notes": [],
+        "progress_level": 5,
+        "status": "pass"
+      },
+      "judge_seconds": 0.16388530505355448,
+      "lifecycle_wall_seconds": 162.40877554903273,
+      "metrics": {
+        "api_equivalent_cost": {
+          "cached_input": 0.086912,
+          "output": 0.22377,
+          "total": 0.406602,
+          "uncached_input": 0.09592
+        },
+        "api_equivalent_cost_kind": "matched-rate estimate only; not an actual subscription bill",
+        "billing_note": "ChatGPT subscription Codex exposes no per-run billed API charge.",
+        "codex_turns": 1,
+        "model_api_calls": null,
+        "model_api_calls_note": "Codex exec JSONL does not expose underlying model request count.",
+        "provider_usage": {
+          "cacheWriteInput": 0,
+          "cachedInput": 173824,
+          "input": 193008,
+          "output": 7459,
+          "reasoningOutput": 2403,
+          "totalTokens": 200467,
+          "uncachedInput": 19184
+        },
+        "raw_usage": {
+          "cache_write_input_tokens": 0,
+          "cached_input_tokens": 173824,
+          "input_tokens": 193008,
+          "output_tokens": 7459,
+          "reasoning_output_tokens": 2403
+        },
+        "subscription_billed_cost": null
+      },
+      "pressure": "N",
+      "schema": "prime-context.python-realworld-codex-run/v1",
+      "service_events": [],
+      "setup_seconds": 0.0284932249924168,
+      "stage_events": [
+        {
+          "completed_at": "2026-09-04T16:02:27.681523+00:00",
+          "elapsed_seconds": 162.20269689895213,
+          "stage": "initial",
+          "started_at": "2026-09-04T15:59:45.478413+00:00"
+        }
+      ],
+      "started_at": "2026-09-04T15:59:45.449838+00:00",
+      "task_id": 15,
+      "task_slug": "backup-restore-planner",
+      "thread_id": "01a06d25-bfa8-7273-bd48-583262e33c40",
+      "turns": [
+        {
+          "command": [
+            "/home/jdabrowski/.nvm/versions/node/v22.22.1/lib/node_modules/@openai/codex/bin/codex.js",
+            "exec",
+            "--sandbox",
+            "workspace-write",
+            "--cd",
+            "/tmp/prime-context-codex-t15-a1-t3p0e4_8/workspace",
+            "--config",
+            "sandbox_workspace_write.network_access=true",
+            "--config",
+            "features.network_proxy.enabled=true",
+            "--config",
+            "features.network_proxy.domains={ \"127.0.0.1\" = \"allow\" }",
+            "--ignore-user-config",
+            "--ignore-rules",
+            "--skip-git-repo-check",
+            "--model",
+            "gpt-5.6-sol",
+            "--config",
+            "model_reasoning_effort=\"medium\"",
+            "--json",
+            "--color",
+            "never",
+            "--output-last-message",
+            "/home/jdabrowski/work/prime-context/benchmarks/python-realworld-30/results/20260904-codex0153-gpt56sol-all30-v1/task-15-backup-restore-planner/codex/attempt-1/codex-last-message-1-initial.txt",
+            "-"
+          ],
+          "completed_at": "2026-09-04T16:02:27.681523+00:00",
+          "elapsed_seconds": 162.20269689895213,
+          "errors": [],
+          "event_count": 27,
+          "last_message": "Implemented the restore planner in [restore_plan.py](/tmp/prime-context-codex-t15-a1-t3p0e4_8/workspace/solution/restore_plan.py).\n\nGenerated:\n\n- [restore_plan.csv](/tmp/prime-context-codex-t15-a1-t3p0e4_8/workspace/output/restore_plan.csv)\n- [warnings.csv](/tmp/prime-context-codex-t15-a1-t3p0e4_8/workspace/output/warnings.csv)\n- Restored files under [output/restored](/tmp/prime-context-codex-t15-a1-t3p0e4_8/workspace/output/restored)\n\nVerified:\n\n- Correct timestamp selection and archive-name tie-breaking\n- Exact restored bytes\n- Tar, compressed tar, and ZIP handling\n- Rejection of links and non-regular members\n- Traversal protection, including `../requested.txt`\n- Header-only CSV compatibility\n- Python standard library only\n\nThe environment provides `python3`, so validation used:\n\n```bash\npython3 -m solution.restore_plan inputs --output output\n```",
+          "malformed_output": [],
+          "prompt": "Read TASK.md and complete the requested workflow using only the Python standard library.",
+          "returncode": 0,
+          "stage": "initial",
+          "started_at": "2026-09-04T15:59:45.478413+00:00",
+          "thread_id": "01a06d25-bfa8-7273-bd48-583262e33c40",
+          "timed_out": false,
+          "usage": {
+            "cache_write_input_tokens": 0,
+            "cached_input_tokens": 173824,
+            "input_tokens": 193008,
+            "output_tokens": 7459,
+            "reasoning_output_tokens": 2403
+          }
+        }
+      ],
+      "variant": "codex"
+    }
+  ],
+  "retry_triggers": [],
+  "selected_attempt": 0,
+  "task_id": 15,
+  "task_slug": "backup-restore-planner",
+  "variant": "codex"
+}

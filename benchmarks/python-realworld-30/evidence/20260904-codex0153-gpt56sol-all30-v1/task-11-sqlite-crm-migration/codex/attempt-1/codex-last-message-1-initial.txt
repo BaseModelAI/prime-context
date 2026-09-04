@@ -1,0 +1,13 @@
+Implemented the SQLite CRM migration in [crm/migrate.py](/tmp/prime-context-codex-t11-a1-no2lkt1x/workspace/crm/migrate.py).
+
+Completed:
+
+- Migrates version 1 to version 2 transactionally.
+- Merges duplicate contacts and deduplicates methods/notes.
+- Normalizes emails and phone numbers as specified.
+- Preserves primary-method ordering and surviving IDs.
+- Safely handles already-migrated databases.
+- Uses only Python’s standard library.
+- Migrated `workspace/crm.db` successfully.
+
+Verification passed: schema version 2, 12 contacts, 21 contact methods, valid foreign keys, and idempotent reruns.

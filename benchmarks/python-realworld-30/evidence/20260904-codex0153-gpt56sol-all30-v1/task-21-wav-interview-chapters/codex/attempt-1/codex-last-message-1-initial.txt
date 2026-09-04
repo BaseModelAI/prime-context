@@ -1,0 +1,15 @@
+Implemented the standard-library-only WAV cleanup workflow:
+
+- [audio_chapters.py](/tmp/prime-context-codex-t21-a1-sli277t5/workspace/solution/audio_chapters.py)
+- [solution package](/tmp/prime-context-codex-t21-a1-sli277t5/workspace/solution/__init__.py)
+- Generated requested files under [output](/tmp/prime-context-codex-t21-a1-sli277t5/workspace/output)
+
+Verified:
+
+- Frame-exact chapter reconstruction
+- Silence trimming and midpoint tie-breaking
+- Transcript clipping/splitting
+- All-silence behavior
+- Stale-output removal
+- Deterministic repeated output
+- Python 3.12 compilation

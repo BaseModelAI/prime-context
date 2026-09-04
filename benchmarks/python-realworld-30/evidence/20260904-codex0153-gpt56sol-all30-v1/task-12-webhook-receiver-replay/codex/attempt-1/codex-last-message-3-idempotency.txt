@@ -1,0 +1,12 @@
+Implemented durable `X-Event-ID` idempotency.
+
+- First valid external ID returns `202` with a new local ID.
+- Reposts return `200` with the original local ID.
+- Duplicate requests cannot modify payload, delivery status, retry state, or counters.
+- Headerless requests remain non-idempotent.
+- Existing databases migrate automatically.
+- A SQLite unique index prevents duplicate rows under concurrent requests.
+
+Verified normal, headerless, malformed, migration, and concurrent duplicate scenarios.
+
+Updated [db.py](/tmp/prime-context-codex-t12-a1-zaih8g9d/workspace/webhook_app/db.py) and [server.py](/tmp/prime-context-codex-t12-a1-zaih8g9d/workspace/webhook_app/server.py).

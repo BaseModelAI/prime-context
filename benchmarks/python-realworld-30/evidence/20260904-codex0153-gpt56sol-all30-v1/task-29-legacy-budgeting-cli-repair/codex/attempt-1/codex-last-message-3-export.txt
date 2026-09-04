@@ -1,0 +1,16 @@
+Implemented deterministic transaction exports.
+
+- Added `export` CLI support for CSV and JSON.
+- Uses `inputs/export_schema.json` for columns and ordering.
+- Emits one row per split part or one row per unsplit transaction.
+- Preserves parent fields and all account-scoped source IDs.
+- Formats every monetary value to two decimal places.
+- CSV uses LF line endings and the exact header.
+- JSON uses matching key/row order and ends with a newline.
+- Verified repeated exports are byte-identical.
+- Verified repeated imports leave transactions and split parts unchanged.
+
+Generated files:
+
+- [transactions.csv](/tmp/prime-context-codex-t29-a1-m44zoy9k/workspace/output/transactions.csv)
+- [transactions.json](/tmp/prime-context-codex-t29-a1-m44zoy9k/workspace/output/transactions.json)

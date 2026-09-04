@@ -1,0 +1,16 @@
+Implemented persistent replay cycles.
+
+Changes:
+
+- Added durable `cycle_attempt_count` with automatic migration for existing databases.
+- Worker retry scheduling now uses the cycle count while `attempt_count` remains the lifetime total.
+- Added:
+  ```bash
+  python -m webhook_app replay --db workspace/webhooks.db --failed
+  ```
+- Replay atomically moves all failed events to `pending`, clears `next_attempt_at`, and resets only the cycle counter.
+- Replay does not contact the sink and safely succeeds when no events are failed.
+
+Verified schema migration, persistence across worker invocations, replay behavior, cumulative attempt reporting, retry scheduling, and CLI database creation.
+
+Updated [db.py](/tmp/prime-context-codex-t12-a1-zaih8g9d/workspace/webhook_app/db.py), [worker.py](/tmp/prime-context-codex-t12-a1-zaih8g9d/workspace/webhook_app/worker.py), and [__main__.py](/tmp/prime-context-codex-t12-a1-zaih8g9d/workspace/webhook_app/__main__.py).

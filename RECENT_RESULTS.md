@@ -2,7 +2,7 @@
 
 _Snapshot generated 2026-09-03T22:21:13.969163+00:00._
 
-This is the completed cross-run publication candidate accepted under the targeted-replacement policy. v19 supplies unaffected task evidence; clean targeted runs replace Tasks 7, 8, 13, 16, and 27–30. Current strictly passes all 30 tasks, wins time and cost on every both-pass pair, and has a correctness win on Task 30 where vanilla failed both attempts.
+The Prime Agent pair below is the completed cross-run publication set accepted under the targeted-replacement policy. v19 supplies unaffected task evidence; clean targeted runs replace Tasks 7, 8, 13, 16, and 27–30. Prime Context strictly passes all 30 tasks, wins time and cost on every both-pass Prime Agent pair, and has a correctness win on Task 30 where stock Prime Agent failed both attempts. The separately recorded pure vanilla Codex CLI baseline is reported after the original publication metrics.
 
 - **t7-r2**: `benchmarks/python-realworld-30/results/20260903-pa091-pc911-targeted-task07-replacement2` (completed clean Task 7 replacement)
 - **t7-13**: `benchmarks/python-realworld-30/results/20260903-pa091-pc911-targeted-task07-13-replacement` (completed clean Task 13 replacement; superseded Task 7 comparison)
@@ -14,7 +14,7 @@ This is the completed cross-run publication candidate accepted under the targete
 - **v17\***: `benchmarks/python-realworld-30/results/20260903-pa091-pc911-all30-v17` (invalidated completed run)
 - **v16\***: `benchmarks/python-realworld-30/results/20260903-pa091-pc911-all30-v16-invalid-task28-contract-task23-selected-cost-variance` (invalidated historical run)
 - **v13\***: `benchmarks/python-realworld-30/results/20260903-pa091-pc911-all30-v13-invalid-task27-30-stage-contract-task28-edge-fixture` (invalidated historical run)
-- Metrics are selected-attempt agent wall time and billed API cost. `A2` means the selected result came from the one allowed retry.
+- Prime Agent-pair metrics are selected-attempt agent wall time and billed API cost. `A2` means the selected result came from the one allowed retry.
 - `PASS 5/5 + edge` is the strict correctness requirement.
 
 ## Per-task results
@@ -65,3 +65,24 @@ Publication status: **ready under the user-approved targeted-replacement protoco
 - Billed API cost is authoritative. Provider tokens remain diagnostic.
 - Evidence sources: v19-base for 22 unaffected tasks; t7-r2 for Task 7; gate20 for Tasks 8, 16, and 27–30; t7-13 for Task 13.
 - Final validation: corpus valid (30 tasks); harness 4/4; product tests 110/110; Python compile, TypeScript typecheck/build, Prime Agent 0.9.1 package smoke with `/usr/bin/bash`, and `git diff --check` all passed.
+
+## Supplemental pure vanilla Codex CLI
+
+_Run completed 2026-09-04T16:31:22.761980+00:00._
+
+- Raw local run: `benchmarks/python-realworld-30/results/20260904-codex0153-gpt56sol-all30-v1`.
+- Persisted curated raw evidence: `benchmarks/python-realworld-30/evidence/20260904-codex0153-gpt56sol-all30-v1`.
+- Configuration: installed stock `codex-cli 0.153.0`; ChatGPT subscription authentication; `gpt-5.6-sol`; medium effort; maximum concurrency 6; stock `workspace-write` sandbox with exact `127.0.0.1` command-proxy access only.
+- Isolation: no Prime Agent or Prime Context; no API-key environment; no custom system/developer prompt; no global or local `AGENTS.md`, `AGENTS.override.md`, or Codex config file loaded; benchmark user messages on stdin; fresh `/tmp` workspaces and empty isolated `HOME`. Stock Codex built-in base, developer, skill, collaboration, recommended-plugin, and environment context remained because this is the vanilla CLI baseline.
+- Correctness: **30/30 strict passes**, **150/150 main checks**, and **30/30 edge checks**. Every task passed A1, so no retry ran.
+- Selected agent wall time: **10,338.905 s**. Six-worker elapsed run time: **2,293.349 s**.
+- Actual billed API cost: **N/A**. The CLI used a ChatGPT subscription and exposes no per-run charge.
+- Same-rate API equivalent: **$31.447008**, diagnostic only and not a bill.
+- Subscription telemetry: **22,839,654 input**, **21,638,656 cached input**, **0 cache-write input**, **487,423 output**, and **23,327,077 provider tokens**. Reasoning output is a **149,589-token subset** of output.
+- Codex staged turns: **69**. Underlying model API-call count is not exposed and is not compared with Prime Agent model calls.
+- Prime Context versus Codex: both strictly passed all 30; Prime Context was faster **29/30**, using **6,172.066 s** versus **10,338.905 s**, or **4,166.839 s (40.30%) less**. Codex won Task 13. Prime Context used **81.998% fewer diagnostic provider tokens**.
+- Stock Prime Agent versus Codex: Codex won correctness on Task 30, where stock Prime Agent failed both attempts. Across the other 29 strict pairs, stock Prime Agent was faster **28/29**, using **7,051.335 s** versus **9,400.628 s**, or **24.99% less**. Codex won Task 13.
+- Timing is supplemental because the Codex run was independent rather than contemporaneously paired. No Codex billed-cost wins or losses are claimed.
+- Validation: all 69 public JSONL turns completed; no malformed output, selected error, usage mismatch, external command URL, package installation, or instruction-path leak; corpus valid; harness 6/6; product tests 110/110; Python compile, typecheck, build, and diff checks passed.
+
+See [`BENCHMARKS.md`](BENCHMARKS.md) for all 30 Codex rows, the isolation method, comparison rules, and evidence map.

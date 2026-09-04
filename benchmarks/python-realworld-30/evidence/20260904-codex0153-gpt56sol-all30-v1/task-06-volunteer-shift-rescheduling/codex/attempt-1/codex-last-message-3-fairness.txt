@@ -1,0 +1,10 @@
+Final files regenerated.
+
+- Required-skill coverage: **36/36**
+- Changed assignments: **4**
+- Preference score: **32**
+- All-volunteer assignment spread: **2**
+- Fairness-rule volunteers (`V07`, `V08`, `V19`, `V20`) each have two assignments
+- Fairness exceptions: **none**
+
+Updated [schedule.csv](/tmp/prime-context-codex-t06-a1-5k0v4j1s/workspace/output/schedule.csv), [unfilled.csv](/tmp/prime-context-codex-t06-a1-5k0v4j1s/workspace/output/unfilled.csv), and [summary.json](/tmp/prime-context-codex-t06-a1-5k0v4j1s/workspace/output/summary.json).

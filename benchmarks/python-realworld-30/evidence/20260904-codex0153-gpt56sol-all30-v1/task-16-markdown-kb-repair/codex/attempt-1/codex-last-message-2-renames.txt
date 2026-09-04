@@ -1,0 +1,12 @@
+Updated [kb_repair.py](/tmp/prime-context-codex-t16-a1-y0ceuxkv/workspace/solution/kb_repair.py) to automatically consume `inputs/renames.csv` without changing the command.
+
+The workflow now:
+
+- Moves every renamed Markdown file and removes old paths.
+- Rewrites incoming and moved-document links relative to final locations.
+- Resolves redirects through renames.
+- Uses final paths in reports and indexes.
+- Supports chained renames and rejects cycles/collisions.
+- Preserves fenced content and unrelated file bytes.
+
+Verified deterministic output, 251 copied files, 16 report rows, correct moved paths, and no files remaining at either old path.

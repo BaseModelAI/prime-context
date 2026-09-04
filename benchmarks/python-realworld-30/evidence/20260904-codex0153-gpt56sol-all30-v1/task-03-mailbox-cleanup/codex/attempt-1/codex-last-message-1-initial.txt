@@ -1,0 +1,9 @@
+Implemented [solution/mailbox_clean.py](/tmp/prime-context-codex-t03-a1-gy7vd3gu/workspace/solution/mailbox_clean.py) using only Python 3.12’s standard library.
+
+Generated:
+
+- [cleaned.mbox](/tmp/prime-context-codex-t03-a1-gy7vd3gu/workspace/output/cleaned.mbox) — 168 retained messages
+- [threads.csv](/tmp/prime-context-codex-t03-a1-gy7vd3gu/workspace/output/threads.csv) — 42 threads
+- [unsubscribe.csv](/tmp/prime-context-codex-t03-a1-gy7vd3gu/workspace/output/unsubscribe.csv)
+
+Validated deduplication, sorting, malformed charset handling, attachment exclusion from CSV, date normalization, and deterministic repeat runs.
