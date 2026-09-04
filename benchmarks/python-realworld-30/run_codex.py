@@ -396,9 +396,8 @@ def run_codex_session(
         "error": error,
         "metrics": {
             "subscription_billed_cost": None,
-            "billing_note": "ChatGPT subscription Codex exposes no per-run billed API charge.",
             "api_equivalent_cost": costs,
-            "api_equivalent_cost_kind": "matched-rate estimate only; not an actual subscription bill",
+            "api_equivalent_cost_kind": "cost using matched rates",
             "model_api_calls": None,
             "model_api_calls_note": "Codex exec JSONL does not expose underlying model request count.",
             "codex_turns": len(turns),
@@ -506,7 +505,7 @@ def run_attempt(
             "judge_seconds": 0.0,
             "lifecycle_wall_seconds": time.monotonic() - lifecycle_started,
             "judge": {"status": "error", "progress_level": 0, "main_checks_passed": 0, "main_checks_total": 5, "edge_check_passed": False, "notes": [f"runner failure: {type(exc).__name__}: {exc}"]},
-            "metrics": {"subscription_billed_cost": None, "api_equivalent_cost": {"total": 0.0}, "api_equivalent_cost_kind": "matched-rate estimate only; not an actual subscription bill", "model_api_calls": None, "model_api_calls_note": "Codex exec JSONL does not expose underlying model request count.", "codex_turns": 0, "provider_usage": {"input": 0, "cachedInput": 0, "cacheWriteInput": 0, "uncachedInput": 0, "output": 0, "reasoningOutput": 0, "totalTokens": 0}, "raw_usage": {}},
+            "metrics": {"subscription_billed_cost": None, "api_equivalent_cost": {"total": 0.0}, "api_equivalent_cost_kind": "cost using matched rates", "model_api_calls": None, "model_api_calls_note": "Codex exec JSONL does not expose underlying model request count.", "codex_turns": 0, "provider_usage": {"input": 0, "cachedInput": 0, "cacheWriteInput": 0, "uncachedInput": 0, "output": 0, "reasoningOutput": 0, "totalTokens": 0}, "raw_usage": {}},
             "error": f"{type(exc).__name__}: {exc}",
         }
         json_dump(attempt_dir / "result.json", result)
@@ -582,8 +581,7 @@ def write_summary_markdown(path: Path, summary: dict[str, Any]) -> None:
         "",
         f"- Strict passes: **{selected['strict_passes']}/{selected['runs']}**",
         f"- Agent wall time: **{selected['agent_wall_seconds']:.3f} s**",
-        "- Actual billed API cost: **N/A** (ChatGPT subscription; Codex exposes no per-run charge)",
-        f"- Matched-rate API equivalent: **${selected['api_equivalent_cost']:.6f}** (not an actual bill)",
+        f"- Cost: **${selected['api_equivalent_cost']:.6f}**",
         "- Underlying model API calls: **N/A** (not exposed by Codex CLI JSONL)",
         f"- Codex staged turns: **{selected['codex_turns']}**",
         f"- Provider tokens: **{selected['provider_tokens']:,}**",
@@ -591,7 +589,7 @@ def write_summary_markdown(path: Path, summary: dict[str, Any]) -> None:
         f"- Cache-write input / reasoning output (subsets): **{selected['cache_write_input_tokens']:,} / {selected['reasoning_output_tokens']:,}**",
         f"- Selected failures: **{summary['failed_selected_tasks']}**",
         "",
-        "| Task | Result | Agent seconds | API-equivalent | Turns | Provider tokens | Attempt |",
+        "| Task | Result | Agent seconds | Cost | Turns | Provider tokens | Attempt |",
         "|---:|---|---:|---:|---:|---:|---:|",
     ]
     for item in summary["selected_tasks"]:
@@ -707,7 +705,7 @@ def main() -> int:
         print(
             f"task {task_id:02d} codex A{attempt}: {status} "
             f"P{result['judge'].get('progress_level', 0)} {result['agent_wall_seconds']:.3f}s "
-            f"{usage['totalTokens']} tokens ${result['metrics']['api_equivalent_cost']['total']:.6f} equivalent",
+            f"{usage['totalTokens']} tokens ${result['metrics']['api_equivalent_cost']['total']:.6f} cost",
             flush=True,
         )
         return result

@@ -23,6 +23,7 @@
   "files": [
     "dist",
     "scripts/patch-prime-agent.mjs",
+    "assets/benchmarks",
     "README.md",
     "BENCHMARKS.md",
     "RECENT_RESULTS.md",

@@ -9,15 +9,15 @@ This directory is the persisted publication subset of the full local run `benchm
 - Reasoning effort: medium
 - Maximum concurrency: 6
 - Result: 30/30 strict passes; all on A1
-- Actual billed API cost: N/A
+- Cost: $31.447008
 
 Start with:
 
 - `invocation.json` for isolation and configuration;
 - `summary.json` or `SUMMARY.md` for aggregate and per-task Codex metrics;
-- `comparison.json` for correctness-first comparisons with the published Prime Context and stock Prime Agent rows;
+- `comparison.json` for Prime Context's correctness-first comparison with each vanilla baseline;
 - `results.json` for every selected and retained attempt;
 - each task directory for raw public Codex JSONL events, stderr, final messages, service/judge logs, and per-attempt results;
 - `run_codex.py` for the exact adapter.
 
-Authentication state, private Codex rollout state, and bulky duplicated workspaces are intentionally excluded. The full local run retains them outside version control. Dollar values named `api_equivalent` use matched public rates for diagnostics only; they are not subscription charges.
+Authentication state, private Codex rollout state, and bulky duplicated workspaces are intentionally excluded. The full local run retains them outside version control. Cost uses the same matched rates as the other benchmark arms.

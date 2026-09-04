@@ -1,0 +1,186 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="790" viewBox="0 0 1400 790" role="img" aria-labelledby="title desc">
+<title id="title">Prime Context token advantage by task</title>
+<desc id="desc">Positive bars mean fewer provider tokens. Token counts are diagnostic. Strict selected pairs only • provider tokens are diagnostic • each row compares Prime Context with one baseline</desc>
+<defs>
+<linearGradient id="pcGradient" x1="0" y1="0" x2="1" y2="0">
+<stop offset="0%" stop-color="#8B5CF6"/><stop offset="100%" stop-color="#B9A7FF"/>
+</linearGradient>
+<radialGradient id="glow" cx="50%" cy="0%" r="85%">
+<stop offset="0%" stop-color="#34266B" stop-opacity="0.72"/>
+<stop offset="100%" stop-color="#070B18" stop-opacity="0"/>
+</radialGradient>
+<filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+<feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000000" flood-opacity="0.28"/>
+</filter>
+<style>text{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}</style>
+</defs>
+<rect x="0.0" y="0.0" width="1400.0" height="790.0" rx="0.0" fill="#070B18" opacity="1.0"/>
+<rect x="0.0" y="0.0" width="1400.0" height="790.0" rx="0.0" fill="url(#glow)" opacity="1.0"/>
+<text x="64.0" y="58.0" font-size="14" fill="#2DD4BF" font-weight="800" text-anchor="start" opacity="1.0" letter-spacing="1.8">PRIME CONTEXT ADVANTAGE • ALL 30 TASKS</text>
+<text x="64.0" y="103.0" font-size="33" fill="#F8FAFC" font-weight="850" text-anchor="start" opacity="1.0">Prime Context token advantage by task</text>
+<text x="64.0" y="134.0" font-size="16" fill="#9AA9C2" font-weight="400" text-anchor="start" opacity="1.0">Positive bars mean fewer provider tokens. Token counts are diagnostic.</text>
+<rect x="54.0" y="156.0" width="1292.0" height="270.0" rx="22.0" fill="#10182B" opacity="1.0" stroke="#25304A" stroke-width="1"/>
+<rect x="72.0" y="175.0" width="8.0" height="31.0" rx="4.0" fill="#94A3B8" opacity="1.0"/>
+<text x="94.0" y="198.0" font-size="19" fill="#F8FAFC" font-weight="760" text-anchor="start" opacity="1.0">vs vanilla Prime Agent 0.9.1</text>
+<rect x="925.0" y="173.0" width="387.0" height="34.0" rx="17.0" fill="#142F32" opacity="1.0" stroke="#205252" stroke-width="1"/>
+<text x="1118.5" y="196.0" font-size="13" fill="#2DD4BF" font-weight="760" text-anchor="middle" opacity="1.0">26/29 lower • 39.51% fewer total</text>
+<line x1="86" y1="438.0" x2="1326" y2="438.0" stroke="#29344C" stroke-width="1"/>
+<text x="76.0" y="442.0" font-size="10" fill="#9AA9C2" font-weight="400" text-anchor="end" opacity="1.0">-20%</text>
+<line x1="86" y1="401.7" x2="1326" y2="401.7" stroke="#53617A" stroke-width="1.6"/>
+<text x="76.0" y="405.7" font-size="10" fill="#9AA9C2" font-weight="400" text-anchor="end" opacity="1.0">0%</text>
+<line x1="86" y1="365.3" x2="1326" y2="365.3" stroke="#29344C" stroke-width="1"/>
+<text x="76.0" y="369.3" font-size="10" fill="#9AA9C2" font-weight="400" text-anchor="end" opacity="1.0">20%</text>
+<line x1="86" y1="329.0" x2="1326" y2="329.0" stroke="#29344C" stroke-width="1"/>
+<text x="76.0" y="333.0" font-size="10" fill="#9AA9C2" font-weight="400" text-anchor="end" opacity="1.0">40%</text>
+<line x1="86" y1="292.7" x2="1326" y2="292.7" stroke="#29344C" stroke-width="1"/>
+<text x="76.0" y="296.7" font-size="10" fill="#9AA9C2" font-weight="400" text-anchor="end" opacity="1.0">60%</text>
+<line x1="86" y1="256.3" x2="1326" y2="256.3" stroke="#29344C" stroke-width="1"/>
+<text x="76.0" y="260.3" font-size="10" fill="#9AA9C2" font-weight="400" text-anchor="end" opacity="1.0">80%</text>
+<line x1="86" y1="220.0" x2="1326" y2="220.0" stroke="#29344C" stroke-width="1"/>
+<text x="76.0" y="224.0" font-size="10" fill="#9AA9C2" font-weight="400" text-anchor="end" opacity="1.0">100%</text>
+<rect x="95.7" y="336.3" width="22" height="65.4" rx="3" fill="url(#pcGradient)"><title>Task 1 — Household Expense Reconciliation: Prime Context 23,444 tokens; vanilla Prime Agent 0.9.1 36,634 tokens; Prime Context 36.00%</title></rect>
+<text x="106.7" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">1</text>
+<rect x="137.0" y="395.9" width="22" height="5.8" rx="3" fill="url(#pcGradient)"><title>Task 2 — Calendar Merge and Conflict Report: Prime Context 68,783 tokens; vanilla Prime Agent 0.9.1 71,049 tokens; Prime Context 3.19%</title></rect>
+<text x="148.0" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">2</text>
+<rect x="178.3" y="341.5" width="22" height="60.2" rx="3" fill="url(#pcGradient)"><title>Task 3 — Mailbox Thread Cleanup: Prime Context 81,161 tokens; vanilla Prime Agent 0.9.1 121,381 tokens; Prime Context 33.14%</title></rect>
+<text x="189.3" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">3</text>
+<rect x="219.7" y="388.6" width="22" height="13.1" rx="3" fill="url(#pcGradient)"><title>Task 4 — Invoice and Payment Matching: Prime Context 39,723 tokens; vanilla Prime Agent 0.9.1 42,814 tokens; Prime Context 7.22%</title></rect>
+<text x="230.7" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">4</text>
+<rect x="261.0" y="268.2" width="22" height="133.5" rx="3" fill="url(#pcGradient)"><title>Task 5 — Inventory Reorder and Transfer Plan: Prime Context 110,044 tokens; vanilla Prime Agent 0.9.1 415,164 tokens; Prime Context 73.49%</title></rect>
+<text x="272.0" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">5</text>
+<rect x="302.3" y="371.5" width="22" height="30.2" rx="3" fill="url(#pcGradient)"><title>Task 6 — Volunteer Shift Rescheduling: Prime Context 225,115 tokens; vanilla Prime Agent 0.9.1 269,950 tokens; Prime Context 16.61%</title></rect>
+<text x="313.3" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">6</text>
+<rect x="343.7" y="265.7" width="22" height="136.0" rx="3" fill="url(#pcGradient)"><title>Task 7 — Utility Consumption Anomaly Report: Prime Context 23,575 tokens; vanilla Prime Agent 0.9.1 93,768 tokens; Prime Context 74.86%</title></rect>
+<text x="354.7" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">7</text>
+<rect x="385.0" y="356.9" width="22" height="44.7" rx="3" fill="url(#pcGradient)"><title>Task 8 — Travel Itinerary Repair: Prime Context 55,784 tokens; vanilla Prime Agent 0.9.1 74,008 tokens; Prime Context 24.62%</title></rect>
+<text x="396.0" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">8</text>
+<rect x="426.3" y="311.8" width="22" height="89.9" rx="3" fill="url(#pcGradient)"><title>Task 9 — Support SLA Event Analysis: Prime Context 42,060 tokens; vanilla Prime Agent 0.9.1 83,230 tokens; Prime Context 49.47%</title></rect>
+<text x="437.3" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">9</text>
+<rect x="467.7" y="397.5" width="22" height="4.1" rx="3" fill="url(#pcGradient)"><title>Task 10 — Local Supplier Catalog Crawler: Prime Context 39,408 tokens; vanilla Prime Agent 0.9.1 40,322 tokens; Prime Context 2.27%</title></rect>
+<text x="478.7" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">10</text>
+<rect x="509.0" y="399.5" width="22" height="2.2" rx="3" fill="url(#pcGradient)"><title>Task 11 — SQLite CRM Migration: Prime Context 63,771 tokens; vanilla Prime Agent 0.9.1 64,539 tokens; Prime Context 1.19%</title></rect>
+<text x="520.0" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">11</text>
+<rect x="550.3" y="356.5" width="22" height="45.2" rx="3" fill="url(#pcGradient)"><title>Task 12 — Webhook Receiver and Replay: Prime Context 93,281 tokens; vanilla Prime Agent 0.9.1 124,181 tokens; Prime Context 24.88%</title></rect>
+<text x="561.3" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">12</text>
+<rect x="591.7" y="286.5" width="22" height="115.2" rx="3" fill="url(#pcGradient)"><title>Task 13 — Cross-Service Incident Timeline: Prime Context 403,463 tokens; vanilla Prime Agent 0.9.1 1,102,690 tokens; Prime Context 63.41%</title></rect>
+<text x="602.7" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">13</text>
+<rect x="633.0" y="401.7" width="22" height="6.9" rx="3" fill="#FB7185"><title>Task 14 — Layered Configuration Upgrade: Prime Context 59,522 tokens; vanilla Prime Agent 0.9.1 57,334 tokens; Prime Context -3.82%</title></rect>
+<circle cx="644.0" cy="408.6" r="4" fill="#FB7185"/>
+<text x="644.0" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">14</text>
+<rect x="674.3" y="336.7" width="22" height="64.9" rx="3" fill="url(#pcGradient)"><title>Task 15 — Backup Restore Planner: Prime Context 27,025 tokens; vanilla Prime Agent 0.9.1 42,057 tokens; Prime Context 35.74%</title></rect>
+<text x="685.3" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">15</text>
+<rect x="715.7" y="314.3" width="22" height="87.3" rx="3" fill="url(#pcGradient)"><title>Task 16 — Markdown Knowledge-Base Repair: Prime Context 168,959 tokens; vanilla Prime Agent 0.9.1 325,413 tokens; Prime Context 48.08%</title></rect>
+<text x="726.7" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">16</text>
+<rect x="757.0" y="338.3" width="22" height="63.4" rx="3" fill="url(#pcGradient)"><title>Task 17 — Contract Clause Index and Comparison: Prime Context 114,810 tokens; vanilla Prime Agent 0.9.1 176,372 tokens; Prime Context 34.90%</title></rect>
+<text x="768.0" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">17</text>
+<rect x="798.3" y="280.2" width="22" height="121.5" rx="3" fill="url(#pcGradient)"><title>Task 18 — Research-Note Search and Deduplication: Prime Context 36,185 tokens; vanilla Prime Agent 0.9.1 109,224 tokens; Prime Context 66.87%</title></rect>
+<text x="809.3" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">18</text>
+<rect x="839.7" y="263.5" width="22" height="138.2" rx="3" fill="url(#pcGradient)"><title>Task 19 — Sensor Resampling and Gap Report: Prime Context 42,285 tokens; vanilla Prime Agent 0.9.1 176,779 tokens; Prime Context 76.08%</title></rect>
+<text x="850.7" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">19</text>
+<rect x="881.0" y="304.1" width="22" height="97.6" rx="3" fill="url(#pcGradient)"><title>Task 20 — Time-of-Use Energy Billing: Prime Context 75,951 tokens; vanilla Prime Agent 0.9.1 164,090 tokens; Prime Context 53.71%</title></rect>
+<text x="892.0" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">20</text>
+<rect x="922.3" y="374.0" width="22" height="27.7" rx="3" fill="url(#pcGradient)"><title>Task 21 — WAV Interview Cleanup and Chapters: Prime Context 68,437 tokens; vanilla Prime Agent 0.9.1 80,726 tokens; Prime Context 15.22%</title></rect>
+<text x="933.3" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">21</text>
+<rect x="963.7" y="358.7" width="22" height="43.0" rx="3" fill="url(#pcGradient)"><title>Task 22 — Timesheet and Payroll Correction: Prime Context 145,299 tokens; vanilla Prime Agent 0.9.1 190,352 tokens; Prime Context 23.67%</title></rect>
+<text x="974.7" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">22</text>
+<rect x="1005.0" y="370.1" width="22" height="31.5" rx="3" fill="url(#pcGradient)"><title>Task 23 — Procurement Three-Way Match: Prime Context 261,961 tokens; vanilla Prime Agent 0.9.1 317,006 tokens; Prime Context 17.36%</title></rect>
+<text x="1016.0" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">23</text>
+<rect x="1046.3" y="305.4" width="22" height="96.2" rx="3" fill="url(#pcGradient)"><title>Task 24 — Multi-Warehouse Order Fulfillment: Prime Context 211,380 tokens; vanilla Prime Agent 0.9.1 449,500 tokens; Prime Context 52.97%</title></rect>
+<text x="1057.3" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">24</text>
+<rect x="1087.7" y="357.3" width="22" height="44.4" rx="3" fill="url(#pcGradient)"><title>Task 25 — Library Circulation Reconstruction: Prime Context 116,358 tokens; vanilla Prime Agent 0.9.1 153,954 tokens; Prime Context 24.42%</title></rect>
+<text x="1098.7" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">25</text>
+<rect x="1129.0" y="363.9" width="22" height="37.8" rx="3" fill="url(#pcGradient)"><title>Task 26 — School Meal Allergen and Stock Plan: Prime Context 67,266 tokens; vanilla Prime Agent 0.9.1 84,911 tokens; Prime Context 20.78%</title></rect>
+<text x="1140.0" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">26</text>
+<rect x="1170.3" y="401.7" width="22" height="9.9" rx="3" fill="#FB7185"><title>Task 27 — Clinic Appointment Rescheduling: Prime Context 412,720 tokens; vanilla Prime Agent 0.9.1 391,403 tokens; Prime Context -5.45%</title></rect>
+<circle cx="1181.3" cy="411.6" r="4" fill="#FB7185"/>
+<text x="1181.3" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">27</text>
+<rect x="1211.7" y="319.3" width="22" height="82.4" rx="3" fill="url(#pcGradient)"><title>Task 28 — Permit Intake and Status Pipeline: Prime Context 252,315 tokens; vanilla Prime Agent 0.9.1 461,813 tokens; Prime Context 45.36%</title></rect>
+<text x="1222.7" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">28</text>
+<rect x="1253.0" y="401.7" width="22" height="13.7" rx="3" fill="#FB7185"><title>Task 29 — Legacy Budgeting CLI Repair: Prime Context 297,598 tokens; vanilla Prime Agent 0.9.1 276,741 tokens; Prime Context -7.54%</title></rect>
+<circle cx="1264.0" cy="415.4" r="4" fill="#FB7185"/>
+<text x="1264.0" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">29</text>
+<polygon points="1305.3,392.7 1313.3,401.7 1305.3,410.7 1297.3,401.7" fill="#FBBF24"><title>Task 30 Helpdesk Service Upgrade: Prime Context correctness win; efficiency not compared</title></polygon>
+<text x="1305.3" y="405.7" font-size="8" fill="#070B18" font-weight="900" text-anchor="middle" opacity="1.0">C</text>
+<text x="1305.3" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">30</text>
+<rect x="54.0" y="450.0" width="1292.0" height="270.0" rx="22.0" fill="#10182B" opacity="1.0" stroke="#25304A" stroke-width="1"/>
+<rect x="72.0" y="469.0" width="8.0" height="31.0" rx="4.0" fill="#F59E0B" opacity="1.0"/>
+<text x="94.0" y="492.0" font-size="19" fill="#F8FAFC" font-weight="760" text-anchor="start" opacity="1.0">vs vanilla Codex CLI</text>
+<rect x="925.0" y="467.0" width="387.0" height="34.0" rx="17.0" fill="#142F32" opacity="1.0" stroke="#205252" stroke-width="1"/>
+<text x="1118.5" y="490.0" font-size="13" fill="#2DD4BF" font-weight="760" text-anchor="middle" opacity="1.0">30/30 lower • 82.00% fewer total</text>
+<line x1="86" y1="732.0" x2="1326" y2="732.0" stroke="#29344C" stroke-width="1"/>
+<text x="76.0" y="736.0" font-size="10" fill="#9AA9C2" font-weight="400" text-anchor="end" opacity="1.0">-20%</text>
+<line x1="86" y1="695.7" x2="1326" y2="695.7" stroke="#53617A" stroke-width="1.6"/>
+<text x="76.0" y="699.7" font-size="10" fill="#9AA9C2" font-weight="400" text-anchor="end" opacity="1.0">0%</text>
+<line x1="86" y1="659.3" x2="1326" y2="659.3" stroke="#29344C" stroke-width="1"/>
+<text x="76.0" y="663.3" font-size="10" fill="#9AA9C2" font-weight="400" text-anchor="end" opacity="1.0">20%</text>
+<line x1="86" y1="623.0" x2="1326" y2="623.0" stroke="#29344C" stroke-width="1"/>
+<text x="76.0" y="627.0" font-size="10" fill="#9AA9C2" font-weight="400" text-anchor="end" opacity="1.0">40%</text>
+<line x1="86" y1="586.7" x2="1326" y2="586.7" stroke="#29344C" stroke-width="1"/>
+<text x="76.0" y="590.7" font-size="10" fill="#9AA9C2" font-weight="400" text-anchor="end" opacity="1.0">60%</text>
+<line x1="86" y1="550.3" x2="1326" y2="550.3" stroke="#29344C" stroke-width="1"/>
+<text x="76.0" y="554.3" font-size="10" fill="#9AA9C2" font-weight="400" text-anchor="end" opacity="1.0">80%</text>
+<line x1="86" y1="514.0" x2="1326" y2="514.0" stroke="#29344C" stroke-width="1"/>
+<text x="76.0" y="518.0" font-size="10" fill="#9AA9C2" font-weight="400" text-anchor="end" opacity="1.0">100%</text>
+<rect x="95.7" y="532.1" width="22" height="163.6" rx="3" fill="url(#pcGradient)"><title>Task 1 — Household Expense Reconciliation: Prime Context 23,444 tokens; vanilla Codex CLI 235,949 tokens; Prime Context 90.06%</title></rect>
+<text x="106.7" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">1</text>
+<rect x="137.0" y="549.0" width="22" height="146.7" rx="3" fill="url(#pcGradient)"><title>Task 2 — Calendar Merge and Conflict Report: Prime Context 68,783 tokens; vanilla Codex CLI 357,215 tokens; Prime Context 80.74%</title></rect>
+<text x="148.0" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">2</text>
+<rect x="178.3" y="544.9" width="22" height="150.7" rx="3" fill="url(#pcGradient)"><title>Task 3 — Mailbox Thread Cleanup: Prime Context 81,161 tokens; vanilla Codex CLI 476,729 tokens; Prime Context 82.98%</title></rect>
+<text x="189.3" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">3</text>
+<rect x="219.7" y="562.9" width="22" height="132.8" rx="3" fill="url(#pcGradient)"><title>Task 4 — Invoice and Payment Matching: Prime Context 39,723 tokens; vanilla Codex CLI 147,528 tokens; Prime Context 73.07%</title></rect>
+<text x="230.7" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">4</text>
+<rect x="261.0" y="534.7" width="22" height="161.0" rx="3" fill="url(#pcGradient)"><title>Task 5 — Inventory Reorder and Transfer Plan: Prime Context 110,044 tokens; vanilla Codex CLI 966,651 tokens; Prime Context 88.62%</title></rect>
+<text x="272.0" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">5</text>
+<rect x="302.3" y="561.9" width="22" height="133.8" rx="3" fill="url(#pcGradient)"><title>Task 6 — Volunteer Shift Rescheduling: Prime Context 225,115 tokens; vanilla Codex CLI 854,204 tokens; Prime Context 73.65%</title></rect>
+<text x="313.3" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">6</text>
+<rect x="343.7" y="530.3" width="22" height="165.4" rx="3" fill="url(#pcGradient)"><title>Task 7 — Utility Consumption Anomaly Report: Prime Context 23,575 tokens; vanilla Codex CLI 262,684 tokens; Prime Context 91.03%</title></rect>
+<text x="354.7" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">7</text>
+<rect x="385.0" y="532.9" width="22" height="162.7" rx="3" fill="url(#pcGradient)"><title>Task 8 — Travel Itinerary Repair: Prime Context 55,784 tokens; vanilla Codex CLI 535,066 tokens; Prime Context 89.57%</title></rect>
+<text x="396.0" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">8</text>
+<rect x="426.3" y="537.5" width="22" height="158.2" rx="3" fill="url(#pcGradient)"><title>Task 9 — Support SLA Event Analysis: Prime Context 42,060 tokens; vanilla Codex CLI 325,602 tokens; Prime Context 87.08%</title></rect>
+<text x="437.3" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">9</text>
+<rect x="467.7" y="554.1" width="22" height="141.6" rx="3" fill="url(#pcGradient)"><title>Task 10 — Local Supplier Catalog Crawler: Prime Context 39,408 tokens; vanilla Codex CLI 178,737 tokens; Prime Context 77.95%</title></rect>
+<text x="478.7" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">10</text>
+<rect x="509.0" y="541.7" width="22" height="154.0" rx="3" fill="url(#pcGradient)"><title>Task 11 — SQLite CRM Migration: Prime Context 63,771 tokens; vanilla Codex CLI 418,329 tokens; Prime Context 84.76%</title></rect>
+<text x="520.0" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">11</text>
+<rect x="550.3" y="535.0" width="22" height="160.7" rx="3" fill="url(#pcGradient)"><title>Task 12 — Webhook Receiver and Replay: Prime Context 93,281 tokens; vanilla Codex CLI 808,592 tokens; Prime Context 88.46%</title></rect>
+<text x="561.3" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">12</text>
+<rect x="591.7" y="541.2" width="22" height="154.4" rx="3" fill="url(#pcGradient)"><title>Task 13 — Cross-Service Incident Timeline: Prime Context 403,463 tokens; vanilla Codex CLI 2,690,804 tokens; Prime Context 85.01%</title></rect>
+<text x="602.7" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">13</text>
+<rect x="633.0" y="563.5" width="22" height="132.2" rx="3" fill="url(#pcGradient)"><title>Task 14 — Layered Configuration Upgrade: Prime Context 59,522 tokens; vanilla Codex CLI 218,426 tokens; Prime Context 72.75%</title></rect>
+<text x="644.0" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">14</text>
+<rect x="674.3" y="538.5" width="22" height="157.2" rx="3" fill="url(#pcGradient)"><title>Task 15 — Backup Restore Planner: Prime Context 27,025 tokens; vanilla Codex CLI 200,467 tokens; Prime Context 86.52%</title></rect>
+<text x="685.3" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">15</text>
+<rect x="715.7" y="540.5" width="22" height="155.2" rx="3" fill="url(#pcGradient)"><title>Task 16 — Markdown Knowledge-Base Repair: Prime Context 168,959 tokens; vanilla Codex CLI 1,157,873 tokens; Prime Context 85.41%</title></rect>
+<text x="726.7" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">16</text>
+<rect x="757.0" y="540.4" width="22" height="155.3" rx="3" fill="url(#pcGradient)"><title>Task 17 — Contract Clause Index and Comparison: Prime Context 114,810 tokens; vanilla Codex CLI 790,458 tokens; Prime Context 85.48%</title></rect>
+<text x="768.0" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">17</text>
+<rect x="798.3" y="527.1" width="22" height="168.5" rx="3" fill="url(#pcGradient)"><title>Task 18 — Research-Note Search and Deduplication: Prime Context 36,185 tokens; vanilla Codex CLI 500,188 tokens; Prime Context 92.77%</title></rect>
+<text x="809.3" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">18</text>
+<rect x="839.7" y="540.0" width="22" height="155.6" rx="3" fill="url(#pcGradient)"><title>Task 19 — Sensor Resampling and Gap Report: Prime Context 42,285 tokens; vanilla Codex CLI 295,150 tokens; Prime Context 85.67%</title></rect>
+<text x="850.7" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">19</text>
+<rect x="881.0" y="534.2" width="22" height="161.4" rx="3" fill="url(#pcGradient)"><title>Task 20 — Time-of-Use Energy Billing: Prime Context 75,951 tokens; vanilla Codex CLI 681,929 tokens; Prime Context 88.86%</title></rect>
+<text x="892.0" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">20</text>
+<rect x="922.3" y="536.4" width="22" height="159.3" rx="3" fill="url(#pcGradient)"><title>Task 21 — WAV Interview Cleanup and Chapters: Prime Context 68,437 tokens; vanilla Codex CLI 554,938 tokens; Prime Context 87.67%</title></rect>
+<text x="933.3" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">21</text>
+<rect x="963.7" y="548.9" width="22" height="146.7" rx="3" fill="url(#pcGradient)"><title>Task 22 — Timesheet and Payroll Correction: Prime Context 145,299 tokens; vanilla Codex CLI 755,269 tokens; Prime Context 80.76%</title></rect>
+<text x="974.7" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">22</text>
+<rect x="1005.0" y="563.9" width="22" height="131.7" rx="3" fill="url(#pcGradient)"><title>Task 23 — Procurement Three-Way Match: Prime Context 261,961 tokens; vanilla Codex CLI 952,905 tokens; Prime Context 72.51%</title></rect>
+<text x="1016.0" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">23</text>
+<rect x="1046.3" y="565.3" width="22" height="130.4" rx="3" fill="url(#pcGradient)"><title>Task 24 — Multi-Warehouse Order Fulfillment: Prime Context 211,380 tokens; vanilla Codex CLI 748,855 tokens; Prime Context 71.77%</title></rect>
+<text x="1057.3" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">24</text>
+<rect x="1087.7" y="547.7" width="22" height="148.0" rx="3" fill="url(#pcGradient)"><title>Task 25 — Library Circulation Reconstruction: Prime Context 116,358 tokens; vanilla Codex CLI 627,799 tokens; Prime Context 81.47%</title></rect>
+<text x="1098.7" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">25</text>
+<rect x="1129.0" y="541.9" width="22" height="153.7" rx="3" fill="url(#pcGradient)"><title>Task 26 — School Meal Allergen and Stock Plan: Prime Context 67,266 tokens; vanilla Codex CLI 437,654 tokens; Prime Context 84.63%</title></rect>
+<text x="1140.0" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">26</text>
+<rect x="1170.3" y="566.0" width="22" height="129.7" rx="3" fill="url(#pcGradient)"><title>Task 27 — Clinic Appointment Rescheduling: Prime Context 412,720 tokens; vanilla Codex CLI 1,441,837 tokens; Prime Context 71.38%</title></rect>
+<text x="1181.3" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">27</text>
+<rect x="1211.7" y="548.3" width="22" height="147.3" rx="3" fill="url(#pcGradient)"><title>Task 28 — Permit Intake and Status Pipeline: Prime Context 252,315 tokens; vanilla Codex CLI 1,335,571 tokens; Prime Context 81.11%</title></rect>
+<text x="1222.7" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">28</text>
+<rect x="1253.0" y="588.3" width="22" height="107.3" rx="3" fill="url(#pcGradient)"><title>Task 29 — Legacy Budgeting CLI Repair: Prime Context 297,598 tokens; vanilla Codex CLI 727,218 tokens; Prime Context 59.08%</title></rect>
+<text x="1264.0" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">29</text>
+<rect x="1294.3" y="542.5" width="22" height="153.2" rx="3" fill="url(#pcGradient)"><title>Task 30 — Helpdesk Service Upgrade: Prime Context 571,647 tokens; vanilla Codex CLI 3,642,450 tokens; Prime Context 84.31%</title></rect>
+<text x="1305.3" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">30</text>
+<rect x="54.0" y="752.0" width="1292.0" height="26.0" rx="13.0" fill="#10182B" opacity="1.0"/>
+<text x="700.0" y="770.0" font-size="11" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">Strict selected pairs only • provider tokens are diagnostic • each row compares Prime Context with one baseline</text>
+</svg>

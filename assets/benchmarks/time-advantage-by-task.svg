@@ -1,0 +1,180 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="790" viewBox="0 0 1400 790" role="img" aria-labelledby="title desc">
+<title id="title">Prime Context time advantage by task</title>
+<desc id="desc">Positive bars mean less agent wall time. Task 13 is the only Codex time win. Strict selected pairs only • Task 30 vs Prime Agent is a correctness win, so its time is not compared</desc>
+<defs>
+<linearGradient id="pcGradient" x1="0" y1="0" x2="1" y2="0">
+<stop offset="0%" stop-color="#8B5CF6"/><stop offset="100%" stop-color="#B9A7FF"/>
+</linearGradient>
+<radialGradient id="glow" cx="50%" cy="0%" r="85%">
+<stop offset="0%" stop-color="#34266B" stop-opacity="0.72"/>
+<stop offset="100%" stop-color="#070B18" stop-opacity="0"/>
+</radialGradient>
+<filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+<feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000000" flood-opacity="0.28"/>
+</filter>
+<style>text{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}</style>
+</defs>
+<rect x="0.0" y="0.0" width="1400.0" height="790.0" rx="0.0" fill="#070B18" opacity="1.0"/>
+<rect x="0.0" y="0.0" width="1400.0" height="790.0" rx="0.0" fill="url(#glow)" opacity="1.0"/>
+<text x="64.0" y="58.0" font-size="14" fill="#2DD4BF" font-weight="800" text-anchor="start" opacity="1.0" letter-spacing="1.8">PRIME CONTEXT ADVANTAGE • ALL 30 TASKS</text>
+<text x="64.0" y="103.0" font-size="33" fill="#F8FAFC" font-weight="850" text-anchor="start" opacity="1.0">Prime Context time advantage by task</text>
+<text x="64.0" y="134.0" font-size="16" fill="#9AA9C2" font-weight="400" text-anchor="start" opacity="1.0">Positive bars mean less agent wall time. Task 13 is the only Codex time win.</text>
+<rect x="54.0" y="156.0" width="1292.0" height="270.0" rx="22.0" fill="#10182B" opacity="1.0" stroke="#25304A" stroke-width="1"/>
+<rect x="72.0" y="175.0" width="8.0" height="31.0" rx="4.0" fill="#94A3B8" opacity="1.0"/>
+<text x="94.0" y="198.0" font-size="19" fill="#F8FAFC" font-weight="760" text-anchor="start" opacity="1.0">vs vanilla Prime Agent 0.9.1</text>
+<rect x="925.0" y="173.0" width="387.0" height="34.0" rx="17.0" fill="#142F32" opacity="1.0" stroke="#205252" stroke-width="1"/>
+<text x="1118.5" y="196.0" font-size="13" fill="#2DD4BF" font-weight="760" text-anchor="middle" opacity="1.0">29/29 faster • 19.65% less total</text>
+<line x1="86" y1="438.0" x2="1326" y2="438.0" stroke="#29344C" stroke-width="1"/>
+<text x="76.0" y="442.0" font-size="10" fill="#9AA9C2" font-weight="400" text-anchor="end" opacity="1.0">-40%</text>
+<line x1="86" y1="398.4" x2="1326" y2="398.4" stroke="#29344C" stroke-width="1"/>
+<text x="76.0" y="402.4" font-size="10" fill="#9AA9C2" font-weight="400" text-anchor="end" opacity="1.0">-20%</text>
+<line x1="86" y1="358.7" x2="1326" y2="358.7" stroke="#53617A" stroke-width="1.6"/>
+<text x="76.0" y="362.7" font-size="10" fill="#9AA9C2" font-weight="400" text-anchor="end" opacity="1.0">0%</text>
+<line x1="86" y1="319.1" x2="1326" y2="319.1" stroke="#29344C" stroke-width="1"/>
+<text x="76.0" y="323.1" font-size="10" fill="#9AA9C2" font-weight="400" text-anchor="end" opacity="1.0">20%</text>
+<line x1="86" y1="279.5" x2="1326" y2="279.5" stroke="#29344C" stroke-width="1"/>
+<text x="76.0" y="283.5" font-size="10" fill="#9AA9C2" font-weight="400" text-anchor="end" opacity="1.0">40%</text>
+<line x1="86" y1="239.8" x2="1326" y2="239.8" stroke="#29344C" stroke-width="1"/>
+<text x="76.0" y="243.8" font-size="10" fill="#9AA9C2" font-weight="400" text-anchor="end" opacity="1.0">60%</text>
+<rect x="95.7" y="304.1" width="22" height="54.6" rx="3" fill="url(#pcGradient)"><title>Task 1 — Household Expense Reconciliation: Prime Context 64.208 s; vanilla Prime Agent 0.9.1 88.628 s; Prime Context 27.55%</title></rect>
+<text x="106.7" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">1</text>
+<rect x="137.0" y="305.8" width="22" height="52.9" rx="3" fill="url(#pcGradient)"><title>Task 2 — Calendar Merge and Conflict Report: Prime Context 95.797 s; vanilla Prime Agent 0.9.1 130.701 s; Prime Context 26.71%</title></rect>
+<text x="148.0" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">2</text>
+<rect x="178.3" y="319.8" width="22" height="38.9" rx="3" fill="url(#pcGradient)"><title>Task 3 — Mailbox Thread Cleanup: Prime Context 161.017 s; vanilla Prime Agent 0.9.1 200.352 s; Prime Context 19.63%</title></rect>
+<text x="189.3" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">3</text>
+<rect x="219.7" y="329.2" width="22" height="29.5" rx="3" fill="url(#pcGradient)"><title>Task 4 — Invoice and Payment Matching: Prime Context 62.238 s; vanilla Prime Agent 0.9.1 73.125 s; Prime Context 14.89%</title></rect>
+<text x="230.7" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">4</text>
+<rect x="261.0" y="325.0" width="22" height="33.7" rx="3" fill="url(#pcGradient)"><title>Task 5 — Inventory Reorder and Transfer Plan: Prime Context 183.746 s; vanilla Prime Agent 0.9.1 221.428 s; Prime Context 17.02%</title></rect>
+<text x="272.0" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">5</text>
+<rect x="302.3" y="308.8" width="22" height="49.9" rx="3" fill="url(#pcGradient)"><title>Task 6 — Volunteer Shift Rescheduling: Prime Context 218.052 s; vanilla Prime Agent 0.9.1 291.461 s; Prime Context 25.19%</title></rect>
+<text x="313.3" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">6</text>
+<rect x="343.7" y="334.9" width="22" height="23.9" rx="3" fill="url(#pcGradient)"><title>Task 7 — Utility Consumption Anomaly Report: Prime Context 72.513 s; vanilla Prime Agent 0.9.1 82.442 s; Prime Context 12.04%</title></rect>
+<text x="354.7" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">7</text>
+<rect x="385.0" y="328.6" width="22" height="30.1" rx="3" fill="url(#pcGradient)"><title>Task 8 — Travel Itinerary Repair: Prime Context 134.824 s; vanilla Prime Agent 0.9.1 158.974 s; Prime Context 15.19%</title></rect>
+<text x="396.0" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">8</text>
+<rect x="426.3" y="328.7" width="22" height="30.0" rx="3" fill="url(#pcGradient)"><title>Task 9 — Support SLA Event Analysis: Prime Context 99.654 s; vanilla Prime Agent 0.9.1 117.451 s; Prime Context 15.15%</title></rect>
+<text x="437.3" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">9</text>
+<rect x="467.7" y="311.1" width="22" height="47.6" rx="3" fill="url(#pcGradient)"><title>Task 10 — Local Supplier Catalog Crawler: Prime Context 90.536 s; vanilla Prime Agent 0.9.1 119.189 s; Prime Context 24.04%</title></rect>
+<text x="478.7" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">10</text>
+<rect x="509.0" y="329.2" width="22" height="29.5" rx="3" fill="url(#pcGradient)"><title>Task 11 — SQLite CRM Migration: Prime Context 137.522 s; vanilla Prime Agent 0.9.1 161.618 s; Prime Context 14.91%</title></rect>
+<text x="520.0" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">11</text>
+<rect x="550.3" y="307.7" width="22" height="51.0" rx="3" fill="url(#pcGradient)"><title>Task 12 — Webhook Receiver and Replay: Prime Context 156.313 s; vanilla Prime Agent 0.9.1 210.449 s; Prime Context 25.72%</title></rect>
+<text x="561.3" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">12</text>
+<rect x="591.7" y="347.8" width="22" height="10.9" rx="3" fill="url(#pcGradient)"><title>Task 13 — Cross-Service Incident Timeline: Prime Context 950.211 s; vanilla Prime Agent 0.9.1 1,005.521 s; Prime Context 5.50%</title></rect>
+<text x="602.7" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">13</text>
+<rect x="633.0" y="300.1" width="22" height="58.6" rx="3" fill="url(#pcGradient)"><title>Task 14 — Layered Configuration Upgrade: Prime Context 112.863 s; vanilla Prime Agent 0.9.1 160.284 s; Prime Context 29.59%</title></rect>
+<text x="644.0" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">14</text>
+<rect x="674.3" y="292.8" width="22" height="65.9" rx="3" fill="url(#pcGradient)"><title>Task 15 — Backup Restore Planner: Prime Context 82.124 s; vanilla Prime Agent 0.9.1 123.074 s; Prime Context 33.27%</title></rect>
+<text x="685.3" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">15</text>
+<rect x="715.7" y="309.2" width="22" height="49.5" rx="3" fill="url(#pcGradient)"><title>Task 16 — Markdown Knowledge-Base Repair: Prime Context 238.252 s; vanilla Prime Agent 0.9.1 317.651 s; Prime Context 25.00%</title></rect>
+<text x="726.7" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">16</text>
+<rect x="757.0" y="298.7" width="22" height="60.1" rx="3" fill="url(#pcGradient)"><title>Task 17 — Contract Clause Index and Comparison: Prime Context 180.152 s; vanilla Prime Agent 0.9.1 258.511 s; Prime Context 30.31%</title></rect>
+<text x="768.0" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">17</text>
+<rect x="798.3" y="288.0" width="22" height="70.7" rx="3" fill="url(#pcGradient)"><title>Task 18 — Research-Note Search and Deduplication: Prime Context 143.167 s; vanilla Prime Agent 0.9.1 222.598 s; Prime Context 35.68%</title></rect>
+<text x="809.3" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">18</text>
+<rect x="839.7" y="323.3" width="22" height="35.4" rx="3" fill="url(#pcGradient)"><title>Task 19 — Sensor Resampling and Gap Report: Prime Context 140.381 s; vanilla Prime Agent 0.9.1 170.955 s; Prime Context 17.88%</title></rect>
+<text x="850.7" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">19</text>
+<rect x="881.0" y="266.6" width="22" height="92.1" rx="3" fill="url(#pcGradient)"><title>Task 20 — Time-of-Use Energy Billing: Prime Context 132.839 s; vanilla Prime Agent 0.9.1 248.162 s; Prime Context 46.47%</title></rect>
+<text x="892.0" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">20</text>
+<rect x="922.3" y="322.0" width="22" height="36.7" rx="3" fill="url(#pcGradient)"><title>Task 21 — WAV Interview Cleanup and Chapters: Prime Context 135.565 s; vanilla Prime Agent 0.9.1 166.400 s; Prime Context 18.53%</title></rect>
+<text x="933.3" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">21</text>
+<rect x="963.7" y="330.8" width="22" height="27.9" rx="3" fill="url(#pcGradient)"><title>Task 22 — Timesheet and Payroll Correction: Prime Context 217.390 s; vanilla Prime Agent 0.9.1 252.982 s; Prime Context 14.07%</title></rect>
+<text x="974.7" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">22</text>
+<rect x="1005.0" y="312.5" width="22" height="46.2" rx="3" fill="url(#pcGradient)"><title>Task 23 — Procurement Three-Way Match: Prime Context 243.017 s; vanilla Prime Agent 0.9.1 316.910 s; Prime Context 23.32%</title></rect>
+<text x="1016.0" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">23</text>
+<rect x="1046.3" y="335.7" width="22" height="23.1" rx="3" fill="url(#pcGradient)"><title>Task 24 — Multi-Warehouse Order Fulfillment: Prime Context 282.657 s; vanilla Prime Agent 0.9.1 319.894 s; Prime Context 11.64%</title></rect>
+<text x="1057.3" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">24</text>
+<rect x="1087.7" y="327.3" width="22" height="31.4" rx="3" fill="url(#pcGradient)"><title>Task 25 — Library Circulation Reconstruction: Prime Context 230.661 s; vanilla Prime Agent 0.9.1 274.137 s; Prime Context 15.86%</title></rect>
+<text x="1098.7" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">25</text>
+<rect x="1129.0" y="303.8" width="22" height="54.9" rx="3" fill="url(#pcGradient)"><title>Task 26 — School Meal Allergen and Stock Plan: Prime Context 108.945 s; vanilla Prime Agent 0.9.1 150.733 s; Prime Context 27.72%</title></rect>
+<text x="1140.0" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">26</text>
+<rect x="1170.3" y="347.5" width="22" height="11.3" rx="3" fill="url(#pcGradient)"><title>Task 27 — Clinic Appointment Rescheduling: Prime Context 430.549 s; vanilla Prime Agent 0.9.1 456.494 s; Prime Context 5.68%</title></rect>
+<text x="1181.3" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">27</text>
+<rect x="1211.7" y="296.0" width="22" height="62.7" rx="3" fill="url(#pcGradient)"><title>Task 28 — Permit Intake and Status Pipeline: Prime Context 287.547 s; vanilla Prime Agent 0.9.1 420.704 s; Prime Context 31.65%</title></rect>
+<text x="1222.7" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">28</text>
+<rect x="1253.0" y="324.1" width="22" height="34.6" rx="3" fill="url(#pcGradient)"><title>Task 29 — Legacy Budgeting CLI Repair: Prime Context 272.815 s; vanilla Prime Agent 0.9.1 330.506 s; Prime Context 17.46%</title></rect>
+<text x="1264.0" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">29</text>
+<polygon points="1305.3,349.7 1313.3,358.7 1305.3,367.7 1297.3,358.7" fill="#FBBF24"><title>Task 30 Helpdesk Service Upgrade: Prime Context correctness win; efficiency not compared</title></polygon>
+<text x="1305.3" y="362.7" font-size="8" fill="#070B18" font-weight="900" text-anchor="middle" opacity="1.0">C</text>
+<text x="1305.3" y="457.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">30</text>
+<rect x="54.0" y="450.0" width="1292.0" height="270.0" rx="22.0" fill="#10182B" opacity="1.0" stroke="#25304A" stroke-width="1"/>
+<rect x="72.0" y="469.0" width="8.0" height="31.0" rx="4.0" fill="#F59E0B" opacity="1.0"/>
+<text x="94.0" y="492.0" font-size="19" fill="#F8FAFC" font-weight="760" text-anchor="start" opacity="1.0">vs vanilla Codex CLI</text>
+<rect x="925.0" y="467.0" width="387.0" height="34.0" rx="17.0" fill="#142F32" opacity="1.0" stroke="#205252" stroke-width="1"/>
+<text x="1118.5" y="490.0" font-size="13" fill="#2DD4BF" font-weight="760" text-anchor="middle" opacity="1.0">29/30 faster • 40.30% less total</text>
+<line x1="86" y1="732.0" x2="1326" y2="732.0" stroke="#29344C" stroke-width="1"/>
+<text x="76.0" y="736.0" font-size="10" fill="#9AA9C2" font-weight="400" text-anchor="end" opacity="1.0">-40%</text>
+<line x1="86" y1="692.4" x2="1326" y2="692.4" stroke="#29344C" stroke-width="1"/>
+<text x="76.0" y="696.4" font-size="10" fill="#9AA9C2" font-weight="400" text-anchor="end" opacity="1.0">-20%</text>
+<line x1="86" y1="652.7" x2="1326" y2="652.7" stroke="#53617A" stroke-width="1.6"/>
+<text x="76.0" y="656.7" font-size="10" fill="#9AA9C2" font-weight="400" text-anchor="end" opacity="1.0">0%</text>
+<line x1="86" y1="613.1" x2="1326" y2="613.1" stroke="#29344C" stroke-width="1"/>
+<text x="76.0" y="617.1" font-size="10" fill="#9AA9C2" font-weight="400" text-anchor="end" opacity="1.0">20%</text>
+<line x1="86" y1="573.5" x2="1326" y2="573.5" stroke="#29344C" stroke-width="1"/>
+<text x="76.0" y="577.5" font-size="10" fill="#9AA9C2" font-weight="400" text-anchor="end" opacity="1.0">40%</text>
+<line x1="86" y1="533.8" x2="1326" y2="533.8" stroke="#29344C" stroke-width="1"/>
+<text x="76.0" y="537.8" font-size="10" fill="#9AA9C2" font-weight="400" text-anchor="end" opacity="1.0">60%</text>
+<rect x="95.7" y="545.8" width="22" height="106.9" rx="3" fill="url(#pcGradient)"><title>Task 1 — Household Expense Reconciliation: Prime Context 64.208 s; vanilla Codex CLI 139.397 s; Prime Context 53.94%</title></rect>
+<text x="106.7" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">1</text>
+<rect x="137.0" y="564.1" width="22" height="88.6" rx="3" fill="url(#pcGradient)"><title>Task 2 — Calendar Merge and Conflict Report: Prime Context 95.797 s; vanilla Codex CLI 173.250 s; Prime Context 44.71%</title></rect>
+<text x="148.0" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">2</text>
+<rect x="178.3" y="569.4" width="22" height="83.3" rx="3" fill="url(#pcGradient)"><title>Task 3 — Mailbox Thread Cleanup: Prime Context 161.017 s; vanilla Codex CLI 277.720 s; Prime Context 42.02%</title></rect>
+<text x="189.3" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">3</text>
+<rect x="219.7" y="561.6" width="22" height="91.1" rx="3" fill="url(#pcGradient)"><title>Task 4 — Invoice and Payment Matching: Prime Context 62.238 s; vanilla Codex CLI 115.233 s; Prime Context 45.99%</title></rect>
+<text x="230.7" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">4</text>
+<rect x="261.0" y="549.5" width="22" height="103.2" rx="3" fill="url(#pcGradient)"><title>Task 5 — Inventory Reorder and Transfer Plan: Prime Context 183.746 s; vanilla Codex CLI 383.458 s; Prime Context 52.08%</title></rect>
+<text x="272.0" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">5</text>
+<rect x="302.3" y="563.8" width="22" height="88.9" rx="3" fill="url(#pcGradient)"><title>Task 6 — Volunteer Shift Rescheduling: Prime Context 218.052 s; vanilla Codex CLI 395.555 s; Prime Context 44.87%</title></rect>
+<text x="313.3" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">6</text>
+<rect x="343.7" y="557.8" width="22" height="95.0" rx="3" fill="url(#pcGradient)"><title>Task 7 — Utility Consumption Anomaly Report: Prime Context 72.513 s; vanilla Codex CLI 139.230 s; Prime Context 47.92%</title></rect>
+<text x="354.7" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">7</text>
+<rect x="385.0" y="545.4" width="22" height="107.3" rx="3" fill="url(#pcGradient)"><title>Task 8 — Travel Itinerary Repair: Prime Context 134.824 s; vanilla Codex CLI 294.024 s; Prime Context 54.15%</title></rect>
+<text x="396.0" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">8</text>
+<rect x="426.3" y="574.4" width="22" height="78.3" rx="3" fill="url(#pcGradient)"><title>Task 9 — Support SLA Event Analysis: Prime Context 99.654 s; vanilla Codex CLI 164.718 s; Prime Context 39.50%</title></rect>
+<text x="437.3" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">9</text>
+<rect x="467.7" y="591.6" width="22" height="61.2" rx="3" fill="url(#pcGradient)"><title>Task 10 — Local Supplier Catalog Crawler: Prime Context 90.536 s; vanilla Codex CLI 130.941 s; Prime Context 30.86%</title></rect>
+<text x="478.7" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">10</text>
+<rect x="509.0" y="558.0" width="22" height="94.7" rx="3" fill="url(#pcGradient)"><title>Task 11 — SQLite CRM Migration: Prime Context 137.522 s; vanilla Codex CLI 263.438 s; Prime Context 47.80%</title></rect>
+<text x="520.0" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">11</text>
+<rect x="550.3" y="528.9" width="22" height="123.8" rx="3" fill="url(#pcGradient)"><title>Task 12 — Webhook Receiver and Replay: Prime Context 156.313 s; vanilla Codex CLI 416.562 s; Prime Context 62.48%</title></rect>
+<text x="561.3" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">12</text>
+<rect x="591.7" y="652.7" width="22" height="65.3" rx="3" fill="#FB7185"><title>Task 13 — Cross-Service Incident Timeline: Prime Context 950.211 s; vanilla Codex CLI 714.691 s; Prime Context -32.95%</title></rect>
+<circle cx="602.7" cy="718.0" r="4" fill="#FB7185"/>
+<text x="602.7" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">13</text>
+<rect x="633.0" y="591.5" width="22" height="61.2" rx="3" fill="url(#pcGradient)"><title>Task 14 — Layered Configuration Upgrade: Prime Context 112.863 s; vanilla Codex CLI 163.300 s; Prime Context 30.89%</title></rect>
+<text x="644.0" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">14</text>
+<rect x="674.3" y="554.9" width="22" height="97.8" rx="3" fill="url(#pcGradient)"><title>Task 15 — Backup Restore Planner: Prime Context 82.124 s; vanilla Codex CLI 162.203 s; Prime Context 49.37%</title></rect>
+<text x="685.3" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">15</text>
+<rect x="715.7" y="545.2" width="22" height="107.5" rx="3" fill="url(#pcGradient)"><title>Task 16 — Markdown Knowledge-Base Repair: Prime Context 238.252 s; vanilla Codex CLI 520.892 s; Prime Context 54.26%</title></rect>
+<text x="726.7" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">16</text>
+<rect x="757.0" y="545.9" width="22" height="106.8" rx="3" fill="url(#pcGradient)"><title>Task 17 — Contract Clause Index and Comparison: Prime Context 180.152 s; vanilla Codex CLI 390.786 s; Prime Context 53.90%</title></rect>
+<text x="768.0" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">17</text>
+<rect x="798.3" y="538.4" width="22" height="114.4" rx="3" fill="url(#pcGradient)"><title>Task 18 — Research-Note Search and Deduplication: Prime Context 143.167 s; vanilla Codex CLI 338.524 s; Prime Context 57.71%</title></rect>
+<text x="809.3" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">18</text>
+<rect x="839.7" y="578.8" width="22" height="73.9" rx="3" fill="url(#pcGradient)"><title>Task 19 — Sensor Resampling and Gap Report: Prime Context 140.381 s; vanilla Codex CLI 223.904 s; Prime Context 37.30%</title></rect>
+<text x="850.7" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">19</text>
+<rect x="881.0" y="526.0" width="22" height="126.7" rx="3" fill="url(#pcGradient)"><title>Task 20 — Time-of-Use Energy Billing: Prime Context 132.839 s; vanilla Codex CLI 368.229 s; Prime Context 63.92%</title></rect>
+<text x="892.0" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">20</text>
+<rect x="922.3" y="545.7" width="22" height="107.0" rx="3" fill="url(#pcGradient)"><title>Task 21 — WAV Interview Cleanup and Chapters: Prime Context 135.565 s; vanilla Codex CLI 294.725 s; Prime Context 54.00%</title></rect>
+<text x="933.3" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">21</text>
+<rect x="963.7" y="568.7" width="22" height="84.0" rx="3" fill="url(#pcGradient)"><title>Task 22 — Timesheet and Payroll Correction: Prime Context 217.390 s; vanilla Codex CLI 377.406 s; Prime Context 42.40%</title></rect>
+<text x="974.7" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">22</text>
+<rect x="1005.0" y="570.5" width="22" height="82.2" rx="3" fill="url(#pcGradient)"><title>Task 23 — Procurement Three-Way Match: Prime Context 243.017 s; vanilla Codex CLI 415.371 s; Prime Context 41.49%</title></rect>
+<text x="1016.0" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">23</text>
+<rect x="1046.3" y="598.9" width="22" height="53.9" rx="3" fill="url(#pcGradient)"><title>Task 24 — Multi-Warehouse Order Fulfillment: Prime Context 282.657 s; vanilla Codex CLI 388.167 s; Prime Context 27.18%</title></rect>
+<text x="1057.3" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">24</text>
+<rect x="1087.7" y="581.9" width="22" height="70.9" rx="3" fill="url(#pcGradient)"><title>Task 25 — Library Circulation Reconstruction: Prime Context 230.661 s; vanilla Codex CLI 359.053 s; Prime Context 35.76%</title></rect>
+<text x="1098.7" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">25</text>
+<rect x="1129.0" y="558.9" width="22" height="93.8" rx="3" fill="url(#pcGradient)"><title>Task 26 — School Meal Allergen and Stock Plan: Prime Context 108.945 s; vanilla Codex CLI 206.944 s; Prime Context 47.36%</title></rect>
+<text x="1140.0" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">26</text>
+<rect x="1170.3" y="599.8" width="22" height="53.0" rx="3" fill="url(#pcGradient)"><title>Task 27 — Clinic Appointment Rescheduling: Prime Context 430.549 s; vanilla Codex CLI 587.593 s; Prime Context 26.73%</title></rect>
+<text x="1181.3" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">27</text>
+<rect x="1211.7" y="550.2" width="22" height="102.5" rx="3" fill="url(#pcGradient)"><title>Task 28 — Permit Intake and Status Pipeline: Prime Context 287.547 s; vanilla Codex CLI 595.744 s; Prime Context 51.73%</title></rect>
+<text x="1222.7" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">28</text>
+<rect x="1253.0" y="589.9" width="22" height="62.9" rx="3" fill="url(#pcGradient)"><title>Task 29 — Legacy Budgeting CLI Repair: Prime Context 272.815 s; vanilla Codex CLI 399.569 s; Prime Context 31.72%</title></rect>
+<text x="1264.0" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">29</text>
+<rect x="1294.3" y="561.5" width="22" height="91.2" rx="3" fill="url(#pcGradient)"><title>Task 30 — Helpdesk Service Upgrade: Prime Context 506.510 s; vanilla Codex CLI 938.277 s; Prime Context 46.02%</title></rect>
+<text x="1305.3" y="751.0" font-size="9" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">30</text>
+<rect x="54.0" y="752.0" width="1292.0" height="26.0" rx="13.0" fill="#10182B" opacity="1.0"/>
+<text x="700.0" y="770.0" font-size="11" fill="#9AA9C2" font-weight="400" text-anchor="middle" opacity="1.0">Strict selected pairs only • Task 30 vs Prime Agent is a correctness win, so its time is not compared</text>
+</svg>

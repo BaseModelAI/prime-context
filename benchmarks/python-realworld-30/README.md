@@ -11,7 +11,8 @@ Candidate solutions and all fixture code use only the Python standard library.
 - `benchlib.py` contains deterministic setup, staging, metrics, and judge helpers.
 - `prepare-hosts.py` installs the two pinned npm prefixes and applies the packaged host patch.
 - `run.py` is the paired Prime Agent RPC runner for all tasks and variants.
-- `run_codex.py` is the supplemental stock Codex CLI runner.
+- `run_codex.py` is the stock Codex CLI runner.
+- `generate_charts.py` regenerates the published SVG scorecard and per-task advantage charts.
 - `bash-tool.mjs` is a neutral benchmark adapter that exposes the same isolated `bash` tool, including optional per-command millisecond timeouts, to all variants.
 
 The runner creates a separate workspace, config directory, session directory,
@@ -78,7 +79,7 @@ never more than two attempts for one task/variant. Both are retained, and
 correctness-first selection chooses the published comparison attempt.
 
 The metric gates are ordered as requested: completion/progress, agent elapsed
-time, then billed API cost. Provider tokens remain supporting diagnostic data.
+time, then cost. Provider tokens remain supporting diagnostic data.
 A comparison is publication-ready when current strictly passes all 30 tasks and,
 for each task, either vanilla fails after its one allowed retry (a current
 correctness win) or both variants strictly pass and current is faster and
@@ -91,7 +92,7 @@ invalidates that task's comparison and requires a clean paired replacement.
 Unaffected task results may be retained under the targeted-replacement protocol.
 A global product or harness performance fix invalidates every task it can affect.
 
-### Supplemental pure vanilla Codex CLI run
+### Pure vanilla Codex CLI run
 
 The independent Codex arm uses the installed stock `codex exec` CLI under an existing ChatGPT subscription login. The runner pins `gpt-5.6-sol` and medium reasoning effort, uses at most six sessions, and retries only an initial strict failure once:
 
@@ -106,7 +107,7 @@ python3 run_codex.py \
 
 This arm does not run Prime Agent or Prime Context. It starts every attempt in a fresh `/tmp` workspace, uses an empty isolated `HOME` and fresh run-scoped `CODEX_HOME`, copies only ChatGPT `auth.json` at startup, and passes benchmark messages on stdin. It strips API-key variables and uses `--ignore-user-config`, `--ignore-rules`, no custom system prompt, and no global or local `AGENTS.md`, `AGENTS.override.md`, or `.codex/config.toml`. Stock Codex built-in instructions remain. `workspace-write` uses the stock command-network proxy with only exact `127.0.0.1` allowed so the two loopback fixture tasks can run while other command destinations remain blocked.
 
-Codex subscription token telemetry is diagnostic. The CLI exposes no actual per-run billed API charge, so billed cost is `N/A`. Any matched-rate API equivalent is clearly labeled as an estimate, not a bill. Codex turns are staged CLI turns and are not compared with Prime Agent model-call counts.
+Cost uses the same matched rates as the other arms. Codex turns are staged CLI turns; underlying model-call count is not exposed.
 
 The full local run remains under `results/`. Curated publication evidence under `evidence/20260904-codex0153-gpt56sol-all30-v1/` retains invocation, aggregate and pairwise summaries, every attempt result, every public JSONL event stream, stderr, final messages, service/judge logs, and the exact runner. It excludes authentication state, Codex private rollout state, and bulky duplicated workspaces.
 

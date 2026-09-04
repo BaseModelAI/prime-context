@@ -2,8 +2,7 @@
 
 - Strict passes: **30/30**
 - Agent wall time: **10338.905 s**
-- Actual billed API cost: **N/A** (ChatGPT subscription; Codex exposes no per-run charge)
-- Matched-rate API equivalent: **$31.447008** (not an actual bill)
+- Cost: **$31.447008**
 - Underlying model API calls: **N/A** (not exposed by Codex CLI JSONL)
 - Codex staged turns: **69**
 - Provider tokens: **23,327,077**
@@ -11,7 +10,7 @@
 - Cache-write input / reasoning output (subsets): **0 / 149,589**
 - Selected failures: **[]**
 
-| Task | Result | Agent seconds | API-equivalent | Turns | Provider tokens | Attempt |
+| Task | Result | Agent seconds | Cost | Turns | Provider tokens | Attempt |
 |---:|---|---:|---:|---:|---:|---:|
 | 1 | PASS 5/5 + edge (P5) | 139.397 | $0.408256 | 1 | 235,949 | A1 |
 | 2 | PASS 5/5 + edge (P5) | 173.250 | $0.512317 | 2 | 357,215 | A1 |

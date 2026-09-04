@@ -2,7 +2,7 @@
 
 # Prime Context
 
-## **30/30. Faster every time. Cheaper every time.**
+## **30/30 strict. 58/59 faster. 59/59 lower cost.**
 
 **The purpose-aware context engine that turns Prime Agent into a long-horizon wrecking ball.**
 
@@ -13,81 +13,50 @@ Keep the exact local evidence. Strip the repeated noise. Preserve the objective.
 [![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A522.8.0-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-2ea44f?style=flat-square)](LICENSE)
 
-[Install](#install-exact-steps) · [See the advantage](#what-prime-context-adds) · [Read every benchmark](BENCHMARKS.md) · [Changelog](CHANGELOG.md)
+[Install or upgrade](#install-or-upgrade) · [See the benchmark](#benchmark-three-harnesses-one-clear-advantage) · [Read every task](BENCHMARKS.md) · [Changelog](CHANGELOG.md)
 
 </div>
 
 ---
 
-Prime Agent already has the tools. Prime Context gives it the **memory discipline, evidence control, and task continuity** to use those tools for hours without drowning in its own transcript.
+## The scoreboard
 
-This is not a chat-summary wrapper. It is a branch-aware, purpose-aware local context runtime for [Prime Agent](https://github.com/PrimeIntellect-ai/prime-agent). It observes complete tool exchanges, archives exact evidence, projects a stable working set for each model request, and lets the agent recover the original bytes when it needs them.
+<p align="center">
+  <img src="assets/benchmarks/benchmark-scoreboard.svg" alt="Prime Context benchmark scoreboard against vanilla Prime Agent and vanilla Codex" width="100%">
+</p>
 
-The raw session remains local and intact. The model sees the part that can move the task forward.
+The completed Python Real-World 30 benchmark uses the same tasks, staged prompts, fixtures, judges, services, model family, medium effort, and maximum concurrency of six. Prime Context is compared directly with each vanilla baseline. **No vanilla Prime Agent-versus-Codex ranking or delta is calculated.**
+
+| 30-task selected result | **Prime Context 9.2.0** | Vanilla Prime Agent 0.9.1 | Vanilla Codex CLI 0.153.0 |
+|---|---:|---:|---:|
+| Strict task completion | 🟣 **30/30** | 29/30 | 30/30 |
+| Main checks | 🟣 **150/150** | 149/150 | 150/150 |
+| Edge checks | **30/30** | 30/30 | 30/30 |
+| Selected agent wall time | 🟣 **6,172.066 s** | 7,667.468 s | 10,338.905 s |
+| Cost | 🟣 **$13.233338** | $18.513607 | $31.447008 |
+| Provider tokens | 🟣 **4,199,330** | 6,865,456 | 23,327,077 |
+| Retained attempts | 32 | 32 | 30 |
+
+| Prime Context advantage | **Prime Context** | Against vanilla Prime Agent | Against vanilla Codex |
+|---|---:|---:|---:|
+| Strict correctness | **30/30 reference** | **+1 strict task** | Tie: both 30/30 |
+| Faster strict pairs | **58/59 combined** | **29/29** | **29/30** |
+| Less agent time on comparable strict sets | — | **19.65% less** | **40.30% less** |
+| Lower cost on comparable strict sets | **59/59 combined** | **29.39% less** | **57.92% less** |
+| Fewer provider tokens on comparable strict sets | — | **39.51% fewer** | **81.998% fewer** |
+
+> [!TIP]
+> Prime Context strictly completes every task. Against vanilla Prime Agent it wins correctness on Task 30 and wins time and cost on all 29 strict both-pass tasks. Against vanilla Codex it wins time on 29/30 tasks and cost on 30/30; Task 13 is the single Codex time win.
+
+All three cost columns use the same matched rates.
+
+## Install or upgrade
 
 > [!IMPORTANT]
 > Prime Context 9.2.0 requires **Prime Agent 0.9.1** and the included, version-pinned host patch. Install Prime Agent first, install Prime Context second, then run the three patch commands exactly as shown below.
 
 > [!WARNING]
 > The host patch is required. Prime Agent's public extension ABI does not expose every finalized-exchange, projection, compaction, usage, and continuation surface Prime Context needs. The patcher accepts only the exact 0.9.1 contract, validates all transformations before writing, is idempotent, and fails instead of guessing.
-
-## The scoreboard
-
-| Result | Prime Context | Vanilla Prime Agent 0.9.1 |
-|---|---:|---:|
-| Strict task completion | **30/30** | 29/30 |
-| Faster on strict both-pass pairs | **29/29** | 0/29 |
-| Cheaper on strict both-pass pairs | **29/29** | 0/29 |
-| Comparable agent time | **5,665.556 s** | 7,051.335 s |
-| Comparable billed API cost | **$11.898793** | $16.852171 |
-| Comparable provider tokens | **3,627,683** | 5,997,405 |
-
-That is **19.65% less agent time**, **29.39% less billed cost**, and **39.51% fewer provider tokens** across the 29 tasks both systems strictly passed. Prime Context also won correctness on Task 30 after vanilla failed both allowed attempts.
-
-These headline sweep claims compare Prime Context with stock Prime Agent 0.9.1. A separately run pure vanilla Codex CLI baseline is reported in [the benchmark section](#the-completed-30-task-benchmark) and the detailed record.
-
-**Twenty-nine strict head-to-heads. Twenty-nine time wins. Twenty-nine cost wins. That is not a cherry-picked average. It is a sweep.**
-
-The recorded current arm used npm-installed `prime-agent-context@9.1.1` plus the release-candidate host patch. Version 9.2.0 ships that work together with the newly audited goal-state projection and error-surface improvements. No repository checkout was loaded by the benchmark. See [BENCHMARKS.md](BENCHMARKS.md) for methodology, all 30 task descriptions, every selected metric, all retained retries, and the evidence map.
-
-## What Prime Context adds
-
-| Capability | Vanilla Prime Agent 0.9.1 | Prime Context 9.2.0 |
-|---|---|---|
-| Model working context | Normal conversation history and host compaction | Purpose-aware projections for provider calls, compaction, branch summaries, and refinement |
-| Source of truth | Model context and persisted history are closely coupled | Raw local session history stays intact while the model receives a separate bounded working set |
-| Large tool results | Can dominate later prompts | Exact multipart archive plus compact structured capsules and direct recovery refs |
-| Repeated reads and logs | Repeated bytes return to the prompt | Stable pass-through, delta capsules, and explicit unchanged-region markers |
-| Tool understanding | General tool-call transcript | Execution-aware intent, resources, mutations, validation identity, failures, and ordered finalized exchanges |
-| Long-task continuity | Relies on the active transcript | Branch-scoped objective, constraints, focus, revisions, diagnostics, open work, and durable task anchors |
-| Goal state | Repeated continuation messages accumulate | *NEW* — one self-contained latest goal state replaces stale text-only repetitions |
-| Persistent goal polling | Unchanged watchers can re-prompt at machine speed | *NEW* — interruptible 15/30/60/120/180-second host backoff for unchanged read-only watchers |
-| Watcher transcript | Every successful poll remains model-facing | *NEW* — older identical read-only IPython and Bash polls fold into one bounded summary while recent complete exchanges remain |
-| Recovery failures and external listing | Some unsupported scope paths can look success-shaped | *NEW* — real tool errors propagate as errors; parent/project listing is rejected with exact-recall guidance |
-| Exact recovery | No Prime Context observation index | Pageable `read`, `inspect`, `search`, and exact `recall` over current, session, parent, and project evidence |
-| Media | Images can stay expensive across turns | Exact media archive, bounded recovery, stable placeholders, and controlled re-showing |
-| Recursive work | Child sessions have their own context | Direct-parent recall, exact-cwd project recall, fork import, child anchors, and descendant accounting |
-| Native knowledge | Host skills only | Frozen, validated, budgeted pattern and skill routing plus explicit `/pc learn` |
-| Optional auxiliary work | No Prime Context broker | Utility-gated task scouting, semantic distillation, stall recovery, and one-shot knowledge compilation |
-| Operator visibility | Host diagnostics | `/pc status`, `/pc task`, `/pc observations`, `/pc show`, `/pc doctor`, `/pc cleanup`, and more |
-| System policy | Project prompt only | Bundled global no-verification-theater / KISS policy, including after compaction and autonomous continuation |
-| Host integration | Stock ABI | Explicit, inspectable, exact-version patch; no hidden `postinstall` mutation |
-
-## Why Prime Context?
-
-Long agent sessions fail in predictable ways:
-
-| Failure mode | Prime Context response |
-|---|---|
-| A command emits thousands of lines | Archive the exact result and show a bounded capsule with decisive failures and summaries. |
-| The model rereads the same file or test output | Show what changed, or mark the repeated section as unchanged. |
-| Tool-heavy work pushes out the original request | Restore a small durable task anchor and sparse current state. |
-| Compaction changes the model's view | Use the same projection rules for provider calls and compaction. |
-| A later turn needs exact old output | Recover bounded pages with the `prime_context` tool or `/pc` commands. |
-| Parallel tools finish out of order | Finalize complete exchanges in assistant source order. |
-| A watcher keeps saying “still running” | Back off at the host and fold stale successful polls without hiding failures or terminal state. |
-
-## Install: exact steps
 
 ### Requirements
 
@@ -212,6 +181,86 @@ node scripts/patch-prime-agent.mjs --check "$PRIME_AGENT_ROOT"
 ```
 
 A local source registration does not globally link the packaged command, so the source flow invokes the repository script directly. For one run without registering the extension, use `prime-agent -e "$PWD"` after the host patch is installed.
+
+## Benchmark: three harnesses, one clear advantage
+
+Thirty real Python maintenance tasks test repository repair, staged requirement changes, local services, state carried across turns, and exact main-plus-edge judging. This is where context quality becomes visible: not in a toy retrieval score, but in whether the agent finishes the software task.
+
+### Prime Context against vanilla Prime Agent
+
+> **Correctness win plus a clean efficiency sweep.** Prime Context passed **30/30**. Vanilla Prime Agent passed **29/30**. Across the 29 strict both-pass tasks, Prime Context was faster **29/29** and cheaper **29/29**: **19.65% less agent time**, **29.39% lower cost**, and **39.51% fewer provider tokens**. Task 30 is decided by correctness, not efficiency.
+
+### Prime Context against vanilla Codex
+
+> **Equal correctness, decisive efficiency.** Both passed **30/30**. Prime Context was faster on **29/30** tasks and lower in cost on **30/30**: **40.30% less agent time**, **57.92% lower cost**, and **81.998% fewer provider tokens**. Codex was faster only on Task 13.
+
+### The advantage across every task
+
+Each chart has two independent rows. The first compares Prime Context with vanilla Prime Agent. The second compares Prime Context with vanilla Codex. Positive bars favor Prime Context; a gold correctness marker replaces efficiency data when a baseline did not strictly pass.
+
+<p align="center">
+  <img src="assets/benchmarks/time-advantage-by-task.svg" alt="Prime Context agent-time advantage by task against each vanilla baseline" width="100%">
+</p>
+
+<p align="center">
+  <img src="assets/benchmarks/cost-advantage-by-task.svg" alt="Prime Context cost advantage by task against each vanilla baseline" width="100%">
+</p>
+
+<p align="center">
+  <img src="assets/benchmarks/tokens-advantage-by-task.svg" alt="Prime Context provider-token advantage by task against each vanilla baseline" width="100%">
+</p>
+
+### Read the complete record
+
+- [`BENCHMARKS.md`](BENCHMARKS.md) — method, all three arms, all 30 task rows, retries, metrics, and comparison rules
+- [`RECENT_RESULTS.md`](RECENT_RESULTS.md) — selected publication attempts and source runs
+- [`benchmarks/python-realworld-30/`](benchmarks/python-realworld-30/) — corpus, harnesses, fixtures, judges, and runners
+- [Curated Codex evidence](benchmarks/python-realworld-30/evidence/20260904-codex0153-gpt56sol-all30-v1/) — invocation, events, stderr, service logs, judge logs, results, summary, and comparison data
+
+The Codex arm used stock `codex-cli 0.153.0`, `gpt-5.6-sol`, medium effort, six workers, ChatGPT subscription authentication, isolated empty homes, fresh `/tmp` workspaces, no API-key variables, no custom system/developer prompt, and no global or local `AGENTS.md`, `AGENTS.override.md`, or `.codex/config.toml`. Its prompts were delivered on stdin. Stock Codex built-in context remained intact.
+
+Prime Agent already has the tools. Prime Context gives it the **memory discipline, evidence control, and task continuity** to use those tools for hours without drowning in its own transcript.
+
+This is not a chat-summary wrapper. It is a branch-aware, purpose-aware local context runtime for [Prime Agent](https://github.com/PrimeIntellect-ai/prime-agent). It observes complete tool exchanges, archives exact evidence, projects a stable working set for each model request, and lets the agent recover the original bytes when it needs them.
+
+The raw session remains local and intact. The model sees the part that can move the task forward.
+
+## What Prime Context adds
+
+| Capability | **Prime Context 9.2.0** | Vanilla Prime Agent 0.9.1 | Vanilla Codex CLI |
+|---|---|---|---|
+| Model working context | **Purpose-aware projections for provider calls, compaction, branch summaries, and refinement** | Normal conversation history and host compaction | Stock Codex thread context, compaction, and resume |
+| Source of truth | **Raw local session history stays intact while the model receives a separate bounded working set** | Model context and persisted history are closely coupled | CLI-managed thread state, rollout state, and workspace |
+| Large tool results | **Exact multipart archive, compact structured capsules, and direct recovery refs** | Large results can dominate later prompts | Stock command-event handling; no Prime Context archive |
+| Repeated reads and logs | **Stable pass-through, delta capsules, and explicit unchanged-region markers** | Repeated bytes return to the prompt | Repeated reads remain ordinary command events |
+| Tool understanding | **Execution-aware intent, resources, mutations, validation identity, failures, and ordered finalized exchanges** | General tool-call transcript | Stock Codex item and command events |
+| Long-task continuity | **Branch-scoped objective, constraints, focus, revisions, diagnostics, open work, and durable task anchors** | Relies on the active transcript | Native thread resume and stock compaction |
+| Goal state | **One self-contained latest goal state replaces stale text-only repetitions** | Repeated continuation messages accumulate | No Prime Context durable goal state |
+| Persistent goal polling | **Interruptible 15/30/60/120/180-second host backoff for unchanged read-only watchers** | Unchanged watchers can re-prompt at machine speed | No Prime Context watcher |
+| Watcher transcript | **Older identical read-only IPython and Bash polls fold into one bounded summary** | Every successful poll remains model-facing | No Prime Context watcher transcript folding |
+| Recovery failures and external listing | **Real tool errors propagate; unsupported scope listing points to exact recall** | Some unsupported scope paths can look success-shaped | Stock CLI error and listing behavior |
+| Exact recovery | **Pageable `read`, `inspect`, `search`, and exact `recall` across evidence scopes** | No Prime Context observation index | Workspace reread and thread resume; no Prime Context observation index |
+| Media | **Exact media archive, bounded recovery, stable placeholders, and controlled re-showing** | Images can stay expensive across turns | Stock Codex media handling |
+| Recursive work | **Direct-parent recall, exact-cwd project recall, fork import, child anchors, and descendant accounting** | Child sessions have their own context | Stock Codex collaboration and thread semantics |
+| Native knowledge | **Frozen, validated, budgeted pattern and skill routing plus explicit `/pc learn`** | Host skills only | Stock bundled skills and plugins |
+| Optional auxiliary work | **Utility-gated task scouting, semantic distillation, stall recovery, and knowledge compilation** | No Prime Context broker | No Prime Context broker |
+| Operator visibility | **`/pc status`, `/pc task`, `/pc observations`, `/pc show`, `/pc doctor`, `/pc cleanup`, and more** | Host diagnostics | Stock CLI events and diagnostics |
+| System policy | **Bundled global no-verification-theater / KISS policy across compaction and continuation** | Project prompt only | Stock Codex built-in context |
+| Integration | **Explicit, inspectable, exact-version host patch; no hidden `postinstall` mutation** | Stock extension ABI | Standalone stock CLI |
+
+## Why Prime Context?
+
+Long agent sessions fail in predictable ways:
+
+| Failure mode | Prime Context response |
+|---|---|
+| A command emits thousands of lines | Archive the exact result and show a bounded capsule with decisive failures and summaries. |
+| The model rereads the same file or test output | Show what changed, or mark the repeated section as unchanged. |
+| Tool-heavy work pushes out the original request | Restore a small durable task anchor and sparse current state. |
+| Compaction changes the model's view | Use the same projection rules for provider calls and compaction. |
+| A later turn needs exact old output | Recover bounded pages with the `prime_context` tool or `/pc` commands. |
+| Parallel tools finish out of order | Finalize complete exchanges in assistant source order. |
+| A watcher keeps saying “still running” | Back off at the host and fold stale successful polls without hiding failures or terminal state. |
 
 ## How it works
 
@@ -439,41 +488,6 @@ NPM_CONFIG_ALLOW_SCRIPTS="$PRIME_AGENT_TARBALL,@google/genai,koffi,protobufjs" \
 
 Delete `~/.prime/agent/prime-context` separately only if you also want to erase the local observation archives.
 
-## The completed 30-task benchmark
-
-The release gate used 30 hermetic Python 3.12 workflows with hidden future stages, fresh judge fixtures, loopback-only tool networking, isolated hosts, and a maximum of six concurrent attempts. The two Prime Agent arms used `openai-codex/gpt-5.6-sol` at medium effort.
-
-| Measure | Prime Context | Vanilla 0.9.1 |
-|---|---:|---:|
-| Strict passes | **30/30** | 29/30 |
-| Both-pass time wins | **29/29** | 0/29 |
-| Both-pass cost wins | **29/29** | 0/29 |
-| Comparable agent time | **5,665.556 s** | 7,051.335 s |
-| Comparable billed cost | **$11.898793** | $16.852171 |
-| Comparable provider tokens | **3,627,683** | 5,997,405 |
-
-Across the 29 strict both-pass Prime Agent pairs, Prime Context saved **1,385.779 seconds (19.65%)** and **$4.953378 (29.39%)**. Across all selected Prime Agent rows, including vanilla's failed Task 30, Prime Context used 6,172.066 seconds and $13.233338 versus 7,667.468 seconds and $18.513607.
-
-### Supplemental pure vanilla Codex CLI
-
-A separate 2026-09-04 run used stock `codex-cli 0.153.0` with ChatGPT subscription authentication, `gpt-5.6-sol`, medium effort, at most six sessions, no Prime Agent or Prime Context, no custom system/developer prompt, and with no global or local `AGENTS.md` or Codex config file loaded.
-
-| Measure | Pure vanilla Codex CLI |
-|---|---:|
-| Strict passes | **30/30** |
-| Selected agent wall time | 10,338.905 s |
-| Actual billed API cost | **N/A** (ChatGPT subscription) |
-| Same-rate API equivalent | $31.447008 (diagnostic; not a bill) |
-| Provider tokens | 23,327,077 |
-| Codex staged turns | 69 |
-| Retried tasks | 0 |
-
-Prime Context and Codex both strictly passed all 30 tasks. Across those 30 pairs, Prime Context was faster on **29/30**, used **6,172.066 s** versus **10,338.905 s**, and therefore used **4,166.839 s (40.30%) less agent time**. Codex won Task 13's time comparison. Prime Context used **81.998% fewer diagnostic provider tokens**. The Codex run was independent rather than contemporaneously paired, so these timing figures are supplemental.
-
-Pure Codex also passed Task 30, where stock Prime Agent failed both attempts. On the other 29 tasks both systems strictly passed, stock Prime Agent was faster than Codex on **28/29** and used **24.99% less agent time**; Codex again won Task 13. No billed-cost win or loss is assigned to Codex because the CLI exposes no per-run subscription charge.
-
-Read [BENCHMARKS.md](BENCHMARKS.md) for every task, attempt, check result, timing, billed-cost scope, token diagnostic, retry, isolation detail, and evidence path.
-
 ## Prime Agent compatibility
 
 Prime Context 9.2.0 targets **Prime Agent 0.9.1 with the included host compatibility patch**. The stock 0.9.1 extension ABI is not sufficient for the full projection pipeline; TypeScript declaration augmentation alone does not add runtime hooks.
@@ -537,7 +551,6 @@ The current suite contains **110 tests**. Package smoke copies a pristine reposi
 - source: [BaseModelAI/prime-context](https://github.com/BaseModelAI/prime-context)
 - changelog: [CHANGELOG.md](CHANGELOG.md)
 - detailed 30-task benchmark: [BENCHMARKS.md](BENCHMARKS.md)
-- historical 9.1.0 benchmark: [benchmarks/RELEASE-9.1.0.md](benchmarks/RELEASE-9.1.0.md)
 - Prime Agent 0.9.1 migration: [PRIME_AGENT_0.9.1_MIGRATION.md](PRIME_AGENT_0.9.1_MIGRATION.md)
 - license: [MIT](LICENSE)
 

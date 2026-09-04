@@ -2,7 +2,7 @@
 
 ## Scope and conclusion
 
-Prime Context 9.1.0 targets exactly `prime-agent@0.9.1`. The review covered the complete `v0.8.1..v0.9.0..v0.9.1` upstream range, the official release archives, the public extension ABI, generated bundles, Python runtime, daemon protocol, compaction, refinement, and every packaged Prime Context host-patch target.
+Prime Context 9.2.0 targets exactly `prime-agent@0.9.1`. The review covered the complete `v0.8.1..v0.9.0..v0.9.1` upstream range, the official release archives, the public extension ABI, generated bundles, Python runtime, daemon protocol, compaction, refinement, and every packaged Prime Context host-patch target.
 
 Prime Agent 0.9.x modernizes the Python runtime and daemon transport, but it does not upstream the extension surfaces Prime Context needs. The explicit host patch therefore remains required. The migration rebases that patch rather than replacing the host's new behavior.
 

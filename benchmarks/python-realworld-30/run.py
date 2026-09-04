@@ -12,7 +12,6 @@ import shutil
 import socket
 import signal
 import subprocess
-import sys
 import tempfile
 import threading
 import time
@@ -1390,7 +1389,7 @@ def comprehensive_summary(results: list[dict[str, Any]]) -> dict[str, Any]:
         "metric_priority": ["completion_progress_and_success", "agent_wall_seconds", "api_cost"],
         "metric_limitations": [
             "Vanilla does not expose Prime Context auxiliary accounting; unavailable fields remain null rather than estimated.",
-            "Actual provider prompt tokens use input + cache-read + cache-write per solver call; tokens are supporting data, while billed API cost is the cost-efficiency gate.",
+            "Actual provider prompt tokens use input + cache-read + cache-write per solver call; tokens are supporting data, while cost is the cost-efficiency gate.",
             "Task efficiency uses the selected strict attempt; aggregate totals also retain retry time and cost.",
         ],
         "by_variant": by_variant,
@@ -1409,7 +1408,7 @@ def write_summary_markdown(path: Path, summary: dict[str, Any], results: list[di
         "# Python Real-World 30 Results", "", f"Generated: {summary['generated_at']}", "",
         f"Publication ready: {'yes' if summary.get('publication_ready') else 'no'}.", "",
         f"Publication protocol blockers: {', '.join(summary.get('publication_blockers') or []) or 'none'}.", "",
-        "Metric priority: completion/progress, then agent elapsed time, then billed API cost.", "",
+        "Metric priority: completion/progress, then agent elapsed time, then cost.", "",
         "Selection: correctness first; one diagnostic retry follows a failure or current regression, and all attempts remain in totals.", "",
         "## Metric limitations", "",
         *[f"- {item}" for item in summary.get("metric_limitations", [])], "",

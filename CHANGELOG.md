@@ -24,10 +24,10 @@
 
 - Adds an isolated-host builder that installs stock `prime-agent@0.9.1` and npm `prime-agent-context@9.2.0` into separate prefixes, homes, configs, caches, and session roots; verifies the stock host; patches only the current host; and writes an auditable manifest.
 - Makes the runner require exact installed versions, schedule no more than six attempts in paired waves, retain one correctness/efficiency retry only for the affected variant, respect per-task timeouts, clean process trees, and record terminal transport errors such as WebSocket close 1006.
-- Selects attempts by correctness first, then agent wall time, then billed API cost. A strict current pass after vanilla fails both allowed attempts is reported as a current correctness win rather than a regression.
+- Selects attempts by correctness first, then agent wall time, then cost. A strict current pass after vanilla fails both allowed attempts is reported as a current correctness win rather than a regression.
 - Allows clean targeted replacements for changed contracts while retaining unaffected rows from a completed all-30 run, and emits publication readiness when matched strict comparisons plus current correctness wins cover all 30 tasks.
 - Repairs and freezes benchmark contracts, judges, scenarios, seeds, or generators for Tasks 5, 6, 8, 13, 17, 22, 23, and 27–30. This includes the exact Task 8 `rebook.csv` schema, staged fairness and correction fixtures, causal anchors, preservation rules, and deterministic edge cases.
-- Publishes the completed result: Prime Context 30/30 versus vanilla 29/30; 29/29 time wins and 29/29 billed-cost wins on strict both-pass pairs; 19.65% less comparable agent time and 29.39% less comparable billed cost.
+- Publishes the completed result: Prime Context 30/30 versus vanilla 29/30; 29/29 time wins and 29/29 cost wins on strict both-pass pairs; 19.65% less comparable agent time and 29.39% less comparable cost.
 - Adds `BENCHMARKS.md` with all task descriptions, selected correctness/time/cost/call/token metrics, retained retries, evidence mapping, methodology, and reproduction commands. Adds the benchmark document to the npm tarball.
 
 ### Installation and release packaging
@@ -67,7 +67,7 @@
 - Across nine matched strict pairs, 9.1.0 used **49.6% fewer provider tokens**, **31.7% less agent time**, and **31.8% less API cost**.
 - Across every retained primary and diagnostic retry, it used **36.0% fewer tokens**, **27.4% less time**, and **26.4% less cost**.
 - The frozen analyzer found zero correctness, individual-efficiency, or aggregate-efficiency regression candidates. Diagnosed failures were solver or candidate-implementation variance, so no result-invalidating product fix was required.
-- Earlier benchmark scores remain in the changelog as historical progress markers only. Because tasks, isolation, judging, and reference points changed, those numbers are invalid as a current 9.1.0 comparison baseline. See `benchmarks/RELEASE-9.1.0.md`.
+- Earlier benchmark scores in this changelog are historical progress markers only and are not current comparison baselines.
 
 ### Prime Agent 0.9.1 migration
 

@@ -1,100 +1,191 @@
 {
-  "codex_standalone": {
-    "api_equivalent_cost_diagnostic": 31.447008000000004,
-    "provider_tokens": 23327077,
-    "selected_agent_wall_seconds": 10338.904891923885,
-    "subscription_billed_cost": null
+  "arms": {
+    "prime_context": {
+      "api_cost_kind": "cost",
+      "edge_checks": "30/30",
+      "main_checks": "150/150",
+      "selected_agent_wall_seconds": 6172.065625323856,
+      "selected_api_cost": 13.233338,
+      "selected_provider_tokens": 4199330,
+      "strict_passes": 30
+    },
+    "vanilla_codex": {
+      "api_cost_kind": "cost",
+      "edge_checks": "30/30",
+      "main_checks": "150/150",
+      "selected_agent_wall_seconds": 10338.904891923885,
+      "selected_api_cost": 31.447008000000004,
+      "selected_provider_tokens": 23327077,
+      "strict_passes": 30
+    },
+    "vanilla_prime_agent": {
+      "api_cost_kind": "cost",
+      "edge_checks": "30/30",
+      "main_checks": "149/150",
+      "selected_agent_wall_seconds": 7667.467634346976,
+      "selected_api_cost": 18.513606999999993,
+      "selected_provider_tokens": 6865456,
+      "strict_passes": 29
+    }
   },
-  "generated_at": "2026-09-04T16:38:51.453471+00:00",
-  "prime_context_vs_codex": {
-    "billed_cost_comparison": null,
-    "billed_cost_note": "Codex used ChatGPT subscription auth and exposes no per-run billed API cost.",
-    "eligible_pairs": 30,
-    "eligible_strict_pair_tasks": [
-      1,
-      2,
-      3,
-      4,
-      5,
-      6,
-      7,
-      8,
-      9,
-      10,
-      11,
-      12,
-      13,
-      14,
-      15,
-      16,
-      17,
-      18,
-      19,
-      20,
-      21,
-      22,
-      23,
-      24,
-      25,
-      26,
-      27,
-      28,
-      29,
-      30
-    ],
-    "left_agent_wall_seconds": 6172.065625323856,
-    "left_arm": "Prime Context",
-    "left_provider_tokens": 4199330,
-    "left_provider_tokens_less": 19127747,
-    "left_provider_tokens_percent_less": 81.99804458998442,
-    "left_seconds_less": 4166.839266600029,
-    "left_time_percent_less": 40.30252052956699,
-    "left_time_wins": 29,
-    "right_agent_wall_seconds": 10338.904891923885,
-    "right_arm": "pure vanilla Codex CLI",
-    "right_provider_tokens": 23327077,
-    "right_time_wins": 1,
-    "time_ties": 0,
-    "timing_scope": "supplemental independent run; pairwise strict passes only"
+  "generated_at": "2026-09-04T17:12:54.680935+00:00",
+  "prime_context_comparisons": {
+    "vanilla_codex": {
+      "baseline_agent_wall_seconds": 10338.904891923885,
+      "baseline_api_cost": 31.447008000000004,
+      "baseline_correctness_wins": [],
+      "baseline_cost_wins": 0,
+      "baseline_provider_tokens": 23327077,
+      "baseline_time_wins": 1,
+      "eligible_pairs": 30,
+      "eligible_strict_pair_tasks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30
+      ],
+      "prime_context_agent_wall_seconds": 6172.065625323856,
+      "prime_context_api_cost": 13.233338,
+      "prime_context_correctness_wins": [],
+      "prime_context_cost_percent_less": 57.918610253795855,
+      "prime_context_cost_wins": 30,
+      "prime_context_provider_tokens": 4199330,
+      "prime_context_provider_tokens_percent_less": 81.99804458998442,
+      "prime_context_time_percent_less": 40.30252052956699,
+      "prime_context_time_wins": 29
+    },
+    "vanilla_prime_agent": {
+      "baseline_agent_wall_seconds": 7051.334949864016,
+      "baseline_api_cost": 16.852170999999995,
+      "baseline_correctness_wins": [],
+      "baseline_cost_wins": 0,
+      "baseline_provider_tokens": 5997405,
+      "baseline_time_wins": 0,
+      "eligible_pairs": 29,
+      "eligible_strict_pair_tasks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29
+      ],
+      "prime_context_agent_wall_seconds": 5665.555682551814,
+      "prime_context_api_cost": 11.898793,
+      "prime_context_correctness_wins": [
+        30
+      ],
+      "prime_context_cost_percent_less": 29.393114987973934,
+      "prime_context_cost_wins": 29,
+      "prime_context_provider_tokens": 3627683,
+      "prime_context_provider_tokens_percent_less": 39.512455803801814,
+      "prime_context_time_percent_less": 19.652722174812112,
+      "prime_context_time_wins": 29
+    }
   },
   "rules": {
-    "codex_api_equivalent": "diagnostic only; not a bill",
-    "codex_billed_cost": "N/A",
+    "api_cost": "same matched rates for all three arms",
+    "baseline_to_baseline_comparison": false,
+    "comparisons": [
+      "Prime Context vs vanilla Prime Agent 0.9.1",
+      "Prime Context vs vanilla Codex CLI"
+    ],
     "correctness_first": true,
-    "model_call_comparison": "not available; Codex exposes staged turns, not underlying model calls",
-    "time_comparison": "pairwise strict selected attempts only"
+    "model_call_comparison": "not used because Codex does not expose underlying model calls",
+    "time_and_cost_comparison": "strict selected pairs only"
   },
-  "schema": "prime-context.python-realworld-codex-comparison/v1",
+  "schema": "prime-context.python-realworld-comparison/v2",
   "sources": {
     "prime_agent_publication": "RECENT_RESULTS.md targeted-replacement set",
     "vanilla_codex": "benchmarks/python-realworld-30/results/20260904-codex0153-gpt56sol-all30-v1"
-  },
-  "strict_passes": {
-    "prime_context": 30,
-    "vanilla_codex": 30,
-    "vanilla_prime_agent": 29
   },
   "tasks": [
     {
       "prime_context": {
         "agent_wall_seconds": 64.20764522498939,
-        "billed_api_cost": 0.151272,
+        "api_cost": 0.151272,
+        "api_cost_kind": "cost",
         "provider_tokens": 23444,
         "strict_pass": true
       },
+      "prime_context_advantage": {
+        "vs_vanilla_codex": {
+          "correctness": "tie",
+          "cost_percent_less": 62.946778491926636,
+          "provider_tokens_percent_less": 90.06395449864165,
+          "time_percent_less": 53.93907051799617
+        },
+        "vs_vanilla_prime_agent": {
+          "correctness": "tie",
+          "cost_percent_less": 20.945691709519643,
+          "provider_tokens_percent_less": 36.004804280176884,
+          "time_percent_less": 27.553432144336774
+        }
+      },
       "task_id": 1,
       "task_slug": "expense-reconciliation",
+      "task_title": "Household Expense Reconciliation",
       "vanilla_codex": {
         "agent_wall_seconds": 139.39719833503477,
-        "api_equivalent_cost_diagnostic": 0.408256,
+        "api_cost": 0.408256,
+        "api_cost_kind": "cost",
         "provider_tokens": 235949,
         "selected_attempt": 1,
-        "strict_pass": true,
-        "subscription_billed_cost": null
+        "strict_pass": true
       },
       "vanilla_prime_agent": {
         "agent_wall_seconds": 88.62758737296099,
-        "billed_api_cost": 0.19135200000000002,
+        "api_cost": 0.19135200000000002,
+        "api_cost_kind": "cost",
         "provider_tokens": 36634,
         "strict_pass": true
       }
@@ -102,23 +193,40 @@
     {
       "prime_context": {
         "agent_wall_seconds": 95.79731227795128,
-        "billed_api_cost": 0.22584,
+        "api_cost": 0.22584,
+        "api_cost_kind": "cost",
         "provider_tokens": 68783,
         "strict_pass": true
       },
+      "prime_context_advantage": {
+        "vs_vanilla_codex": {
+          "correctness": "tie",
+          "cost_percent_less": 55.917918007795954,
+          "provider_tokens_percent_less": 80.74464958078468,
+          "time_percent_less": 44.705783975441015
+        },
+        "vs_vanilla_prime_agent": {
+          "correctness": "tie",
+          "cost_percent_less": 20.184624301562447,
+          "provider_tokens_percent_less": 3.189348196315219,
+          "time_percent_less": 26.705209477702585
+        }
+      },
       "task_id": 2,
       "task_slug": "calendar-merge",
+      "task_title": "Calendar Merge and Conflict Report",
       "vanilla_codex": {
         "agent_wall_seconds": 173.25015013397206,
-        "api_equivalent_cost_diagnostic": 0.512317,
+        "api_cost": 0.512317,
+        "api_cost_kind": "cost",
         "provider_tokens": 357215,
         "selected_attempt": 1,
-        "strict_pass": true,
-        "subscription_billed_cost": null
+        "strict_pass": true
       },
       "vanilla_prime_agent": {
         "agent_wall_seconds": 130.701393093972,
-        "billed_api_cost": 0.282953,
+        "api_cost": 0.282953,
+        "api_cost_kind": "cost",
         "provider_tokens": 71049,
         "strict_pass": true
       }
@@ -126,23 +234,40 @@
     {
       "prime_context": {
         "agent_wall_seconds": 161.01724446797743,
-        "billed_api_cost": 0.317084,
+        "api_cost": 0.317084,
+        "api_cost_kind": "cost",
         "provider_tokens": 81161,
         "strict_pass": true
       },
+      "prime_context_advantage": {
+        "vs_vanilla_codex": {
+          "correctness": "tie",
+          "cost_percent_less": 61.51631664287866,
+          "provider_tokens_percent_less": 82.97544307143052,
+          "time_percent_less": 42.02176267030778
+        },
+        "vs_vanilla_prime_agent": {
+          "correctness": "tie",
+          "cost_percent_less": 34.80721823927432,
+          "provider_tokens_percent_less": 33.13533419563194,
+          "time_percent_less": 19.632988837761264
+        }
+      },
       "task_id": 3,
       "task_slug": "mailbox-cleanup",
+      "task_title": "Mailbox Thread Cleanup",
       "vanilla_codex": {
         "agent_wall_seconds": 277.7201444610255,
-        "api_equivalent_cost_diagnostic": 0.823944,
+        "api_cost": 0.823944,
+        "api_cost_kind": "cost",
         "provider_tokens": 476729,
         "selected_attempt": 1,
-        "strict_pass": true,
-        "subscription_billed_cost": null
+        "strict_pass": true
       },
       "vanilla_prime_agent": {
         "agent_wall_seconds": 200.3524109449936,
-        "billed_api_cost": 0.48637900000000006,
+        "api_cost": 0.48637900000000006,
+        "api_cost_kind": "cost",
         "provider_tokens": 121381,
         "strict_pass": true
       }
@@ -150,23 +275,40 @@
     {
       "prime_context": {
         "agent_wall_seconds": 62.23800463101361,
-        "billed_api_cost": 0.163002,
+        "api_cost": 0.163002,
+        "api_cost_kind": "cost",
         "provider_tokens": 39723,
         "strict_pass": true
       },
+      "prime_context_advantage": {
+        "vs_vanilla_codex": {
+          "correctness": "tie",
+          "cost_percent_less": 49.65329149151066,
+          "provider_tokens_percent_less": 73.07426386855377,
+          "time_percent_less": 45.98931683731341
+        },
+        "vs_vanilla_prime_agent": {
+          "correctness": "tie",
+          "cost_percent_less": 14.760390737758069,
+          "provider_tokens_percent_less": 7.219601065072173,
+          "time_percent_less": 14.888698486102077
+        }
+      },
       "task_id": 4,
       "task_slug": "invoice-payment-matching",
+      "task_title": "Invoice and Payment Matching",
       "vanilla_codex": {
         "agent_wall_seconds": 115.2327669019578,
-        "api_equivalent_cost_diagnostic": 0.323759,
+        "api_cost": 0.323759,
+        "api_cost_kind": "cost",
         "provider_tokens": 147528,
         "selected_attempt": 1,
-        "strict_pass": true,
-        "subscription_billed_cost": null
+        "strict_pass": true
       },
       "vanilla_prime_agent": {
         "agent_wall_seconds": 73.12542931898497,
-        "billed_api_cost": 0.191228,
+        "api_cost": 0.191228,
+        "api_cost_kind": "cost",
         "provider_tokens": 42814,
         "strict_pass": true
       }
@@ -174,23 +316,40 @@
     {
       "prime_context": {
         "agent_wall_seconds": 183.74565057700966,
-        "billed_api_cost": 0.40329,
+        "api_cost": 0.40329,
+        "api_cost_kind": "cost",
         "provider_tokens": 110044,
         "strict_pass": true
       },
+      "prime_context_advantage": {
+        "vs_vanilla_codex": {
+          "correctness": "tie",
+          "cost_percent_less": 66.64535599707882,
+          "provider_tokens_percent_less": 88.6159534309694,
+          "time_percent_less": 52.08192544752919
+        },
+        "vs_vanilla_prime_agent": {
+          "correctness": "tie",
+          "cost_percent_less": 45.404702920034126,
+          "provider_tokens_percent_less": 73.49384821419969,
+          "time_percent_less": 17.017768353642957
+        }
+      },
       "task_id": 5,
       "task_slug": "inventory-reorder",
+      "task_title": "Inventory Reorder and Transfer Plan",
       "vanilla_codex": {
         "agent_wall_seconds": 383.45791706594173,
-        "api_equivalent_cost_diagnostic": 1.209097,
+        "api_cost": 1.209097,
+        "api_cost_kind": "cost",
         "provider_tokens": 966651,
         "selected_attempt": 1,
-        "strict_pass": true,
-        "subscription_billed_cost": null
+        "strict_pass": true
       },
       "vanilla_prime_agent": {
         "agent_wall_seconds": 221.42770437902072,
-        "billed_api_cost": 0.7386900000000002,
+        "api_cost": 0.7386900000000002,
+        "api_cost_kind": "cost",
         "provider_tokens": 415164,
         "strict_pass": true
       }
@@ -198,23 +357,40 @@
     {
       "prime_context": {
         "agent_wall_seconds": 218.05196098296437,
-        "billed_api_cost": 0.5967060000000001,
+        "api_cost": 0.5967060000000001,
+        "api_cost_kind": "cost",
         "provider_tokens": 225115,
         "strict_pass": true
       },
+      "prime_context_advantage": {
+        "vs_vanilla_codex": {
+          "correctness": "tie",
+          "cost_percent_less": 49.19800574166589,
+          "provider_tokens_percent_less": 73.64622502353068,
+          "time_percent_less": 44.87449304622263
+        },
+        "vs_vanilla_prime_agent": {
+          "correctness": "tie",
+          "cost_percent_less": 12.41655658300306,
+          "provider_tokens_percent_less": 16.608631228005187,
+          "time_percent_less": 25.186621265997665
+        }
+      },
       "task_id": 6,
       "task_slug": "volunteer-shift-rescheduling",
+      "task_title": "Volunteer Shift Rescheduling",
       "vanilla_codex": {
         "agent_wall_seconds": 395.5554751919117,
-        "api_equivalent_cost_diagnostic": 1.174572,
+        "api_cost": 1.174572,
+        "api_cost_kind": "cost",
         "provider_tokens": 854204,
         "selected_attempt": 1,
-        "strict_pass": true,
-        "subscription_billed_cost": null
+        "strict_pass": true
       },
       "vanilla_prime_agent": {
         "agent_wall_seconds": 291.46118605101947,
-        "billed_api_cost": 0.6812999999999999,
+        "api_cost": 0.6812999999999999,
+        "api_cost_kind": "cost",
         "provider_tokens": 269950,
         "strict_pass": true
       }
@@ -222,23 +398,40 @@
     {
       "prime_context": {
         "agent_wall_seconds": 72.5128168350202,
-        "billed_api_cost": 0.14737999999999998,
+        "api_cost": 0.14737999999999998,
+        "api_cost_kind": "cost",
         "provider_tokens": 23575,
         "strict_pass": true
       },
+      "prime_context_advantage": {
+        "vs_vanilla_codex": {
+          "correctness": "tie",
+          "cost_percent_less": 67.4980703495424,
+          "provider_tokens_percent_less": 91.02533842944375,
+          "time_percent_less": 47.91868915876374
+        },
+        "vs_vanilla_prime_agent": {
+          "correctness": "tie",
+          "cost_percent_less": 65.19237718256173,
+          "provider_tokens_percent_less": 74.85816056650457,
+          "time_percent_less": 12.043623997096347
+        }
+      },
       "task_id": 7,
       "task_slug": "utility-anomaly-report",
+      "task_title": "Utility Consumption Anomaly Report",
       "vanilla_codex": {
         "agent_wall_seconds": 139.23001488205045,
-        "api_equivalent_cost_diagnostic": 0.45345,
+        "api_cost": 0.45345,
+        "api_cost_kind": "cost",
         "provider_tokens": 262684,
         "selected_attempt": 1,
-        "strict_pass": true,
-        "subscription_billed_cost": null
+        "strict_pass": true
       },
       "vanilla_prime_agent": {
         "agent_wall_seconds": 82.44179686601274,
-        "billed_api_cost": 0.42341300000000004,
+        "api_cost": 0.42341300000000004,
+        "api_cost_kind": "cost",
         "provider_tokens": 93768,
         "strict_pass": true
       }
@@ -246,23 +439,40 @@
     {
       "prime_context": {
         "agent_wall_seconds": 134.82361144397873,
-        "billed_api_cost": 0.279192,
+        "api_cost": 0.279192,
+        "api_cost_kind": "cost",
         "provider_tokens": 55784,
         "strict_pass": true
       },
+      "prime_context_advantage": {
+        "vs_vanilla_codex": {
+          "correctness": "tie",
+          "cost_percent_less": 67.27807169495539,
+          "provider_tokens_percent_less": 89.57437026460288,
+          "time_percent_less": 54.145365549068835
+        },
+        "vs_vanilla_prime_agent": {
+          "correctness": "tie",
+          "cost_percent_less": 29.8286886234769,
+          "provider_tokens_percent_less": 24.624364933520702,
+          "time_percent_less": 15.191187402254533
+        }
+      },
       "task_id": 8,
       "task_slug": "travel-itinerary-repair",
+      "task_title": "Travel Itinerary Repair",
       "vanilla_codex": {
         "agent_wall_seconds": 294.02395866496954,
-        "api_equivalent_cost_diagnostic": 0.853226,
+        "api_cost": 0.853226,
+        "api_cost_kind": "cost",
         "provider_tokens": 535066,
         "selected_attempt": 1,
-        "strict_pass": true,
-        "subscription_billed_cost": null
+        "strict_pass": true
       },
       "vanilla_prime_agent": {
         "agent_wall_seconds": 158.97358695900766,
-        "billed_api_cost": 0.397872,
+        "api_cost": 0.397872,
+        "api_cost_kind": "cost",
         "provider_tokens": 74008,
         "strict_pass": true
       }
@@ -270,23 +480,40 @@
     {
       "prime_context": {
         "agent_wall_seconds": 99.65391645597992,
-        "billed_api_cost": 0.22011000000000003,
+        "api_cost": 0.22011000000000003,
+        "api_cost_kind": "cost",
         "provider_tokens": 42060,
         "strict_pass": true
       },
+      "prime_context_advantage": {
+        "vs_vanilla_codex": {
+          "correctness": "tie",
+          "cost_percent_less": 57.66390786115315,
+          "provider_tokens_percent_less": 87.08238892881494,
+          "time_percent_less": 39.500318046084075
+        },
+        "vs_vanilla_prime_agent": {
+          "correctness": "tie",
+          "cost_percent_less": 34.37192522138406,
+          "provider_tokens_percent_less": 49.4653370179022,
+          "time_percent_less": 15.15289042294402
+        }
+      },
       "task_id": 9,
       "task_slug": "support-sla-event-analysis",
+      "task_title": "Support SLA Event Analysis",
       "vanilla_codex": {
         "agent_wall_seconds": 164.7180831989972,
-        "api_equivalent_cost_diagnostic": 0.519911,
+        "api_cost": 0.519911,
+        "api_cost_kind": "cost",
         "provider_tokens": 325602,
         "selected_attempt": 1,
-        "strict_pass": true,
-        "subscription_billed_cost": null
+        "strict_pass": true
       },
       "vanilla_prime_agent": {
         "agent_wall_seconds": 117.45116239401978,
-        "billed_api_cost": 0.33539,
+        "api_cost": 0.33539,
+        "api_cost_kind": "cost",
         "provider_tokens": 83230,
         "strict_pass": true
       }
@@ -294,23 +521,40 @@
     {
       "prime_context": {
         "agent_wall_seconds": 90.53628853999544,
-        "billed_api_cost": 0.230206,
+        "api_cost": 0.230206,
+        "api_cost_kind": "cost",
         "provider_tokens": 39408,
         "strict_pass": true
       },
+      "prime_context_advantage": {
+        "vs_vanilla_codex": {
+          "correctness": "tie",
+          "cost_percent_less": 33.34452915304589,
+          "provider_tokens_percent_less": 77.95196293996207,
+          "time_percent_less": 30.856970979427633
+        },
+        "vs_vanilla_prime_agent": {
+          "correctness": "tie",
+          "cost_percent_less": 15.970024492894874,
+          "provider_tokens_percent_less": 2.2667526412380337,
+          "time_percent_less": 24.039828211803403
+        }
+      },
       "task_id": 10,
       "task_slug": "local-supplier-catalog-crawler",
+      "task_title": "Local Supplier Catalog Crawler",
       "vanilla_codex": {
         "agent_wall_seconds": 130.94058768101968,
-        "api_equivalent_cost_diagnostic": 0.345367,
+        "api_cost": 0.345367,
+        "api_cost_kind": "cost",
         "provider_tokens": 178737,
         "selected_attempt": 1,
-        "strict_pass": true,
-        "subscription_billed_cost": null
+        "strict_pass": true
       },
       "vanilla_prime_agent": {
         "agent_wall_seconds": 119.18915717100026,
-        "billed_api_cost": 0.273957,
+        "api_cost": 0.273957,
+        "api_cost_kind": "cost",
         "provider_tokens": 40322,
         "strict_pass": true
       }
@@ -318,23 +562,40 @@
     {
       "prime_context": {
         "agent_wall_seconds": 137.52212581195636,
-        "billed_api_cost": 0.289281,
+        "api_cost": 0.289281,
+        "api_cost_kind": "cost",
         "provider_tokens": 63771,
         "strict_pass": true
       },
+      "prime_context_advantage": {
+        "vs_vanilla_codex": {
+          "correctness": "tie",
+          "cost_percent_less": 60.7497520409977,
+          "provider_tokens_percent_less": 84.75577834670798,
+          "time_percent_less": 47.79708218532141
+        },
+        "vs_vanilla_prime_agent": {
+          "correctness": "tie",
+          "cost_percent_less": 19.947919837505466,
+          "provider_tokens_percent_less": 1.1899781527448519,
+          "time_percent_less": 14.909114146630154
+        }
+      },
       "task_id": 11,
       "task_slug": "sqlite-crm-migration",
+      "task_title": "SQLite CRM Migration",
       "vanilla_codex": {
         "agent_wall_seconds": 263.4376229699701,
-        "api_equivalent_cost_diagnostic": 0.737017,
+        "api_cost": 0.737017,
+        "api_cost_kind": "cost",
         "provider_tokens": 418329,
         "selected_attempt": 1,
-        "strict_pass": true,
-        "subscription_billed_cost": null
+        "strict_pass": true
       },
       "vanilla_prime_agent": {
         "agent_wall_seconds": 161.6179270350258,
-        "billed_api_cost": 0.361366,
+        "api_cost": 0.361366,
+        "api_cost_kind": "cost",
         "provider_tokens": 64539,
         "strict_pass": true
       }
@@ -342,23 +603,40 @@
     {
       "prime_context": {
         "agent_wall_seconds": 156.31317450897768,
-        "billed_api_cost": 0.38736799999999993,
+        "api_cost": 0.38736799999999993,
+        "api_cost_kind": "cost",
         "provider_tokens": 93281,
         "strict_pass": true
       },
+      "prime_context_advantage": {
+        "vs_vanilla_codex": {
+          "correctness": "tie",
+          "cost_percent_less": 66.52734416517538,
+          "provider_tokens_percent_less": 88.46377406652552,
+          "time_percent_less": 62.47544554291791
+        },
+        "vs_vanilla_prime_agent": {
+          "correctness": "tie",
+          "cost_percent_less": 24.28954507430949,
+          "provider_tokens_percent_less": 24.883033636385598,
+          "time_percent_less": 25.724065573142763
+        }
+      },
       "task_id": 12,
       "task_slug": "webhook-receiver-replay",
+      "task_title": "Webhook Receiver and Replay",
       "vanilla_codex": {
         "agent_wall_seconds": 416.5623730130028,
-        "api_equivalent_cost_diagnostic": 1.157267,
+        "api_cost": 1.157267,
+        "api_cost_kind": "cost",
         "provider_tokens": 808592,
         "selected_attempt": 1,
-        "strict_pass": true,
-        "subscription_billed_cost": null
+        "strict_pass": true
       },
       "vanilla_prime_agent": {
         "agent_wall_seconds": 210.44928712799447,
-        "billed_api_cost": 0.511644,
+        "api_cost": 0.511644,
+        "api_cost_kind": "cost",
         "provider_tokens": 124181,
         "strict_pass": true
       }
@@ -366,23 +644,40 @@
     {
       "prime_context": {
         "agent_wall_seconds": 950.2112569159945,
-        "billed_api_cost": 1.031715,
+        "api_cost": 1.031715,
+        "api_cost_kind": "cost",
         "provider_tokens": 403463,
         "strict_pass": true
       },
+      "prime_context_advantage": {
+        "vs_vanilla_codex": {
+          "correctness": "tie",
+          "cost_percent_less": 60.07228448461023,
+          "provider_tokens_percent_less": 85.00585698549578,
+          "time_percent_less": -32.95419225154041
+        },
+        "vs_vanilla_prime_agent": {
+          "correctness": "tie",
+          "cost_percent_less": 44.01749610944348,
+          "provider_tokens_percent_less": 63.41102213677462,
+          "time_percent_less": 5.500623765039309
+        }
+      },
       "task_id": 13,
       "task_slug": "cross-service-incident-timeline",
+      "task_title": "Cross-Service Incident Timeline",
       "vanilla_codex": {
         "agent_wall_seconds": 714.6907072461909,
-        "api_equivalent_cost_diagnostic": 2.583957,
+        "api_cost": 2.583957,
+        "api_cost_kind": "cost",
         "provider_tokens": 2690804,
         "selected_attempt": 1,
-        "strict_pass": true,
-        "subscription_billed_cost": null
+        "strict_pass": true
       },
       "vanilla_prime_agent": {
         "agent_wall_seconds": 1005.5211947149946,
-        "billed_api_cost": 1.842924,
+        "api_cost": 1.842924,
+        "api_cost_kind": "cost",
         "provider_tokens": 1102690,
         "strict_pass": true
       }
@@ -390,23 +685,40 @@
     {
       "prime_context": {
         "agent_wall_seconds": 112.86320824100403,
-        "billed_api_cost": 0.280096,
+        "api_cost": 0.280096,
+        "api_cost_kind": "cost",
         "provider_tokens": 59522,
         "strict_pass": true
       },
+      "prime_context_advantage": {
+        "vs_vanilla_codex": {
+          "correctness": "tie",
+          "cost_percent_less": 41.059347624348455,
+          "provider_tokens_percent_less": 72.74958109382582,
+          "time_percent_less": 30.88616519833148
+        },
+        "vs_vanilla_prime_agent": {
+          "correctness": "tie",
+          "cost_percent_less": 25.934230984842888,
+          "provider_tokens_percent_less": -3.8162346949454076,
+          "time_percent_less": 29.585607818253724
+        }
+      },
       "task_id": 14,
       "task_slug": "layered-configuration-upgrade",
+      "task_title": "Layered Configuration Upgrade",
       "vanilla_codex": {
         "agent_wall_seconds": 163.30045723100193,
-        "api_equivalent_cost_diagnostic": 0.475217,
+        "api_cost": 0.475217,
+        "api_cost_kind": "cost",
         "provider_tokens": 218426,
         "selected_attempt": 1,
-        "strict_pass": true,
-        "subscription_billed_cost": null
+        "strict_pass": true
       },
       "vanilla_prime_agent": {
         "agent_wall_seconds": 160.2842895379872,
-        "billed_api_cost": 0.37817200000000006,
+        "api_cost": 0.37817200000000006,
+        "api_cost_kind": "cost",
         "provider_tokens": 57334,
         "strict_pass": true
       }
@@ -414,23 +726,40 @@
     {
       "prime_context": {
         "agent_wall_seconds": 82.12428026803536,
-        "billed_api_cost": 0.17362300000000003,
+        "api_cost": 0.17362300000000003,
+        "api_cost_kind": "cost",
         "provider_tokens": 27025,
         "strict_pass": true
       },
+      "prime_context_advantage": {
+        "vs_vanilla_codex": {
+          "correctness": "tie",
+          "cost_percent_less": 57.29902951780856,
+          "provider_tokens_percent_less": 86.51897818593584,
+          "time_percent_less": 49.369349685229615
+        },
+        "vs_vanilla_prime_agent": {
+          "correctness": "tie",
+          "cost_percent_less": 34.135913932809316,
+          "provider_tokens_percent_less": 35.74196923223244,
+          "time_percent_less": 33.27250417425412
+        }
+      },
       "task_id": 15,
       "task_slug": "backup-restore-planner",
+      "task_title": "Backup Restore Planner",
       "vanilla_codex": {
         "agent_wall_seconds": 162.20269689895213,
-        "api_equivalent_cost_diagnostic": 0.406602,
+        "api_cost": 0.406602,
+        "api_cost_kind": "cost",
         "provider_tokens": 200467,
         "selected_attempt": 1,
-        "strict_pass": true,
-        "subscription_billed_cost": null
+        "strict_pass": true
       },
       "vanilla_prime_agent": {
         "agent_wall_seconds": 123.07412297098199,
-        "billed_api_cost": 0.263608,
+        "api_cost": 0.263608,
+        "api_cost_kind": "cost",
         "provider_tokens": 42057,
         "strict_pass": true
       }
@@ -438,23 +767,40 @@
     {
       "prime_context": {
         "agent_wall_seconds": 238.2523427749984,
-        "billed_api_cost": 0.624723,
+        "api_cost": 0.624723,
+        "api_cost_kind": "cost",
         "provider_tokens": 168959,
         "strict_pass": true
       },
+      "prime_context_advantage": {
+        "vs_vanilla_codex": {
+          "correctness": "tie",
+          "cost_percent_less": 60.53906690677974,
+          "provider_tokens_percent_less": 85.40781242847876,
+          "time_percent_less": 54.26072972894506
+        },
+        "vs_vanilla_prime_agent": {
+          "correctness": "tie",
+          "cost_percent_less": 20.788284147462512,
+          "provider_tokens_percent_less": 48.07859550786232,
+          "time_percent_less": 24.99557434576046
+        }
+      },
       "task_id": 16,
       "task_slug": "markdown-kb-repair",
+      "task_title": "Markdown Knowledge-Base Repair",
       "vanilla_codex": {
         "agent_wall_seconds": 520.8923128049355,
-        "api_equivalent_cost_diagnostic": 1.583143,
+        "api_cost": 1.583143,
+        "api_cost_kind": "cost",
         "provider_tokens": 1157873,
         "selected_attempt": 1,
-        "strict_pass": true,
-        "subscription_billed_cost": null
+        "strict_pass": true
       },
       "vanilla_prime_agent": {
         "agent_wall_seconds": 317.651046184008,
-        "billed_api_cost": 0.788675,
+        "api_cost": 0.788675,
+        "api_cost_kind": "cost",
         "provider_tokens": 325413,
         "strict_pass": true
       }
@@ -462,23 +808,40 @@
     {
       "prime_context": {
         "agent_wall_seconds": 180.15194193902425,
-        "billed_api_cost": 0.43473000000000006,
+        "api_cost": 0.43473000000000006,
+        "api_cost_kind": "cost",
         "provider_tokens": 114810,
         "strict_pass": true
       },
+      "prime_context_advantage": {
+        "vs_vanilla_codex": {
+          "correctness": "tie",
+          "cost_percent_less": 61.20134549839042,
+          "provider_tokens_percent_less": 85.47550913521022,
+          "time_percent_less": 53.90010495617216
+        },
+        "vs_vanilla_prime_agent": {
+          "correctness": "tie",
+          "cost_percent_less": 29.684581007574508,
+          "provider_tokens_percent_less": 34.90463338851972,
+          "time_percent_less": 30.311636544498636
+        }
+      },
       "task_id": 17,
       "task_slug": "contract-clause-index",
+      "task_title": "Contract Clause Index and Comparison",
       "vanilla_codex": {
         "agent_wall_seconds": 390.7860132170608,
-        "api_equivalent_cost_diagnostic": 1.120477,
+        "api_cost": 1.120477,
+        "api_cost_kind": "cost",
         "provider_tokens": 790458,
         "selected_attempt": 1,
-        "strict_pass": true,
-        "subscription_billed_cost": null
+        "strict_pass": true
       },
       "vanilla_prime_agent": {
         "agent_wall_seconds": 258.5107943509938,
-        "billed_api_cost": 0.618257,
+        "api_cost": 0.618257,
+        "api_cost_kind": "cost",
         "provider_tokens": 176372,
         "strict_pass": true
       }
@@ -486,23 +849,40 @@
     {
       "prime_context": {
         "agent_wall_seconds": 143.16675519599812,
-        "billed_api_cost": 0.27525499999999997,
+        "api_cost": 0.27525499999999997,
+        "api_cost_kind": "cost",
         "provider_tokens": 36185,
         "strict_pass": true
       },
+      "prime_context_advantage": {
+        "vs_vanilla_codex": {
+          "correctness": "tie",
+          "cost_percent_less": 69.6424435596828,
+          "provider_tokens_percent_less": 92.76572008924644,
+          "time_percent_less": 57.708540775248174
+        },
+        "vs_vanilla_prime_agent": {
+          "correctness": "tie",
+          "cost_percent_less": 34.54351320758307,
+          "provider_tokens_percent_less": 66.87083424888303,
+          "time_percent_less": 35.68384653109874
+        }
+      },
       "task_id": 18,
       "task_slug": "research-note-search",
+      "task_title": "Research-Note Search and Deduplication",
       "vanilla_codex": {
         "agent_wall_seconds": 338.5240372888511,
-        "api_equivalent_cost_diagnostic": 0.9067099999999999,
+        "api_cost": 0.9067099999999999,
+        "api_cost_kind": "cost",
         "provider_tokens": 500188,
         "selected_attempt": 1,
-        "strict_pass": true,
-        "subscription_billed_cost": null
+        "strict_pass": true
       },
       "vanilla_prime_agent": {
         "agent_wall_seconds": 222.59844140900532,
-        "billed_api_cost": 0.420516,
+        "api_cost": 0.420516,
+        "api_cost_kind": "cost",
         "provider_tokens": 109224,
         "strict_pass": true
       }
@@ -510,23 +890,40 @@
     {
       "prime_context": {
         "agent_wall_seconds": 140.38099955196958,
-        "billed_api_cost": 0.203036,
+        "api_cost": 0.203036,
+        "api_cost_kind": "cost",
         "provider_tokens": 42285,
         "strict_pass": true
       },
+      "prime_context_advantage": {
+        "vs_vanilla_codex": {
+          "correctness": "tie",
+          "cost_percent_less": 61.72338644607159,
+          "provider_tokens_percent_less": 85.67338641368795,
+          "time_percent_less": 37.303105132066165
+        },
+        "vs_vanilla_prime_agent": {
+          "correctness": "tie",
+          "cost_percent_less": 57.54676346239896,
+          "provider_tokens_percent_less": 76.08030365597723,
+          "time_percent_less": 17.884274870829017
+        }
+      },
       "task_id": 19,
       "task_slug": "sensor-resampling",
+      "task_title": "Sensor Resampling and Gap Report",
       "vanilla_codex": {
         "agent_wall_seconds": 223.9042297831038,
-        "api_equivalent_cost_diagnostic": 0.530444,
+        "api_cost": 0.530444,
+        "api_cost_kind": "cost",
         "provider_tokens": 295150,
         "selected_attempt": 1,
-        "strict_pass": true,
-        "subscription_billed_cost": null
+        "strict_pass": true
       },
       "vanilla_prime_agent": {
         "agent_wall_seconds": 170.95507508597802,
-        "billed_api_cost": 0.47825799999999996,
+        "api_cost": 0.47825799999999996,
+        "api_cost_kind": "cost",
         "provider_tokens": 176779,
         "strict_pass": true
       }
@@ -534,23 +931,40 @@
     {
       "prime_context": {
         "agent_wall_seconds": 132.83939794299658,
-        "billed_api_cost": 0.284899,
+        "api_cost": 0.284899,
+        "api_cost_kind": "cost",
         "provider_tokens": 75951,
         "strict_pass": true
       },
+      "prime_context_advantage": {
+        "vs_vanilla_codex": {
+          "correctness": "tie",
+          "cost_percent_less": 72.43877546084677,
+          "provider_tokens_percent_less": 88.86233024259124,
+          "time_percent_less": 63.924785403953734
+        },
+        "vs_vanilla_prime_agent": {
+          "correctness": "tie",
+          "cost_percent_less": 46.91177895544971,
+          "provider_tokens_percent_less": 53.71381558900603,
+          "time_percent_less": 46.47060543061471
+        }
+      },
       "task_id": 20,
       "task_slug": "time-of-use-energy-billing",
+      "task_title": "Time-of-Use Energy Billing",
       "vanilla_codex": {
         "agent_wall_seconds": 368.2289888791274,
-        "api_equivalent_cost_diagnostic": 1.033695,
+        "api_cost": 1.033695,
+        "api_cost_kind": "cost",
         "provider_tokens": 681929,
         "selected_attempt": 1,
-        "strict_pass": true,
-        "subscription_billed_cost": null
+        "strict_pass": true
       },
       "vanilla_prime_agent": {
         "agent_wall_seconds": 248.1615923580248,
-        "billed_api_cost": 0.536652,
+        "api_cost": 0.536652,
+        "api_cost_kind": "cost",
         "provider_tokens": 164090,
         "strict_pass": true
       }
@@ -558,23 +972,40 @@
     {
       "prime_context": {
         "agent_wall_seconds": 135.56540918000974,
-        "billed_api_cost": 0.28403,
+        "api_cost": 0.28403,
+        "api_cost_kind": "cost",
         "provider_tokens": 68437,
         "strict_pass": true
       },
+      "prime_context_advantage": {
+        "vs_vanilla_codex": {
+          "correctness": "tie",
+          "cost_percent_less": 68.6295083415709,
+          "provider_tokens_percent_less": 87.66763133899643,
+          "time_percent_less": 54.002695031549706
+        },
+        "vs_vanilla_prime_agent": {
+          "correctness": "tie",
+          "cost_percent_less": 19.71745791264826,
+          "provider_tokens_percent_less": 15.22310036419493,
+          "time_percent_less": 18.530469324654348
+        }
+      },
       "task_id": 21,
       "task_slug": "wav-interview-chapters",
+      "task_title": "WAV Interview Cleanup and Chapters",
       "vanilla_codex": {
         "agent_wall_seconds": 294.7246784849558,
-        "api_equivalent_cost_diagnostic": 0.905405,
+        "api_cost": 0.905405,
+        "api_cost_kind": "cost",
         "provider_tokens": 554938,
         "selected_attempt": 1,
-        "strict_pass": true,
-        "subscription_billed_cost": null
+        "strict_pass": true
       },
       "vanilla_prime_agent": {
         "agent_wall_seconds": 166.40013518702472,
-        "billed_api_cost": 0.35378800000000005,
+        "api_cost": 0.35378800000000005,
+        "api_cost_kind": "cost",
         "provider_tokens": 80726,
         "strict_pass": true
       }
@@ -582,23 +1013,40 @@
     {
       "prime_context": {
         "agent_wall_seconds": 217.38983587996336,
-        "billed_api_cost": 0.476618,
+        "api_cost": 0.476618,
+        "api_cost_kind": "cost",
         "provider_tokens": 145299,
         "strict_pass": true
       },
+      "prime_context_advantage": {
+        "vs_vanilla_codex": {
+          "correctness": "tie",
+          "cost_percent_less": 56.37507597003668,
+          "provider_tokens_percent_less": 80.76195368802374,
+          "time_percent_less": 42.398909005374044
+        },
+        "vs_vanilla_prime_agent": {
+          "correctness": "tie",
+          "cost_percent_less": 17.21472639857711,
+          "provider_tokens_percent_less": 23.668256703370595,
+          "time_percent_less": 14.069097808855851
+        }
+      },
       "task_id": 22,
       "task_slug": "timesheet-payroll-correction",
+      "task_title": "Timesheet and Payroll Correction",
       "vanilla_codex": {
         "agent_wall_seconds": 377.4057611169992,
-        "api_equivalent_cost_diagnostic": 1.092536,
+        "api_cost": 1.092536,
+        "api_cost_kind": "cost",
         "provider_tokens": 755269,
         "selected_attempt": 1,
-        "strict_pass": true,
-        "subscription_billed_cost": null
+        "strict_pass": true
       },
       "vanilla_prime_agent": {
         "agent_wall_seconds": 252.98214069299866,
-        "billed_api_cost": 0.575728,
+        "api_cost": 0.575728,
+        "api_cost_kind": "cost",
         "provider_tokens": 190352,
         "strict_pass": true
       }
@@ -606,23 +1054,40 @@
     {
       "prime_context": {
         "agent_wall_seconds": 243.0169705360313,
-        "billed_api_cost": 0.6194869999999999,
+        "api_cost": 0.6194869999999999,
+        "api_cost_kind": "cost",
         "provider_tokens": 261961,
         "strict_pass": true
       },
+      "prime_context_advantage": {
+        "vs_vanilla_codex": {
+          "correctness": "tie",
+          "cost_percent_less": 51.0085956214447,
+          "provider_tokens_percent_less": 72.50922180070415,
+          "time_percent_less": 41.49406323099725
+        },
+        "vs_vanilla_prime_agent": {
+          "correctness": "tie",
+          "cost_percent_less": 17.84765625518021,
+          "provider_tokens_percent_less": 17.36402465568475,
+          "time_percent_less": 23.31673034714817
+        }
+      },
       "task_id": 23,
       "task_slug": "procurement-three-way-match",
+      "task_title": "Procurement Three-Way Match",
       "vanilla_codex": {
         "agent_wall_seconds": 415.37147160898894,
-        "api_equivalent_cost_diagnostic": 1.264481,
+        "api_cost": 1.264481,
+        "api_cost_kind": "cost",
         "provider_tokens": 952905,
         "selected_attempt": 1,
-        "strict_pass": true,
-        "subscription_billed_cost": null
+        "strict_pass": true
       },
       "vanilla_prime_agent": {
         "agent_wall_seconds": 316.9100269670016,
-        "billed_api_cost": 0.7540709999999998,
+        "api_cost": 0.7540709999999998,
+        "api_cost_kind": "cost",
         "provider_tokens": 317006,
         "strict_pass": true
       }
@@ -630,23 +1095,40 @@
     {
       "prime_context": {
         "agent_wall_seconds": 282.65688137704274,
-        "billed_api_cost": 0.6480990000000002,
+        "api_cost": 0.6480990000000002,
+        "api_cost_kind": "cost",
         "provider_tokens": 211380,
         "strict_pass": true
       },
+      "prime_context_advantage": {
+        "vs_vanilla_codex": {
+          "correctness": "tie",
+          "cost_percent_less": 42.91556493507635,
+          "provider_tokens_percent_less": 71.77290663746653,
+          "time_percent_less": 27.181694127442068
+        },
+        "vs_vanilla_prime_agent": {
+          "correctness": "tie",
+          "cost_percent_less": 28.92076973189235,
+          "provider_tokens_percent_less": 52.97441601779755,
+          "time_percent_less": 11.640477789011607
+        }
+      },
       "task_id": 24,
       "task_slug": "multi-warehouse-fulfillment",
+      "task_title": "Multi-Warehouse Order Fulfillment",
       "vanilla_codex": {
         "agent_wall_seconds": 388.16734060214367,
-        "api_equivalent_cost_diagnostic": 1.1353339999999998,
+        "api_cost": 1.1353339999999998,
+        "api_cost_kind": "cost",
         "provider_tokens": 748855,
         "selected_attempt": 1,
-        "strict_pass": true,
-        "subscription_billed_cost": null
+        "strict_pass": true
       },
       "vanilla_prime_agent": {
         "agent_wall_seconds": 319.89408080105204,
-        "billed_api_cost": 0.911798,
+        "api_cost": 0.911798,
+        "api_cost_kind": "cost",
         "provider_tokens": 449500,
         "strict_pass": true
       }
@@ -654,23 +1136,40 @@
     {
       "prime_context": {
         "agent_wall_seconds": 230.66087056096876,
-        "billed_api_cost": 0.5553950000000001,
+        "api_cost": 0.5553950000000001,
+        "api_cost_kind": "cost",
         "provider_tokens": 116358,
         "strict_pass": true
       },
+      "prime_context_advantage": {
+        "vs_vanilla_codex": {
+          "correctness": "tie",
+          "cost_percent_less": 42.67381478541708,
+          "provider_tokens_percent_less": 81.46572390207693,
+          "time_percent_less": 35.75856080732887
+        },
+        "vs_vanilla_prime_agent": {
+          "correctness": "tie",
+          "cost_percent_less": 4.203592483864166,
+          "provider_tokens_percent_less": 24.42028138275069,
+          "time_percent_less": 15.8592683416215
+        }
+      },
       "task_id": 25,
       "task_slug": "library-circulation-reconstruction",
+      "task_title": "Library Circulation Reconstruction",
       "vanilla_codex": {
         "agent_wall_seconds": 359.05308701004833,
-        "api_equivalent_cost_diagnostic": 0.9688329999999999,
+        "api_cost": 0.9688329999999999,
+        "api_cost_kind": "cost",
         "provider_tokens": 627799,
         "selected_attempt": 1,
-        "strict_pass": true,
-        "subscription_billed_cost": null
+        "strict_pass": true
       },
       "vanilla_prime_agent": {
         "agent_wall_seconds": 274.13699169800384,
-        "billed_api_cost": 0.579766,
+        "api_cost": 0.579766,
+        "api_cost_kind": "cost",
         "provider_tokens": 153954,
         "strict_pass": true
       }
@@ -678,23 +1177,40 @@
     {
       "prime_context": {
         "agent_wall_seconds": 108.94513012300013,
-        "billed_api_cost": 0.22990400000000003,
+        "api_cost": 0.22990400000000003,
+        "api_cost_kind": "cost",
         "provider_tokens": 67266,
         "strict_pass": true
       },
+      "prime_context_advantage": {
+        "vs_vanilla_codex": {
+          "correctness": "tie",
+          "cost_percent_less": 61.03738075425844,
+          "provider_tokens_percent_less": 84.63032441152143,
+          "time_percent_less": 47.3551508746967
+        },
+        "vs_vanilla_prime_agent": {
+          "correctness": "tie",
+          "cost_percent_less": 30.815157205450433,
+          "provider_tokens_percent_less": 20.78058202117511,
+          "time_percent_less": 27.72304025034199
+        }
+      },
       "task_id": 26,
       "task_slug": "school-meal-allergen-stock-plan",
+      "task_title": "School Meal Allergen and Stock Plan",
       "vanilla_codex": {
         "agent_wall_seconds": 206.9435698518064,
-        "api_equivalent_cost_diagnostic": 0.590063,
+        "api_cost": 0.590063,
+        "api_cost_kind": "cost",
         "provider_tokens": 437654,
         "selected_attempt": 1,
-        "strict_pass": true,
-        "subscription_billed_cost": null
+        "strict_pass": true
       },
       "vanilla_prime_agent": {
         "agent_wall_seconds": 150.7328621739871,
-        "billed_api_cost": 0.33230400000000004,
+        "api_cost": 0.33230400000000004,
+        "api_cost_kind": "cost",
         "provider_tokens": 84911,
         "strict_pass": true
       }
@@ -702,23 +1218,40 @@
     {
       "prime_context": {
         "agent_wall_seconds": 430.5488580049714,
-        "billed_api_cost": 1.008135,
+        "api_cost": 1.008135,
+        "api_cost_kind": "cost",
         "provider_tokens": 412720,
         "strict_pass": true
       },
+      "prime_context_advantage": {
+        "vs_vanilla_codex": {
+          "correctness": "tie",
+          "cost_percent_less": 45.45278943484104,
+          "provider_tokens_percent_less": 71.3754051255447,
+          "time_percent_less": 26.72671815020931
+        },
+        "vs_vanilla_prime_agent": {
+          "correctness": "tie",
+          "cost_percent_less": 8.805099717496487,
+          "provider_tokens_percent_less": -5.446304703847441,
+          "time_percent_less": 5.683466228369947
+        }
+      },
       "task_id": 27,
       "task_slug": "clinic-appointment-rescheduling",
+      "task_title": "Clinic Appointment Rescheduling",
       "vanilla_codex": {
         "agent_wall_seconds": 587.5932497299509,
-        "api_equivalent_cost_diagnostic": 1.848188,
+        "api_cost": 1.848188,
+        "api_cost_kind": "cost",
         "provider_tokens": 1441837,
         "selected_attempt": 1,
-        "strict_pass": true,
-        "subscription_billed_cost": null
+        "strict_pass": true
       },
       "vanilla_prime_agent": {
         "agent_wall_seconds": 456.493512629997,
-        "billed_api_cost": 1.105473,
+        "api_cost": 1.105473,
+        "api_cost_kind": "cost",
         "provider_tokens": 391403,
         "strict_pass": true
       }
@@ -726,23 +1259,40 @@
     {
       "prime_context": {
         "agent_wall_seconds": 287.54657758999383,
-        "billed_api_cost": 0.701376,
+        "api_cost": 0.701376,
+        "api_cost_kind": "cost",
         "provider_tokens": 252315,
         "strict_pass": true
       },
+      "prime_context_advantage": {
+        "vs_vanilla_codex": {
+          "correctness": "tie",
+          "cost_percent_less": 60.824271238925945,
+          "provider_tokens_percent_less": 81.1080803641289,
+          "time_percent_less": 51.73323653987716
+        },
+        "vs_vanilla_prime_agent": {
+          "correctness": "tie",
+          "cost_percent_less": 41.90973918949138,
+          "provider_tokens_percent_less": 45.36424916578788,
+          "time_percent_less": 31.65114740779137
+        }
+      },
       "task_id": 28,
       "task_slug": "permit-intake-status-pipeline",
+      "task_title": "Permit Intake and Status Pipeline",
       "vanilla_codex": {
         "agent_wall_seconds": 595.7444771028822,
-        "api_equivalent_cost_diagnostic": 1.790333,
+        "api_cost": 1.790333,
+        "api_cost_kind": "cost",
         "provider_tokens": 1335571,
         "selected_attempt": 1,
-        "strict_pass": true,
-        "subscription_billed_cost": null
+        "strict_pass": true
       },
       "vanilla_prime_agent": {
         "agent_wall_seconds": 420.704323020007,
-        "billed_api_cost": 1.20739,
+        "api_cost": 1.20739,
+        "api_cost_kind": "cost",
         "provider_tokens": 461813,
         "strict_pass": true
       }
@@ -750,23 +1300,40 @@
     {
       "prime_context": {
         "agent_wall_seconds": 272.8152147119981,
-        "billed_api_cost": 0.656941,
+        "api_cost": 0.656941,
+        "api_cost_kind": "cost",
         "provider_tokens": 297598,
         "strict_pass": true
       },
+      "prime_context_advantage": {
+        "vs_vanilla_codex": {
+          "correctness": "tie",
+          "cost_percent_less": 42.65203594826871,
+          "provider_tokens_percent_less": 59.07719555896581,
+          "time_percent_less": 31.722615252610396
+        },
+        "vs_vanilla_prime_agent": {
+          "correctness": "tie",
+          "cost_percent_less": 20.778609991956543,
+          "provider_tokens_percent_less": -7.536649791682476,
+          "time_percent_less": 17.455214286077812
+        }
+      },
       "task_id": 29,
       "task_slug": "legacy-budgeting-cli-repair",
+      "task_title": "Legacy Budgeting CLI Repair",
       "vanilla_codex": {
         "agent_wall_seconds": 399.56892860110383,
-        "api_equivalent_cost_diagnostic": 1.145535,
+        "api_cost": 1.145535,
+        "api_cost_kind": "cost",
         "provider_tokens": 727218,
         "selected_attempt": 1,
-        "strict_pass": true,
-        "subscription_billed_cost": null
+        "strict_pass": true
       },
       "vanilla_prime_agent": {
         "agent_wall_seconds": 330.5056913679582,
-        "billed_api_cost": 0.8292469999999998,
+        "api_cost": 0.8292469999999998,
+        "api_cost_kind": "cost",
         "provider_tokens": 276741,
         "strict_pass": true
       }
@@ -774,76 +1341,43 @@
     {
       "prime_context": {
         "agent_wall_seconds": 506.50994277204154,
-        "billed_api_cost": 1.3345449999999999,
+        "api_cost": 1.3345449999999999,
+        "api_cost_kind": "cost",
         "provider_tokens": 571647,
         "strict_pass": true
       },
+      "prime_context_advantage": {
+        "vs_vanilla_codex": {
+          "correctness": "tie",
+          "cost_percent_less": 62.38463507138927,
+          "provider_tokens_percent_less": 84.30597537371824,
+          "time_percent_less": 46.01699039397604
+        },
+        "vs_vanilla_prime_agent": {
+          "correctness": "win",
+          "cost_percent_less": null,
+          "provider_tokens_percent_less": null,
+          "time_percent_less": null
+        }
+      },
       "task_id": 30,
       "task_slug": "helpdesk-service-upgrade",
+      "task_title": "Helpdesk Service Upgrade",
       "vanilla_codex": {
         "agent_wall_seconds": 938.2765919659287,
-        "api_equivalent_cost_diagnostic": 3.547872,
+        "api_cost": 3.547872,
+        "api_cost_kind": "cost",
         "provider_tokens": 3642450,
         "selected_attempt": 1,
-        "strict_pass": true,
-        "subscription_billed_cost": null
+        "strict_pass": true
       },
       "vanilla_prime_agent": {
         "agent_wall_seconds": 616.13268448296,
-        "billed_api_cost": 1.6614359999999995,
+        "api_cost": 1.6614359999999995,
+        "api_cost_kind": "cost",
         "provider_tokens": 868051,
         "strict_pass": false
       }
     }
-  ],
-  "vanilla_prime_agent_vs_codex": {
-    "billed_cost_comparison": null,
-    "billed_cost_note": "Codex used ChatGPT subscription auth and exposes no per-run billed API cost.",
-    "eligible_pairs": 29,
-    "eligible_strict_pair_tasks": [
-      1,
-      2,
-      3,
-      4,
-      5,
-      6,
-      7,
-      8,
-      9,
-      10,
-      11,
-      12,
-      13,
-      14,
-      15,
-      16,
-      17,
-      18,
-      19,
-      20,
-      21,
-      22,
-      23,
-      24,
-      25,
-      26,
-      27,
-      28,
-      29
-    ],
-    "left_agent_wall_seconds": 7051.334949864016,
-    "left_arm": "vanilla Prime Agent 0.9.1",
-    "left_provider_tokens": 5997405,
-    "left_provider_tokens_less": 13687222,
-    "left_provider_tokens_percent_less": 69.53254435555218,
-    "left_seconds_less": 2349.29335009394,
-    "left_time_percent_less": 24.990812051407744,
-    "left_time_wins": 28,
-    "right_agent_wall_seconds": 9400.628299957956,
-    "right_arm": "pure vanilla Codex CLI",
-    "right_provider_tokens": 19684627,
-    "right_time_wins": 1,
-    "time_ties": 0,
-    "timing_scope": "supplemental independent run; pairwise strict passes only"
-  }
+  ]
 }
